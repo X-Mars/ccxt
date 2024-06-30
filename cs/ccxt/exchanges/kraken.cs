@@ -1819,6 +1819,7 @@ public partial class kraken : Exchange
             { "filled", filled },
             { "average", average },
             { "remaining", null },
+            { "reduceOnly", this.safeBool2(order, "reduceOnly", "reduce_only") },
             { "fee", fee },
             { "trades", trades },
         }, market);
@@ -2278,7 +2279,7 @@ public partial class kraken : Exchange
         * @method
         * @name kraken#cancelOrder
         * @description cancels an open order
-        * @see https://docs.kraken.com/rest/#tag/Trading/operation/cancelOrder
+        * @see https://docs.kraken.com/rest/#tag/Spot-Trading/operation/cancelOrder
         * @param {string} id order id
         * @param {string} symbol unified symbol of the market the order was made in
         * @param {object} [params] extra parameters specific to the exchange API endpoint
@@ -2306,7 +2307,9 @@ public partial class kraken : Exchange
             }
             throw e;
         }
-        return response;
+        return this.safeOrder(new Dictionary<string, object>() {
+            { "info", response },
+        });
     }
 
     public async virtual Task<object> cancelOrders(object ids, object symbol = null, object parameters = null)
@@ -2315,7 +2318,7 @@ public partial class kraken : Exchange
         * @method
         * @name kraken#cancelOrders
         * @description cancel multiple orders
-        * @see https://docs.kraken.com/rest/#tag/Trading/operation/cancelOrderBatch
+        * @see https://docs.kraken.com/rest/#tag/Spot-Trading/operation/cancelOrderBatch
         * @param {string[]} ids open orders transaction ID (txid) or user reference (userref)
         * @param {string} symbol unified market symbol
         * @param {object} [params] extra parameters specific to the exchange API endpoint
@@ -2334,7 +2337,9 @@ public partial class kraken : Exchange
         //         }
         //     }
         //
-        return response;
+        return new List<object> {this.safeOrder(new Dictionary<string, object>() {
+    { "info", response },
+})};
     }
 
     public async override Task<object> cancelAllOrders(object symbol = null, object parameters = null)
@@ -2343,14 +2348,25 @@ public partial class kraken : Exchange
         * @method
         * @name kraken#cancelAllOrders
         * @description cancel all open orders
-        * @see https://docs.kraken.com/rest/#tag/Trading/operation/cancelAllOrders
+        * @see https://docs.kraken.com/rest/#tag/Spot-Trading/operation/cancelAllOrders
         * @param {string} symbol unified market symbol, only orders in the market of this symbol are cancelled when symbol is not undefined
         * @param {object} [params] extra parameters specific to the exchange API endpoint
         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
         */
         parameters ??= new Dictionary<string, object>();
         await this.loadMarkets();
-        return await this.privatePostCancelAll(parameters);
+        object response = await this.privatePostCancelAll(parameters);
+        //
+        //    {
+        //        error: [],
+        //        result: {
+        //            count: '1'
+        //        }
+        //    }
+        //
+        return new List<object> {this.safeOrder(new Dictionary<string, object>() {
+    { "info", response },
+})};
     }
 
     public async override Task<object> cancelAllOrdersAfter(object timeout, object parameters = null)

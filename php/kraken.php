@@ -1700,6 +1700,7 @@ class kraken extends Exchange {
             'filled' => $filled,
             'average' => $average,
             'remaining' => null,
+            'reduceOnly' => $this->safe_bool_2($order, 'reduceOnly', 'reduce_only'),
             'fee' => $fee,
             'trades' => $trades,
         ), $market);
@@ -2093,7 +2094,7 @@ class kraken extends Exchange {
     public function cancel_order(string $id, ?string $symbol = null, $params = array ()) {
         /**
          * cancels an open order
-         * @see https://docs.kraken.com/rest/#tag/Trading/operation/cancelOrder
+         * @see https://docs.kraken.com/rest/#tag/Spot-Trading/operation/cancelOrder
          * @param {string} $id order $id
          * @param {string} $symbol unified $symbol of the market the order was made in
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
@@ -2108,6 +2109,14 @@ class kraken extends Exchange {
         $params = $this->omit($params, array( 'userref', 'clientOrderId' ));
         try {
             $response = $this->privatePostCancelOrder ($this->extend($request, $params));
+            //
+            //    {
+            //        error => array(),
+            //        result => {
+            //            count => '1'
+            //        }
+            //    }
+            //
         } catch (Exception $e) {
             if ($this->last_http_response) {
                 if (mb_strpos($this->last_http_response, 'EOrder:Unknown order') !== false) {
@@ -2116,13 +2125,15 @@ class kraken extends Exchange {
             }
             throw $e;
         }
-        return $response;
+        return $this->safe_order(array(
+            'info' => $response,
+        ));
     }
 
     public function cancel_orders($ids, ?string $symbol = null, $params = array ()) {
         /**
          * cancel multiple orders
-         * @see https://docs.kraken.com/rest/#tag/Trading/operation/cancelOrderBatch
+         * @see https://docs.kraken.com/rest/#tag/Spot-Trading/operation/cancelOrderBatch
          * @param {string[]} $ids open orders transaction ID (txid) or user reference (userref)
          * @param {string} $symbol unified market $symbol
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
@@ -2140,19 +2151,36 @@ class kraken extends Exchange {
         //         }
         //     }
         //
-        return $response;
+        return array(
+            $this->safe_order(array(
+                'info' => $response,
+            )),
+        );
     }
 
     public function cancel_all_orders(?string $symbol = null, $params = array ()) {
         /**
          * cancel all open orders
-         * @see https://docs.kraken.com/rest/#tag/Trading/operation/cancelAllOrders
+         * @see https://docs.kraken.com/rest/#tag/Spot-Trading/operation/cancelAllOrders
          * @param {string} $symbol unified market $symbol, only orders in the market of this $symbol are cancelled when $symbol is not null
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
          * @return {array[]} a list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
          */
         $this->load_markets();
-        return $this->privatePostCancelAll ($params);
+        $response = $this->privatePostCancelAll ($params);
+        //
+        //    {
+        //        error => array(),
+        //        result => {
+        //            count => '1'
+        //        }
+        //    }
+        //
+        return array(
+            $this->safe_order(array(
+                'info' => $response,
+            )),
+        );
     }
 
     public function cancel_all_orders_after(?int $timeout, $params = array ()) {

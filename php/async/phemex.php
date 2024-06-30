@@ -13,7 +13,6 @@ use ccxt\BadRequest;
 use ccxt\BadSymbol;
 use ccxt\InvalidOrder;
 use ccxt\OrderNotFound;
-use ccxt\NotSupported;
 use ccxt\Precise;
 use React\Async;
 use React\Promise\PromiseInterface;
@@ -2926,18 +2925,46 @@ class phemex extends Exchange {
             $response = null;
             if ($market['settle'] === 'USDT') {
                 $response = Async\await($this->privateDeleteGOrdersAll ($this->extend($request, $params)));
+                //
+                //    {
+                //        code => '0',
+                //        msg => '',
+                //        data => '1'
+                //    }
+                //
             } elseif ($market['swap']) {
                 $response = Async\await($this->privateDeleteOrdersAll ($this->extend($request, $params)));
+                //
+                //    {
+                //        code => '0',
+                //        msg => '',
+                //        data => '1'
+                //    }
+                //
             } else {
                 $response = Async\await($this->privateDeleteSpotOrdersAll ($this->extend($request, $params)));
+                //
+                //    {
+                //        code => '0',
+                //        msg => '',
+                //        data => {
+                //            total => '1'
+                //        }
+                //    }
+                //
             }
-            return $response;
+            return array(
+                $this->safe_order(array(
+                    'info' => $response,
+                )),
+            );
         }) ();
     }
 
     public function fetch_order(string $id, ?string $symbol = null, $params = array ()) {
         return Async\async(function () use ($id, $symbol, $params) {
             /**
+             * @see https://phemex-docs.github.io/#query-orders-by-ids
              * fetches information on an $order made by the user
              * @param {string} $symbol unified $symbol of the $market the $order was made in
              * @param {array} [$params] extra parameters specific to the exchange API endpoint
@@ -2948,9 +2975,6 @@ class phemex extends Exchange {
             }
             Async\await($this->load_markets());
             $market = $this->market($symbol);
-            if ($market['settle'] === 'USDT') {
-                throw new NotSupported($this->id . 'fetchOrder() is not supported yet for USDT settled swap markets'); // https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#query-user-$order-by-orderid-or-query-user-$order-by-client-$order-$id
-            }
             $request = array(
                 'symbol' => $market['id'],
             );
@@ -2962,7 +2986,9 @@ class phemex extends Exchange {
                 $request['orderID'] = $id;
             }
             $response = null;
-            if ($market['spot']) {
+            if ($market['settle'] === 'USDT') {
+                $response = Async\await($this->privateGetApiDataGFuturesOrdersByOrderId ($this->extend($request, $params)));
+            } elseif ($market['spot']) {
                 $response = Async\await($this->privateGetSpotOrdersActive ($this->extend($request, $params)));
             } else {
                 $response = Async\await($this->privateGetExchangeOrder ($this->extend($request, $params)));

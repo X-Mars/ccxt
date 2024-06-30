@@ -21,7 +21,6 @@ from ccxt.base.errors import InvalidOrder
 from ccxt.base.errors import OrderNotFound
 from ccxt.base.errors import CancelPending
 from ccxt.base.errors import DuplicateOrderId
-from ccxt.base.errors import NotSupported
 from ccxt.base.errors import DDoSProtection
 from ccxt.base.errors import RateLimitExceeded
 from ccxt.base.decimal_to_precision import TICK_SIZE
@@ -2764,14 +2763,42 @@ class phemex(Exchange, ImplicitAPI):
         response = None
         if market['settle'] == 'USDT':
             response = self.privateDeleteGOrdersAll(self.extend(request, params))
+            #
+            #    {
+            #        code: '0',
+            #        msg: '',
+            #        data: '1'
+            #    }
+            #
         elif market['swap']:
             response = self.privateDeleteOrdersAll(self.extend(request, params))
+            #
+            #    {
+            #        code: '0',
+            #        msg: '',
+            #        data: '1'
+            #    }
+            #
         else:
             response = self.privateDeleteSpotOrdersAll(self.extend(request, params))
-        return response
+            #
+            #    {
+            #        code: '0',
+            #        msg: '',
+            #        data: {
+            #            total: '1'
+            #        }
+            #    }
+            #
+        return [
+            self.safe_order({
+                'info': response,
+            }),
+        ]
 
     def fetch_order(self, id: str, symbol: Str = None, params={}):
         """
+        :see: https://phemex-docs.github.io/#query-orders-by-ids
         fetches information on an order made by the user
         :param str symbol: unified symbol of the market the order was made in
         :param dict [params]: extra parameters specific to the exchange API endpoint
@@ -2781,8 +2808,6 @@ class phemex(Exchange, ImplicitAPI):
             raise ArgumentsRequired(self.id + ' fetchOrder() requires a symbol argument')
         self.load_markets()
         market = self.market(symbol)
-        if market['settle'] == 'USDT':
-            raise NotSupported(self.id + 'fetchOrder() is not supported yet for USDT settled swap markets')  # https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#query-user-order-by-orderid-or-query-user-order-by-client-order-id
         request: dict = {
             'symbol': market['id'],
         }
@@ -2793,7 +2818,9 @@ class phemex(Exchange, ImplicitAPI):
         else:
             request['orderID'] = id
         response = None
-        if market['spot']:
+        if market['settle'] == 'USDT':
+            response = self.privateGetApiDataGFuturesOrdersByOrderId(self.extend(request, params))
+        elif market['spot']:
             response = self.privateGetSpotOrdersActive(self.extend(request, params))
         else:
             response = self.privateGetExchangeOrder(self.extend(request, params))

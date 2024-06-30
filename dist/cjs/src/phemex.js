@@ -2941,19 +2941,47 @@ class phemex extends phemex$1 {
         let response = undefined;
         if (market['settle'] === 'USDT') {
             response = await this.privateDeleteGOrdersAll(this.extend(request, params));
+            //
+            //    {
+            //        code: '0',
+            //        msg: '',
+            //        data: '1'
+            //    }
+            //
         }
         else if (market['swap']) {
             response = await this.privateDeleteOrdersAll(this.extend(request, params));
+            //
+            //    {
+            //        code: '0',
+            //        msg: '',
+            //        data: '1'
+            //    }
+            //
         }
         else {
             response = await this.privateDeleteSpotOrdersAll(this.extend(request, params));
+            //
+            //    {
+            //        code: '0',
+            //        msg: '',
+            //        data: {
+            //            total: '1'
+            //        }
+            //    }
+            //
         }
-        return response;
+        return [
+            this.safeOrder({
+                'info': response,
+            }),
+        ];
     }
     async fetchOrder(id, symbol = undefined, params = {}) {
         /**
          * @method
          * @name phemex#fetchOrder
+         * @see https://phemex-docs.github.io/#query-orders-by-ids
          * @description fetches information on an order made by the user
          * @param {string} symbol unified symbol of the market the order was made in
          * @param {object} [params] extra parameters specific to the exchange API endpoint
@@ -2964,9 +2992,6 @@ class phemex extends phemex$1 {
         }
         await this.loadMarkets();
         const market = this.market(symbol);
-        if (market['settle'] === 'USDT') {
-            throw new errors.NotSupported(this.id + 'fetchOrder() is not supported yet for USDT settled swap markets'); // https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#query-user-order-by-orderid-or-query-user-order-by-client-order-id
-        }
         const request = {
             'symbol': market['id'],
         };
@@ -2979,7 +3004,10 @@ class phemex extends phemex$1 {
             request['orderID'] = id;
         }
         let response = undefined;
-        if (market['spot']) {
+        if (market['settle'] === 'USDT') {
+            response = await this.privateGetApiDataGFuturesOrdersByOrderId(this.extend(request, params));
+        }
+        else if (market['spot']) {
             response = await this.privateGetSpotOrdersActive(this.extend(request, params));
         }
         else {

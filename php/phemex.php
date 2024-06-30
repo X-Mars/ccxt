@@ -2893,16 +2893,44 @@ class phemex extends Exchange {
         $response = null;
         if ($market['settle'] === 'USDT') {
             $response = $this->privateDeleteGOrdersAll ($this->extend($request, $params));
+            //
+            //    {
+            //        code => '0',
+            //        msg => '',
+            //        data => '1'
+            //    }
+            //
         } elseif ($market['swap']) {
             $response = $this->privateDeleteOrdersAll ($this->extend($request, $params));
+            //
+            //    {
+            //        code => '0',
+            //        msg => '',
+            //        data => '1'
+            //    }
+            //
         } else {
             $response = $this->privateDeleteSpotOrdersAll ($this->extend($request, $params));
+            //
+            //    {
+            //        code => '0',
+            //        msg => '',
+            //        data => {
+            //            total => '1'
+            //        }
+            //    }
+            //
         }
-        return $response;
+        return array(
+            $this->safe_order(array(
+                'info' => $response,
+            )),
+        );
     }
 
     public function fetch_order(string $id, ?string $symbol = null, $params = array ()) {
         /**
+         * @see https://phemex-docs.github.io/#query-orders-by-ids
          * fetches information on an $order made by the user
          * @param {string} $symbol unified $symbol of the $market the $order was made in
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
@@ -2913,9 +2941,6 @@ class phemex extends Exchange {
         }
         $this->load_markets();
         $market = $this->market($symbol);
-        if ($market['settle'] === 'USDT') {
-            throw new NotSupported($this->id . 'fetchOrder() is not supported yet for USDT settled swap markets'); // https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#query-user-$order-by-orderid-or-query-user-$order-by-client-$order-$id
-        }
         $request = array(
             'symbol' => $market['id'],
         );
@@ -2927,7 +2952,9 @@ class phemex extends Exchange {
             $request['orderID'] = $id;
         }
         $response = null;
-        if ($market['spot']) {
+        if ($market['settle'] === 'USDT') {
+            $response = $this->privateGetApiDataGFuturesOrdersByOrderId ($this->extend($request, $params));
+        } elseif ($market['spot']) {
             $response = $this->privateGetSpotOrdersActive ($this->extend($request, $params));
         } else {
             $response = $this->privateGetExchangeOrder ($this->extend($request, $params));
