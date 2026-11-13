@@ -1,24 +1,35 @@
 
 //  ---------------------------------------------------------------------------
 
-import binance from './binance.js';
+import binance from '../abstract/pro/binanceusdm.js';
+import binanceusdmRest from '../binanceusdm.js';
 import { InvalidOrder } from '../base/errors.js';
+import type { Dict } from '../base/types.js';
 
 // ---------------------------------------------------------------------------
 
 export default class binanceusdm extends binance {
-    describe () {
-        return this.deepExtend (super.describe (), {
+    override describe (): Dict {
+        // eslint-disable-next-line new-cap
+        const restInstance = new binanceusdmRest ();
+        const restDescribe = restInstance.describe ();
+        const parentWsDescribe = super.describeData ();
+        const extended = this.deepExtend (restDescribe, parentWsDescribe);
+        return this.deepExtend (extended, {
             'id': 'binanceusdm',
             'name': 'Binance USDⓈ-M',
             'urls': {
                 'logo': 'https://user-images.githubusercontent.com/1294454/117738721-668c8d80-b205-11eb-8c49-3fad84c4a07f.jpg',
+                'doc': 'https://developers.binance.com/en',
             },
             'options': {
-                'fetchMarkets': [ 'linear' ],
+                'fetchMarkets': {
+                    'types': [ 'linear' ],
+                },
                 'defaultSubType': 'linear',
             },
             // https://binance-docs.github.io/apidocs/futures/en/#error-codes
+            // https://developers.binance.com/docs/derivatives/usds-margined-futures/error-code
             'exceptions': {
                 'exact': {
                     '-5021': InvalidOrder, // {"code":-5021,"msg":"Due to the order could not be filled immediately, the FOK order has been rejected."}

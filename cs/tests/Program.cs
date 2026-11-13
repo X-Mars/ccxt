@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using ccxt;
 namespace Tests; // Note: actual namespace depends on the project name.
@@ -31,30 +32,38 @@ public class Tests
     public static bool sandbox = false;
     public static bool privateTests = false;
     public static bool privateOnly = false;
-    public static bool baseTests = false;
-    public static bool cacheTests = false;
-    public static bool orderBookTests = false;
+    public static bool isWs = false;
+    public static bool isBaseTests = false;
+    public static bool isExchangeTests = false;
+    public static bool isReqResTests = false;
+    public static bool isAllTest = false;
     public static bool info = false;
     public static bool debug = false;
     public static bool raceCondition = false;
+    public static bool orderRouterTests = false;
 
     public static string[] args;
 
-    public static BaseTest tests = new BaseTest();
+    public static BaseTest baseTestInstance = new BaseTest();
 
     static void InitOptions(string[] args)
     {
-        var isBase = args.Contains("--base");
-        baseTests = isBase;
-        cacheTests = args.Contains("--cache");
-        orderBookTests = args.Contains("--orderbook");
+        isWs = args.Contains("--ws");
+        isBaseTests = args.Contains("--baseTests");
+        isExchangeTests = args.Contains("--exchangeTests");
+        isReqResTests = args.Contains("--requestTests") || args.Contains("--request") || args.Contains("--responseTests") || args.Contains("--response") || args.Contains("--wsTests");
+        isAllTest = !isReqResTests && !isBaseTests && !isExchangeTests && !args.Contains("--orderRouterTests"); // if neither was chosen
+
         raceCondition = args.Contains("--race");
+        //  the offline OrderRouter suite. It runs as part of --baseTests too, so
+        //  `npm run test-base-rest-cs` covers it; this flag runs it on its own.
+        orderRouterTests = args.Contains("--orderRouterTests");
         var argsWithoutOptions = args.Where(arg => !arg.StartsWith("--")).ToList();
         if (argsWithoutOptions.Count > 0)
         {
             exchangeId = argsWithoutOptions[0];
         }
-        else if (false && !baseTests)
+        else if (false && !isBaseTests)
         {
             throw new Exception("Exchange name is required");
         }
@@ -95,66 +104,161 @@ public class Tests
 
     static void Main(string[] args)
     {
+        MainAsync(args).GetAwaiter().GetResult();
+    }
 
+    static async Task MainAsync(string[] args)
+    {
         Console.WriteLine("C# version: " + Environment.Version.ToString());
-        Tests.args = args;
-        ReadConfig();
-        InitOptions(args);
-
-        if (baseTests)
+        try
         {
-            RunBaseTests();
-            return;
+            Tests.args = args;
+            InitOptions(args);
+
+            if (orderRouterTests)
+            {
+                //  before ReadConfig on purpose: the OrderRouter suite is offline
+                //  and reads nothing but ts/src/test/base/fixtures/orderRouter.json,
+                //  so it must not need exchanges.json or keys.json to run
+                OrderRouterTests();
+                return;
+            }
+
+            ReadConfig();
+
+            await RunBaseTests();
+
+            if (raceCondition)
+            {
+                RaceConditionTests();
+                return;
+            }
+
+            if (isExchangeTests || isReqResTests || isAllTest)
+            {
+                var testClass = new testMainClass();
+                await testClass.init(exchangeId, symbol, methodName);
+            }
         }
-
-
-        if (cacheTests)
+        catch (Exception ex)
         {
-            RunCacheTests();
-            return;
+            testMainClass.dump("[TEST_FAILURE] " + ex.ToString()); // tell the wrapper this is failure
+            testMainClass.exitScript(1);
         }
-
-        if (orderBookTests)
-        {
-            OrderBookTests();
-            return;
-        }
-
-        if (raceCondition)
-        {
-            RaceConditionTests();
-            return;
-        }
-
-        var testClass = new testMainClass();
-        testClass.init(exchangeId, symbol, methodName).Wait();
     }
 
-    static void RunBaseTests()
+    static async Task<Task> RunBaseTests()
     {
-        tests.PrecisionTests();
-        Helper.Green(" [C#] Precision tests passed");
-        tests.DateTimeTests();
-        Helper.Green(" [C#] Datetime tests passed");
-        tests.CryptoTests();
-        Helper.Green(" [C#] Crypto tests passed");
+
+        if (isBaseTests)
+        {
+            if (isWs)
+            {
+                WsCacheTests();
+                WsCacheRegressionTests();
+                WsOrderBookTests();
+                WsOrderBookDefaultsTests();
+                WsOrderBookCopyAtomicityTests();
+                // the client suites are timer-bound (keepalive windows, settle delays) and touch
+                // only their own WebSocketClient instances, so they overlap instead of serializing
+                await Task.WhenAll(WsClientKeepAliveLivenessTests(), WsClientKeepAliveTimeoutTests(), WsClientRetirementRaceTests(), baseTestInstance.testWsBackoffLifecycle());
+                Helper.Green("[C#] base WS tests passed");
+            }
+            else
+            {
+                await baseTestInstance.baseTestsInit();
+                //  hand-written, not transpiled, and therefore invisible to
+                //  baseTestsInit's generated import list — so it is called here.
+                //  Without this line the C# OrderRouter suite has no caller at
+                //  all and a C#-only divergence ships green.
+                OrderRouterTests();
+                Helper.Green("[C#] base REST tests passed");
+            }
+        }
+        return Task.CompletedTask;
     }
 
-    static void RunCacheTests()
+    // static async Task RunAutoTranspiledBaseTests(object testsInstance)
+    // {
+    //     MethodInfo[] methods = testsInstance.GetType()
+    //                     .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+    //                     .Where(m => m.Name.StartsWith("test") && m.ReturnType == typeof(void))
+    //                     .ToArray();
+    //     // 2. Invoke Each Method
+    //     foreach (MethodInfo method in methods)
+    //     {
+    //         var res = method.Invoke(testsInstance, null);
+    //         if (res is Task)
+    //         {
+    //             await (Task)res;
+    //         }
+    //         Helper.Green(" [C#] " + method.ToString() + " tests passed");
+    //     }
+    // }
+
+    static void WsCacheTests()
     {
-        tests.CacheTests();
+        baseTestInstance.testWsCache();
         Helper.Green(" [C#] ArrayCache tests passed");
     }
 
-    static void OrderBookTests()
+    static void WsCacheRegressionTests()
     {
-        tests.OrderBookTests();
+        baseTestInstance.testWsCacheRegressions();
+        Helper.Green(" [C#] ArrayCache regression tests passed");
+    }
+
+    static void WsOrderBookDefaultsTests()
+    {
+        baseTestInstance.testWsOrderBookNullSnapshotDefaults();
+        Helper.Green(" [C#] OrderBook null-snapshot defaults tests passed");
+    }
+
+    static void WsOrderBookCopyAtomicityTests()
+    {
+        baseTestInstance.testWsOrderBookCopyAtomicity();
+        baseTestInstance.testWsOrderBookSingleStore();
+        baseTestInstance.testWsOrderBookSideCopyFidelity();
+        Helper.Green(" [C#] OrderBook Copy() atomicity tests passed");
+    }
+
+    static async Task WsClientKeepAliveLivenessTests()
+    {
+        await baseTestInstance.testWsClientKeepAliveLiveness();
+        Helper.Green(" [C#] WebSocketClient keepalive liveness tests passed");
+    }
+
+    static async Task WsClientKeepAliveTimeoutTests()
+    {
+        await baseTestInstance.testWsClientKeepAliveTimeout();
+        Helper.Green(" [C#] WebSocketClient keepalive timeout closes the socket tests passed");
+    }
+
+    static void WsOrderBookTests()
+    {
+        baseTestInstance.testWsOrderBook();
         Helper.Green(" [C#] OrderBook tests passed");
+    }
+
+    static void OrderRouterTests()
+    {
+        var failed = OrderRouterTest.RunAll();
+        if (failed > 0)
+        {
+            throw new Exception("[C#] " + failed.ToString() + " OrderRouter tests failed");
+        }
+        Helper.Green(" [C#] OrderRouter tests passed");
+    }
+
+    static async Task WsClientRetirementRaceTests()
+    {
+        await baseTestInstance.testWsClientRetirementRace();
+        Helper.Green(" [C#] WebSocketClient retirement race tests passed");
     }
 
     static void RaceConditionTests()
     {
-        var res = tests.RaceTest();
+        var res = baseTestInstance.RaceTest();
         res.Wait();
         Helper.Green(" [C#] RaceCondition tests passed");
     }

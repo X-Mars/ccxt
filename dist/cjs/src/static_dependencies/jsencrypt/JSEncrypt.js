@@ -5,6 +5,7 @@ Object.defineProperty(exports, '__esModule', { value: true });
 var base64 = require('./lib/jsbn/base64.js');
 var JSEncryptRSAKey = require('./JSEncryptRSAKey.js');
 
+// ----------------------------------------------------------------------------
 const version = typeof process !== 'undefined'
     ? process.env?.npm_package_version
     : undefined;
@@ -28,6 +29,7 @@ class JSEncrypt {
         // The private and public key.
         this.key = null;
     }
+    static { this.version = version; }
     /**
      * Method to set the rsa key parameter (one method is enough to set both the public
      * and the private key, since the private key contains the public key paramenters)
@@ -190,6 +192,5 @@ class JSEncrypt {
         return this.getKey().getPublicBaseKeyB64();
     }
 }
-JSEncrypt.version = version;
 
 exports.JSEncrypt = JSEncrypt;

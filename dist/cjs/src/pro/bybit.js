@@ -1,15 +1,22 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var sha2_js = require('@noble/hashes/sha2.js');
 var bybit$1 = require('../bybit.js');
 var errors = require('../base/errors.js');
+var Precise = require('../base/Precise.js');
 var Cache = require('../base/ws/Cache.js');
-var sha256 = require('../static_dependencies/noble-hashes/sha256.js');
 
+// ----------------------------------------------------------------------------
 //  ---------------------------------------------------------------------------
-//  ---------------------------------------------------------------------------
-class bybit extends bybit$1 {
+class bybit extends bybit$1["default"] {
     describe() {
-        return this.deepExtend(super.describe(), {
+        const superDescribe = super.describe();
+        return this.deepExtend(superDescribe, this.describeData());
+    }
+    describeData() {
+        return {
             'has': {
                 'ws': true,
                 'createOrderWs': true,
@@ -22,13 +29,14 @@ class bybit extends bybit$1 {
                 'fetchTradesWs': false,
                 'fetchBalanceWs': false,
                 'watchBalance': true,
+                'watchBidsAsks': true,
                 'watchLiquidations': true,
                 'watchLiquidationsForSymbols': false,
                 'watchMyLiquidations': false,
                 'watchMyLiquidationsForSymbols': false,
                 'watchMyTrades': true,
                 'watchOHLCV': true,
-                'watchOHLCVForSymbols': false,
+                'watchOHLCVForSymbols': true,
                 'watchOrderBook': true,
                 'watchOrderBookForSymbols': true,
                 'watchOrders': true,
@@ -37,6 +45,17 @@ class bybit extends bybit$1 {
                 'watchTrades': true,
                 'watchPositions': true,
                 'watchTradesForSymbols': true,
+                'unWatchTicker': true,
+                'unWatchTickers': true,
+                'unWatchOHLCV': true,
+                'unWatchOHLCVForSymbols': true,
+                'unWatchOrderBook': true,
+                'unWatchOrderBookForSymbols': true,
+                'unWatchTrades': true,
+                'unWatchTradesForSymbols': true,
+                'unWatchMyTrades': true,
+                'unWatchOrders': true,
+                'unWatchPositions': true,
             },
             'urls': {
                 'api': {
@@ -77,14 +96,39 @@ class bybit extends bybit$1 {
                         },
                     },
                 },
+                'demotrading': {
+                    'ws': {
+                        'public': {
+                            'spot': 'wss://stream.{hostname}/v5/public/spot',
+                            'inverse': 'wss://stream.{hostname}/v5/public/inverse',
+                            'option': 'wss://stream.{hostname}/v5/public/option',
+                            'linear': 'wss://stream.{hostname}/v5/public/linear',
+                        },
+                        'private': {
+                            'spot': {
+                                'unified': 'wss://stream-demo.{hostname}/v5/private',
+                                'nonUnified': 'wss://stream-demo.{hostname}/spot/private/v3',
+                            },
+                            'contract': 'wss://stream-demo.{hostname}/v5/private',
+                            'usdc': 'wss://stream-demo.{hostname}/trade/option/usdc/private/v1',
+                            'trade': 'wss://stream-demo.bybit.com/v5/trade',
+                        },
+                    },
+                },
             },
             'options': {
                 'watchTicker': {
                     'name': 'tickers', // 'tickers' for 24hr statistical ticker or 'tickers_lt' for leverage token ticker
                 },
                 'watchPositions': {
-                    'fetchPositionsSnapshot': true,
+                    'fetchPositionsSnapshot': true, // or false
                     'awaitPositionsSnapshot': true, // whether to wait for the positions snapshot before providing updates
+                },
+                'watchMyTrades': {
+                    // filter execType: https://bybit-exchange.github.io/docs/api-explorer/v5/position/execution
+                    'execType': [
+                        'Trade', 'AdlTrade', 'BustTrade', 'Settle',
+                    ],
                 },
                 'spot': {
                     'timeframes': {
@@ -123,93 +167,108 @@ class bybit extends bybit$1 {
             },
             'streaming': {
                 'ping': this.ping,
-                'keepAlive': 19000,
+                'keepAlive': 18000,
             },
-        });
+        };
     }
     requestId() {
+        this.lockId();
         const requestId = this.sum(this.safeInteger(this.options, 'requestId', 0), 1);
         this.options['requestId'] = requestId;
+        this.unlockId();
         return requestId;
     }
-    getUrlByMarketType(symbol = undefined, isPrivate = false, method = undefined, params = {}) {
-        const accessibility = isPrivate ? 'private' : 'public';
+    async getUrlByMarketType(symbol = undefined, isPrivate = false, method = undefined, params = {}) {
+        const accessibility = (isPrivate) ? 'private' : 'public';
+        const methodValue = (method === undefined) ? '' : method;
         let isUsdcSettled = undefined;
         let isSpot = undefined;
         let type = undefined;
         let market = undefined;
+        const wsUrls = this.safeDict(this.urls['api'], 'ws', {});
+        const accessibilityUrls = this.safeDict(wsUrls, accessibility, {});
         let url = this.urls['api']['ws'];
         if (symbol !== undefined) {
             market = this.market(symbol);
             isUsdcSettled = market['settle'] === 'USDC';
-            type = market['type'];
+            type = this.safeString(market, 'type');
         }
         else {
-            [type, params] = this.handleMarketTypeAndParams(method, undefined, params);
+            const [marketType, paramsMarketType] = this.handleMarketTypeAndParams(methodValue, undefined, params);
+            type = marketType;
             let defaultSettle = this.safeString(this.options, 'defaultSettle');
-            defaultSettle = this.safeString2(params, 'settle', 'defaultSettle', defaultSettle);
+            defaultSettle = this.safeString2(paramsMarketType, 'settle', 'defaultSettle', defaultSettle);
             isUsdcSettled = (defaultSettle === 'USDC');
         }
         isSpot = (type === 'spot');
         if (isPrivate) {
-            url = (isUsdcSettled) ? url[accessibility]['usdc'] : url[accessibility]['contract'];
+            const unified = await this.isUnifiedEnabled();
+            const isUnifiedMargin = this.safeBool(unified, 0, false);
+            const isUnifiedAccount = this.safeBool(unified, 1, false);
+            if (isUsdcSettled && (!isUnifiedMargin) && (!isUnifiedAccount)) {
+                url = accessibilityUrls['usdc'];
+            }
+            else {
+                url = accessibilityUrls['contract'];
+            }
         }
         else {
             if (isSpot) {
-                url = url[accessibility]['spot'];
+                url = accessibilityUrls['spot'];
             }
-            else if (type === 'swap') {
-                let subType = undefined;
-                [subType, params] = this.handleSubTypeAndParams(method, market, params, 'linear');
-                url = url[accessibility][subType];
+            else if ((type === 'swap') || (type === 'future')) {
+                const subType = this.handleSubTypeAndParams(methodValue, market, params, 'linear')[0];
+                url = accessibilityUrls[subType];
             }
             else {
                 // option
-                url = url[accessibility]['option'];
+                url = accessibilityUrls['option'];
             }
         }
         url = this.implodeHostname(url);
         return url;
     }
     cleanParams(params) {
-        params = this.omit(params, ['type', 'subType', 'settle', 'defaultSettle', 'unifiedMargin']);
-        return params;
+        const paramsOmitted = this.omit(params, ['type', 'subType', 'settle', 'defaultSettle', 'unifiedMargin']);
+        return paramsOmitted;
     }
+    /**
+     * @method
+     * @name bybit#createOrderWs
+     * @description create a trade order
+     * @see https://bybit-exchange.github.io/docs/v5/order/create-order
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/trade/guideline#createamendcancel-order
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.timeInForce] "GTC", "IOC", "FOK"
+     * @param {bool} [params.postOnly] true or false whether the order is post-only
+     * @param {bool} [params.reduceOnly] true or false whether the order is reduce-only
+     * @param {string} [params.positionIdx] *contracts only*  0 for one-way mode, 1 buy side  of hedged mode, 2 sell side of hedged mode
+     * @param {boolean} [params.isLeverage] *unified spot only* false then spot trading true then margin trading
+     * @param {string} [params.tpslMode] *contract only* 'full' or 'partial'
+     * @param {string} [params.mmp] *option only* market maker protection
+     * @param {string} [params.triggerDirection] *contract only* the direction for trigger orders, 'ascending' or 'descending'
+     * @param {float} [params.triggerPrice] The price at which a trigger order is triggered at
+     * @param {float} [params.stopLossPrice] The price at which a stop loss order is triggered at
+     * @param {float} [params.takeProfitPrice] The price at which a take profit order is triggered at
+     * @param {object} [params.takeProfit] *takeProfit object in params* containing the triggerPrice at which the attached take profit order will be triggered
+     * @param {float} [params.takeProfit.triggerPrice] take profit trigger price
+     * @param {object} [params.stopLoss] *stopLoss object in params* containing the triggerPrice at which the attached stop loss order will be triggered
+     * @param {float} [params.stopLoss.triggerPrice] stop loss trigger price
+     * @param {string} [params.trailingAmount] the quote amount to trail away from the current market price
+     * @param {string} [params.trailingTriggerPrice] the price to trigger a trailing order, default uses the price argument
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async createOrderWs(symbol, type, side, amount, price = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#createOrderWs
-         * @description create a trade order
-         * @see https://bybit-exchange.github.io/docs/v5/order/create-order
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/trade/guideline#createamendcancel-order
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {string} [params.timeInForce] "GTC", "IOC", "FOK"
-         * @param {bool} [params.postOnly] true or false whether the order is post-only
-         * @param {bool} [params.reduceOnly] true or false whether the order is reduce-only
-         * @param {string} [params.positionIdx] *contracts only*  0 for one-way mode, 1 buy side  of hedged mode, 2 sell side of hedged mode
-         * @param {boolean} [params.isLeverage] *unified spot only* false then spot trading true then margin trading
-         * @param {string} [params.tpslMode] *contract only* 'full' or 'partial'
-         * @param {string} [params.mmp] *option only* market maker protection
-         * @param {string} [params.triggerDirection] *contract only* the direction for trigger orders, 'above' or 'below'
-         * @param {float} [params.triggerPrice] The price at which a trigger order is triggered at
-         * @param {float} [params.stopLossPrice] The price at which a stop loss order is triggered at
-         * @param {float} [params.takeProfitPrice] The price at which a take profit order is triggered at
-         * @param {object} [params.takeProfit] *takeProfit object in params* containing the triggerPrice at which the attached take profit order will be triggered
-         * @param {float} [params.takeProfit.triggerPrice] take profit trigger price
-         * @param {object} [params.stopLoss] *stopLoss object in params* containing the triggerPrice at which the attached stop loss order will be triggered
-         * @param {float} [params.stopLoss.triggerPrice] stop loss trigger price
-         * @param {string} [params.trailingAmount] the quote amount to trail away from the current market price
-         * @param {string} [params.trailingTriggerPrice] the price to trigger a trailing order, default uses the price argument
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const orderRequest = this.createOrderRequest(symbol, type, side, amount, price, params, true);
-        const url = this.urls['api']['ws']['private']['trade'];
+        const url = this.implodeHostname(this.safeString(this.urls['api']['ws']['private'], 'trade', ''));
         await this.authenticate(url);
         const requestId = this.requestId().toString();
         const request = {
@@ -220,40 +279,42 @@ class bybit extends bybit$1 {
             ],
             'header': {
                 'X-BAPI-TIMESTAMP': this.milliseconds().toString(),
-                'X-BAPI-RECV-WINDOW': this.options['recvWindow'].toString(),
+                'X-BAPI-RECV-WINDOW': this.numberToString(this.options['recvWindow']),
             },
         };
         return await this.watch(url, requestId, request, requestId, true);
     }
+    /**
+     * @method
+     * @name bybit#editOrderWs
+     * @description edit a trade order
+     * @see https://bybit-exchange.github.io/docs/v5/order/amend-order
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/trade/guideline#createamendcancel-order
+     * @param {string} id cancel order id
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} price the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {float} [params.triggerPrice] The price that a trigger order is triggered at
+     * @param {float} [params.stopLossPrice] The price that a stop loss order is triggered at
+     * @param {float} [params.takeProfitPrice] The price that a take profit order is triggered at
+     * @param {object} [params.takeProfit] *takeProfit object in params* containing the triggerPrice that the attached take profit order will be triggered
+     * @param {float} [params.takeProfit.triggerPrice] take profit trigger price
+     * @param {object} [params.stopLoss] *stopLoss object in params* containing the triggerPrice that the attached stop loss order will be triggered
+     * @param {float} [params.stopLoss.triggerPrice] stop loss trigger price
+     * @param {string} [params.triggerBy] 'IndexPrice', 'MarkPrice' or 'LastPrice', default is 'LastPrice', required if no initial value for triggerPrice
+     * @param {string} [params.slTriggerBy] 'IndexPrice', 'MarkPrice' or 'LastPrice', default is 'LastPrice', required if no initial value for stopLoss
+     * @param {string} [params.tpTriggerby] 'IndexPrice', 'MarkPrice' or 'LastPrice', default is 'LastPrice', required if no initial value for takeProfit
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async editOrderWs(id, symbol, type, side, amount = undefined, price = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#editOrderWs
-         * @description edit a trade order
-         * @see https://bybit-exchange.github.io/docs/v5/order/amend-order
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/trade/guideline#createamendcancel-order
-         * @param {string} id cancel order id
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} price the price at which the order is to be fullfilled, in units of the base currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {float} [params.triggerPrice] The price that a trigger order is triggered at
-         * @param {float} [params.stopLossPrice] The price that a stop loss order is triggered at
-         * @param {float} [params.takeProfitPrice] The price that a take profit order is triggered at
-         * @param {object} [params.takeProfit] *takeProfit object in params* containing the triggerPrice that the attached take profit order will be triggered
-         * @param {float} [params.takeProfit.triggerPrice] take profit trigger price
-         * @param {object} [params.stopLoss] *stopLoss object in params* containing the triggerPrice that the attached stop loss order will be triggered
-         * @param {float} [params.stopLoss.triggerPrice] stop loss trigger price
-         * @param {string} [params.triggerBy] 'IndexPrice', 'MarkPrice' or 'LastPrice', default is 'LastPrice', required if no initial value for triggerPrice
-         * @param {string} [params.slTriggerBy] 'IndexPrice', 'MarkPrice' or 'LastPrice', default is 'LastPrice', required if no initial value for stopLoss
-         * @param {string} [params.tpTriggerby] 'IndexPrice', 'MarkPrice' or 'LastPrice', default is 'LastPrice', required if no initial value for takeProfit
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const orderRequest = this.editOrderRequest(id, symbol, type, side, amount, price, params);
-        const url = this.urls['api']['ws']['private']['trade'];
+        const url = this.implodeHostname(this.safeString(this.urls['api']['ws']['private'], 'trade', ''));
         await this.authenticate(url);
         const requestId = this.requestId().toString();
         const request = {
@@ -264,28 +325,33 @@ class bybit extends bybit$1 {
             ],
             'header': {
                 'X-BAPI-TIMESTAMP': this.milliseconds().toString(),
-                'X-BAPI-RECV-WINDOW': this.options['recvWindow'].toString(),
+                'X-BAPI-RECV-WINDOW': this.numberToString(this.options['recvWindow']),
             },
         };
         return await this.watch(url, requestId, request, requestId, true);
     }
+    /**
+     * @method
+     * @name bybit#cancelOrderWs
+     * @description cancels an open order
+     * @see https://bybit-exchange.github.io/docs/v5/order/cancel-order
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/trade/guideline#createamendcancel-order
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {boolean} [params.trigger] *spot only* whether the order is a trigger order
+     * @param {string} [params.orderFilter] *spot only* 'Order' or 'StopOrder' or 'tpslOrder'
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async cancelOrderWs(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#cancelOrderWs
-         * @description cancels an open order
-         * @see https://bybit-exchange.github.io/docs/v5/order/cancel-order
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/trade/guideline#createamendcancel-order
-         * @param {string} id order id
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {boolean} [params.stop] *spot only* whether the order is a stop order
-         * @param {string} [params.orderFilter] *spot only* 'Order' or 'StopOrder' or 'tpslOrder'
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        if (symbol === undefined) {
+            throw new errors.ArgumentsRequired(this.id + ' cancelOrderWs() requires a symbol argument');
+        }
         const orderRequest = this.cancelOrderRequest(id, symbol, params);
-        const url = this.urls['api']['ws']['private']['trade'];
+        const url = this.implodeHostname(this.safeString(this.urls['api']['ws']['private'], 'trade', ''));
         await this.authenticate(url);
         const requestId = this.requestId().toString();
         if ('orderFilter' in orderRequest) {
@@ -299,69 +365,119 @@ class bybit extends bybit$1 {
             ],
             'header': {
                 'X-BAPI-TIMESTAMP': this.milliseconds().toString(),
-                'X-BAPI-RECV-WINDOW': this.options['recvWindow'].toString(),
+                'X-BAPI-RECV-WINDOW': this.numberToString(this.options['recvWindow']),
             },
         };
         return await this.watch(url, requestId, request, requestId, true);
     }
+    /**
+     * @method
+     * @name bybit#watchTicker
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/ticker
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-ticker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async watchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchTicker
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/ticker
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-ticker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        symbol = market['symbol'];
-        const messageHash = 'ticker:' + symbol;
-        const url = this.getUrlByMarketType(symbol, false, 'watchTicker', params);
-        params = this.cleanParams(params);
-        const options = this.safeValue(this.options, 'watchTicker', {});
-        let topic = this.safeString(options, 'name', 'tickers');
-        if (!market['spot'] && topic !== 'tickers') {
+        const symbolValue = market['symbol'];
+        const messageHash = 'ticker:' + symbolValue;
+        const url = await this.getUrlByMarketType(symbolValue, false, 'watchTicker', params);
+        const paramsValue = this.cleanParams(params);
+        const options = this.safeDict(this.options, 'watchTicker', {});
+        const topic = this.safeString(options, 'name', 'tickers');
+        if ((!this.safeBool(market, 'spot', false)) && topic !== 'tickers') {
             throw new errors.BadRequest(this.id + ' watchTicker() only supports name tickers for contract markets');
         }
-        topic += '.' + market['id'];
-        const topics = [topic];
-        return await this.watchTopics(url, [messageHash], topics, params);
+        const topics = [topic + '.' + this.safeString(market, 'id', '')];
+        return await this.watchTopics(url, [messageHash], topics, paramsValue);
     }
+    /**
+     * @method
+     * @name bybit#watchTickers
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/ticker
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-ticker
+     * @param {string[]} symbols unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async watchTickers(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchTickers
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/ticker
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-ticker
-         * @param {string[]} symbols unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
-        symbols = this.marketSymbols(symbols, undefined, false);
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsValue = this.marketSymbols(symbols, undefined, false);
         const messageHashes = [];
-        const url = this.getUrlByMarketType(symbols[0], false, 'watchTickers', params);
-        params = this.cleanParams(params);
-        const options = this.safeValue(this.options, 'watchTickers', {});
+        const url = await this.getUrlByMarketType(symbolsValue[0], false, 'watchTickers', params);
+        const paramsValue = this.cleanParams(params);
+        const options = this.safeDict(this.options, 'watchTickers', {});
         const topic = this.safeString(options, 'name', 'tickers');
-        const marketIds = this.marketIds(symbols);
+        const marketIds = this.marketIds(symbolsValue);
         const topics = [];
         for (let i = 0; i < marketIds.length; i++) {
-            const marketId = marketIds[i];
+            const marketId = this.safeString(marketIds, i, '');
             topics.push(topic + '.' + marketId);
-            messageHashes.push('ticker:' + symbols[i]);
+            messageHashes.push('ticker:' + this.safeString(symbolsValue, i, ''));
         }
-        const ticker = await this.watchTopics(url, messageHashes, topics, params);
+        const ticker = await this.watchTopics(url, messageHashes, topics, paramsValue);
         if (this.newUpdates) {
             const result = {};
-            result[ticker['symbol']] = ticker;
+            const tickerSymbol = this.safeString(ticker, 'symbol');
+            if (tickerSymbol !== undefined) {
+                result[tickerSymbol] = ticker;
+            }
             return result;
         }
-        return this.filterByArray(this.tickers, 'symbol', symbols);
+        return this.filterByArray(this.tickers, 'symbol', symbolsValue);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchTickers
+     * @description unWatches a price ticker
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/ticker
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-ticker
+     * @param {string[]} symbols unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    async unWatchTickers(symbols = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsValue = this.marketSymbols(symbols, undefined, false);
+        const options = this.safeDict(this.options, 'watchTickers', {});
+        const topic = this.safeString(options, 'name', 'tickers');
+        const messageHashes = [];
+        const subMessageHashes = [];
+        const marketIds = this.marketIds(symbolsValue);
+        const topics = [];
+        for (let i = 0; i < marketIds.length; i++) {
+            const marketId = this.safeString(marketIds, i, '');
+            const symbol = symbolsValue[i];
+            topics.push(topic + '.' + marketId);
+            subMessageHashes.push('ticker:' + symbol);
+            messageHashes.push('unsubscribe:ticker:' + symbol);
+        }
+        const url = await this.getUrlByMarketType(symbolsValue[0], false, 'watchTickers', params);
+        return await this.unWatchTopics(url, 'ticker', symbolsValue, messageHashes, subMessageHashes, topics, params);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchTicker
+     * @description unWatches a price ticker
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/ticker
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-ticker
+     * @param {string[]} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    unWatchTicker(symbol, params = {}) {
+        return this.unWatchTickers([symbol], params);
     }
     handleTicker(client, message) {
         //
@@ -433,7 +549,7 @@ class bybit extends bybit$1 {
         // spot
         //     {
         //         "topic": "tickers.BTCUSDT",
-        //         "ts": 1673853746003,
+        //         "ts": 1673853746002,
         //         "type": "snapshot",
         //         "cs": 2588407389,
         //         "data": {
@@ -482,24 +598,30 @@ class bybit extends bybit$1 {
         const updateType = this.safeString(message, 'type', '');
         const data = this.safeDict(message, 'data', {});
         const isSpot = this.safeString(data, 'usdIndexPrice') !== undefined;
-        const type = isSpot ? 'spot' : 'contract';
+        let type = 'contract';
+        if (isSpot) {
+            type = 'spot';
+        }
         let symbol = undefined;
         let parsed = undefined;
         if ((updateType === 'snapshot')) {
             parsed = this.parseTicker(data);
-            symbol = parsed['symbol'];
+            symbol = this.safeString(parsed, 'symbol');
         }
         else if (updateType === 'delta') {
             const topicParts = topic.split('.');
             const topicLength = topicParts.length;
             const marketId = this.safeString(topicParts, topicLength - 1);
             const market = this.safeMarket(marketId, undefined, undefined, type);
-            symbol = market['symbol'];
+            symbol = this.safeString(market, 'symbol');
             // update the info in place
             const ticker = this.safeDict(this.tickers, symbol, {});
             const rawTicker = this.safeDict(ticker, 'info', {});
             const merged = this.extend(rawTicker, data);
             parsed = this.parseTicker(merged);
+        }
+        if ((parsed === undefined) || (symbol === undefined)) {
+            return;
         }
         const timestamp = this.safeInteger(message, 'ts');
         parsed['timestamp'] = timestamp;
@@ -508,34 +630,163 @@ class bybit extends bybit$1 {
         const messageHash = 'ticker:' + symbol;
         client.resolve(this.tickers[symbol], messageHash);
     }
-    async watchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchOHLCV
-         * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/kline
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-kline
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets();
-        const market = this.market(symbol);
-        symbol = market['symbol'];
-        const url = this.getUrlByMarketType(symbol, false, 'watchOHLCV', params);
-        params = this.cleanParams(params);
-        let ohlcv = undefined;
-        const timeframeId = this.safeString(this.timeframes, timeframe, timeframe);
-        const topics = ['kline.' + timeframeId + '.' + market['id']];
-        const messageHash = 'kline' + ':' + timeframeId + ':' + symbol;
-        ohlcv = await this.watchTopics(url, [messageHash], topics, params);
-        if (this.newUpdates) {
-            limit = ohlcv.getLimit(symbol, limit);
+    /**
+     * @method
+     * @name bybit#watchBidsAsks
+     * @description watches best bid & ask for symbols
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
+     * @param {string[]} symbols unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    async watchBidsAsks(symbols = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
         }
-        return this.filterBySinceLimit(ohlcv, since, limit, 0, true);
+        const symbolsValue = this.marketSymbols(symbols, undefined, false);
+        const messageHashes = [];
+        const url = await this.getUrlByMarketType(symbolsValue[0], false, 'watchBidsAsks', params);
+        const paramsValue = this.cleanParams(params);
+        const marketIds = this.marketIds(symbolsValue);
+        const topics = [];
+        for (let i = 0; i < marketIds.length; i++) {
+            const marketId = this.safeString(marketIds, i, '');
+            const topic = 'orderbook.1.' + marketId;
+            topics.push(topic);
+            messageHashes.push('bidask:' + this.safeString(symbolsValue, i, ''));
+        }
+        const ticker = await this.watchTopics(url, messageHashes, topics, paramsValue);
+        if (this.newUpdates) {
+            return ticker;
+        }
+        return this.filterByArray(this.bidsasks, 'symbol', symbolsValue);
+    }
+    parseWsBidAsk(orderbook, market = undefined) {
+        const timestamp = this.safeInteger(orderbook, 'timestamp');
+        const bids = this.sortBy(this.aggregate(orderbook['bids']), 0);
+        const asks = this.sortBy(this.aggregate(orderbook['asks']), 0);
+        const bestBid = this.safeList(bids, 0, []);
+        const bestAsk = this.safeList(asks, 0, []);
+        return this.safeTicker({
+            'symbol': this.safeString(market, 'symbol'),
+            'timestamp': timestamp,
+            'datetime': this.iso8601(timestamp),
+            'ask': this.safeNumber(bestAsk, 0),
+            'askVolume': this.safeNumber(bestAsk, 1),
+            'bid': this.safeNumber(bestBid, 0),
+            'bidVolume': this.safeNumber(bestBid, 1),
+            'info': orderbook,
+        }, market);
+    }
+    /**
+     * @method
+     * @name bybit#watchOHLCV
+     * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/kline
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-kline
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    async watchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
+        params['callerMethodName'] = 'watchOHLCV';
+        const result = await this.watchOHLCVForSymbols([[symbol, timeframe]], since, limit, params);
+        return result[symbol][timeframe];
+    }
+    /**
+     * @method
+     * @name bybit#watchOHLCVForSymbols
+     * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/kline
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-kline
+     * @param {string[][]} symbolsAndTimeframes array of arrays containing unified symbols and timeframes to fetch OHLCV data for, example [['BTC/USDT', '1m'], ['LTC/USDT', '5m']]
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    async watchOHLCVForSymbols(symbolsAndTimeframes, since = undefined, limit = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbols = this.getListFromObjectValues(symbolsAndTimeframes, 0);
+        const marketSymbols = this.marketSymbols(symbols, undefined, false, true, true);
+        const firstSymbol = marketSymbols[0];
+        const url = await this.getUrlByMarketType(firstSymbol, false, 'watchOHLCVForSymbols', params);
+        const rawHashes = [];
+        const messageHashes = [];
+        for (let i = 0; i < symbolsAndTimeframes.length; i++) {
+            const data = symbolsAndTimeframes[i];
+            const market = this.market(data[0]);
+            const symbolString = market['symbol'];
+            const unfiedTimeframe = data[1];
+            const timeframeId = this.safeString(this.timeframes, unfiedTimeframe, unfiedTimeframe);
+            const marketId = this.safeString(market, 'id', '');
+            rawHashes.push('kline.' + timeframeId + '.' + marketId);
+            messageHashes.push('ohlcv::' + symbolString + '::' + unfiedTimeframe);
+        }
+        const [symbol, timeframe, stored] = await this.watchTopics(url, messageHashes, rawHashes, params);
+        let limitResolved = limit;
+        if (this.newUpdates) {
+            limitResolved = stored.getLimit(symbol, limit);
+        }
+        const filtered = this.filterBySinceLimit(stored, since, limitResolved, 0, true);
+        return this.createOHLCVObject(symbol, timeframe, filtered);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchOHLCVForSymbols
+     * @description unWatches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/kline
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-kline
+     * @param {string[][]} symbolsAndTimeframes array of arrays containing unified symbols and timeframes to fetch OHLCV data for, example [['BTC/USDT', '1m'], ['LTC/USDT', '5m']]
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    async unWatchOHLCVForSymbols(symbolsAndTimeframes, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbols = this.getListFromObjectValues(symbolsAndTimeframes, 0);
+        const marketSymbols = this.marketSymbols(symbols, undefined, false, true, true);
+        const firstSymbol = marketSymbols[0];
+        const url = await this.getUrlByMarketType(firstSymbol, false, 'watchOHLCVForSymbols', params);
+        const rawHashes = [];
+        const subMessageHashes = [];
+        const messageHashes = [];
+        for (let i = 0; i < symbolsAndTimeframes.length; i++) {
+            const data = symbolsAndTimeframes[i];
+            const market = this.market(data[0]);
+            const symbolString = market['symbol'];
+            const unfiedTimeframe = data[1];
+            const timeframeId = this.safeString(this.timeframes, unfiedTimeframe, unfiedTimeframe);
+            const marketId = this.safeString(market, 'id', '');
+            rawHashes.push('kline.' + timeframeId + '.' + marketId);
+            subMessageHashes.push('ohlcv::' + symbolString + '::' + unfiedTimeframe);
+            messageHashes.push('unsubscribe::ohlcv::' + symbolString + '::' + unfiedTimeframe);
+        }
+        const subExtension = {
+            'symbolsAndTimeframes': symbolsAndTimeframes,
+        };
+        return await this.unWatchTopics(url, 'ohlcv', symbols, messageHashes, subMessageHashes, rawHashes, params, subExtension);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchOHLCV
+     * @description unWatches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/kline
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/etp-kline
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    async unWatchOHLCV(symbol, timeframe = '1m', params = {}) {
+        params['callerMethodName'] = 'watchOHLCV';
+        return await this.unWatchOHLCVForSymbols([[symbol, timeframe]], params);
     }
     handleOHLCV(client, message) {
         //
@@ -560,33 +811,39 @@ class bybit extends bybit$1 {
         //         "type": "snapshot"
         //     }
         //
-        const data = this.safeValue(message, 'data', {});
-        const topic = this.safeString(message, 'topic');
+        const data = this.safeList(message, 'data', []);
+        const topic = this.safeString(message, 'topic', '');
         const topicParts = topic.split('.');
         const topicLength = topicParts.length;
         const timeframeId = this.safeString(topicParts, 1);
         const timeframe = this.findTimeframe(timeframeId);
+        if (timeframe === undefined) {
+            return;
+        }
         const marketId = this.safeString(topicParts, topicLength - 1);
         const isSpot = client.url.indexOf('spot') > -1;
-        const marketType = isSpot ? 'spot' : 'contract';
+        let marketType = 'contract';
+        if (isSpot) {
+            marketType = 'spot';
+        }
         const market = this.safeMarket(marketId, undefined, undefined, marketType);
         const symbol = market['symbol'];
-        const ohlcvsByTimeframe = this.safeValue(this.ohlcvs, symbol);
+        const ohlcvsByTimeframe = this.safeDict(this.ohlcvs, symbol);
         if (ohlcvsByTimeframe === undefined) {
             this.ohlcvs[symbol] = {};
         }
-        let stored = this.safeValue(ohlcvsByTimeframe, timeframe);
-        if (stored === undefined) {
+        if (this.safeValue(ohlcvsByTimeframe, timeframe) === undefined) {
             const limit = this.safeInteger(this.options, 'OHLCVLimit', 1000);
-            stored = new Cache.ArrayCacheByTimestamp(limit);
-            this.ohlcvs[symbol][timeframe] = stored;
+            this.ohlcvs[symbol][timeframe] = new Cache.ArrayCacheByTimestamp(limit);
         }
+        const stored = this.ohlcvs[symbol][timeframe];
         for (let i = 0; i < data.length; i++) {
-            const parsed = this.parseWsOHLCV(data[i]);
+            const parsed = this.parseWsOHLCV(data[i], market);
             stored.append(parsed);
         }
-        const messageHash = 'kline' + ':' + timeframeId + ':' + symbol;
-        client.resolve(stored, messageHash);
+        const messageHash = 'ohlcv::' + symbol + '::' + timeframe;
+        const resolveData = [symbol, timeframe, stored];
+        client.resolve(resolveData, messageHash);
     }
     parseWsOHLCV(ohlcv, market = undefined) {
         //
@@ -604,71 +861,133 @@ class bybit extends bybit$1 {
         //         "timestamp": 1670363219614
         //     }
         //
+        const isInverse = this.safeBool(market, 'inverse', false);
+        let volumeIndex = 'volume';
+        if (isInverse) {
+            volumeIndex = 'turnover';
+        }
         return [
             this.safeInteger(ohlcv, 'start'),
             this.safeNumber(ohlcv, 'open'),
             this.safeNumber(ohlcv, 'high'),
             this.safeNumber(ohlcv, 'low'),
             this.safeNumber(ohlcv, 'close'),
-            this.safeNumber2(ohlcv, 'volume', 'turnover'),
+            this.safeNumber(ohlcv, volumeIndex),
         ];
     }
-    async watchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchOrderBook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return.
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        return await this.watchOrderBookForSymbols([symbol], limit, params);
+    /**
+     * @method
+     * @name bybit#watchOrderBook
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return.
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    watchOrderBook(symbol, limit = undefined, params = {}) {
+        return this.watchOrderBookForSymbols([symbol], limit, params);
     }
+    /**
+     * @method
+     * @name bybit#watchOrderBookForSymbols
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
+     * @param {string[]} symbols unified array of symbols
+     * @param {int} [limit] the maximum amount of order book entries to return.
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async watchOrderBookForSymbols(symbols, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchOrderBook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
-         * @param {string[]} symbols unified array of symbols
-         * @param {int} [limit] the maximum amount of order book entries to return.
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const symbolsLength = symbols.length;
         if (symbolsLength === 0) {
             throw new errors.ArgumentsRequired(this.id + ' watchOrderBookForSymbols() requires a non-empty array of symbols');
         }
-        symbols = this.marketSymbols(symbols);
-        const url = this.getUrlByMarketType(symbols[0], false, 'watchOrderBook', params);
-        params = this.cleanParams(params);
-        const market = this.market(symbols[0]);
-        if (limit === undefined) {
-            limit = (market['spot']) ? 50 : 500;
-        }
-        else {
-            if (!market['spot']) {
-                // bybit only support limit 1, 50, 200, 500 for contract
-                if ((limit !== 1) && (limit !== 50) && (limit !== 200) && (limit !== 500)) {
-                    throw new errors.BadRequest(this.id + ' watchOrderBookForSymbols() can only use limit 1, 50, 200 and 500.');
-                }
+        const symbolsNormalized = this.marketSymbols(symbols);
+        const url = await this.getUrlByMarketType(symbolsNormalized[0], false, 'watchOrderBook', params);
+        const paramsValue = this.cleanParams(params);
+        const market = this.market(symbolsNormalized[0]);
+        const defaultLimit = (this.safeBool(market, 'option', false)) ? 100 : 50;
+        const limitResolved = (limit === undefined) ? defaultLimit : limit;
+        if (limit !== undefined) {
+            const limits = {
+                'spot': [1, 50, 200, 1000],
+                'option': [25, 100],
+                'default': [1, 50, 200, 1000],
+            };
+            const selectedLimits = this.safeList2(limits, market['type'], 'default', []);
+            if (!this.inArray(limit, selectedLimits)) {
+                throw new errors.BadRequest(this.id + ' watchOrderBookForSymbols(): for ' + this.safeString(market, 'type', '') + ' markets limit can be one of: ' + this.json(selectedLimits));
             }
         }
         const topics = [];
         const messageHashes = [];
-        for (let i = 0; i < symbols.length; i++) {
-            const symbol = symbols[i];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
             const marketId = this.marketId(symbol);
-            const topic = 'orderbook.' + limit.toString() + '.' + marketId;
+            const topic = 'orderbook.' + this.numberToString(limitResolved) + '.' + marketId;
             topics.push(topic);
             const messageHash = 'orderbook:' + symbol;
             messageHashes.push(messageHash);
         }
-        const orderbook = await this.watchTopics(url, messageHashes, topics, params);
+        const orderbook = await this.watchTopics(url, messageHashes, topics, paramsValue);
         return orderbook.limit();
+    }
+    /**
+     * @method
+     * @name bybit#unWatchOrderBookForSymbols
+     * @description unsubscribe from the orderbook channel
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
+     * @param {string[]} symbols unified symbol of the market to unwatch the trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.limit] orderbook limit, default is undefined
+     * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    async unWatchOrderBookForSymbols(symbols, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols, undefined, false);
+        let channel = 'orderbook.';
+        const limitParam = this.safeInteger(params, 'limit');
+        const paramsOmitted = (limitParam !== undefined) ? this.omit(params, 'limit') : params;
+        let defaultLimit = 500;
+        if (limitParam === undefined) {
+            const firstMarket = this.market(symbolsNormalized[0]);
+            defaultLimit = (this.safeBool(firstMarket, 'spot', false)) ? 50 : 500;
+        }
+        const limit = (limitParam === undefined) ? defaultLimit : limitParam;
+        channel += limit.toString();
+        const subMessageHashes = [];
+        const messageHashes = [];
+        const topics = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
+            const market = this.market(symbol);
+            const marketId = this.safeString(market, 'id', '');
+            const topic = channel + '.' + marketId;
+            messageHashes.push('unsubscribe:orderbook:' + symbol);
+            subMessageHashes.push('orderbook:' + symbol);
+            topics.push(topic);
+        }
+        const url = await this.getUrlByMarketType(symbolsNormalized[0], false, 'watchOrderBook', paramsOmitted);
+        return await this.unWatchTopics(url, 'orderbook', symbolsNormalized, messageHashes, subMessageHashes, topics, paramsOmitted);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchOrderBook
+     * @description unsubscribe from the orderbook channel
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
+     * @param {string} symbol symbol of the market to unwatch the trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.limit] orderbook limit, default is undefined
+     * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    unWatchOrderBook(symbol, params = {}) {
+        return this.unWatchOrderBookForSymbols([symbol], params);
     }
     handleOrderBook(client, message) {
         //
@@ -704,12 +1023,17 @@ class bybit extends bybit$1 {
         //         }
         //     }
         //
+        const topic = this.safeString(message, 'topic', '');
+        const limit = this.safeString(topic.split('.'), 1);
         const isSpot = client.url.indexOf('spot') >= 0;
         const type = this.safeString(message, 'type');
         const isSnapshot = (type === 'snapshot');
         const data = this.safeDict(message, 'data', {});
         const marketId = this.safeString(data, 's');
-        const marketType = isSpot ? 'spot' : 'contract';
+        let marketType = 'contract';
+        if (isSpot) {
+            marketType = 'spot';
+        }
         const market = this.safeMarket(marketId, undefined, undefined, marketType);
         const symbol = market['symbol'];
         const timestamp = this.safeInteger(message, 'ts');
@@ -717,6 +1041,7 @@ class bybit extends bybit$1 {
             this.orderbooks[symbol] = this.orderBook();
         }
         const orderbook = this.orderbooks[symbol];
+        orderbook['symbol'] = symbol;
         if (isSnapshot) {
             const snapshot = this.parseOrderBook(data, symbol, timestamp, 'b', 'a');
             orderbook.reset(snapshot);
@@ -732,9 +1057,16 @@ class bybit extends bybit$1 {
         const messageHash = 'orderbook' + ':' + symbol;
         this.orderbooks[symbol] = orderbook;
         client.resolve(orderbook, messageHash);
+        if (limit === '1') {
+            const bidask = this.parseWsBidAsk(this.orderbooks[symbol], market);
+            const newBidsAsks = {};
+            newBidsAsks[symbol] = bidask;
+            this.bidsasks[symbol] = bidask;
+            client.resolve(newBidsAsks, 'bidask:' + symbol);
+        }
     }
     handleDelta(bookside, delta) {
-        const bidAsk = this.parseBidAsk(delta, 0, 1);
+        const bidAsk = this.parseOrderBookBidAsk(delta, 0, 1);
         bookside.storeArray(bidAsk);
     }
     handleDeltas(bookside, deltas) {
@@ -742,57 +1074,103 @@ class bybit extends bybit$1 {
             this.handleDelta(bookside, deltas[i]);
         }
     }
-    async watchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchTrades
-         * @description watches information on multiple trades made in a market
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/trade
-         * @param {string} symbol unified market symbol of the market trades were made in
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trade structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure
-         */
-        return await this.watchTradesForSymbols([symbol], since, limit, params);
+    /**
+     * @method
+     * @name bybit#watchTrades
+     * @description watches information on multiple trades made in a market
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/trade
+     * @param {string} symbol unified market symbol of the market trades were made in
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trade structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    watchTrades(symbol, since = undefined, limit = undefined, params = {}) {
+        return this.watchTradesForSymbols([symbol], since, limit, params);
     }
+    /**
+     * @method
+     * @name bybit#watchTradesForSymbols
+     * @description get the list of most recent trades for a list of symbols
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/trade
+     * @param {string[]} symbols unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
     async watchTradesForSymbols(symbols, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchTradesForSymbols
-         * @description get the list of most recent trades for a list of symbols
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/trade
-         * @param {string[]} symbols unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets();
-        symbols = this.marketSymbols(symbols);
-        const symbolsLength = symbols.length;
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols);
+        const symbolsLength = symbolsNormalized.length;
         if (symbolsLength === 0) {
             throw new errors.ArgumentsRequired(this.id + ' watchTradesForSymbols() requires a non-empty array of symbols');
         }
-        params = this.cleanParams(params);
-        const url = this.getUrlByMarketType(symbols[0], false, 'watchTrades', params);
+        const paramsValue = this.cleanParams(params);
+        const url = await this.getUrlByMarketType(symbolsNormalized[0], false, 'watchTrades', paramsValue);
         const topics = [];
         const messageHashes = [];
-        for (let i = 0; i < symbols.length; i++) {
-            const symbol = symbols[i];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
             const market = this.market(symbol);
-            const topic = 'publicTrade.' + market['id'];
+            const marketId = this.safeString(market, 'id', '');
+            const topic = 'publicTrade.' + marketId;
             topics.push(topic);
             const messageHash = 'trade:' + symbol;
             messageHashes.push(messageHash);
         }
-        const trades = await this.watchTopics(url, messageHashes, topics, params);
+        const trades = await this.watchTopics(url, messageHashes, topics, paramsValue);
+        const first = this.safeDict(trades, 0);
+        const tradeSymbol = this.safeString(first, 'symbol');
+        let limitResolved = limit;
         if (this.newUpdates) {
-            const first = this.safeValue(trades, 0);
-            const tradeSymbol = this.safeString(first, 'symbol');
-            limit = trades.getLimit(tradeSymbol, limit);
+            limitResolved = trades.getLimit(tradeSymbol, limit);
         }
-        return this.filterBySinceLimit(trades, since, limit, 'timestamp', true);
+        return this.filterBySinceLimit(trades, since, limitResolved, 'timestamp', true);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchTradesForSymbols
+     * @description unsubscribe from the trades channel
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/trade
+     * @param {string[]} symbols unified symbol of the market to unwatch the trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {any} status of the unwatch request
+     */
+    async unWatchTradesForSymbols(symbols, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols, undefined, false, true);
+        const url = await this.getUrlByMarketType(symbolsNormalized[0], false, 'unWatchTradesForSymbols', params);
+        const messageHashes = [];
+        const topics = [];
+        const subMessageHashes = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
+            const market = this.market(symbol);
+            const marketId = this.safeString(market, 'id', '');
+            const topic = 'publicTrade.' + marketId;
+            topics.push(topic);
+            const messageHash = 'unsubscribe:trade:' + symbol;
+            messageHashes.push(messageHash);
+            subMessageHashes.push('trade:' + symbol);
+        }
+        return await this.unWatchTopics(url, 'trades', symbolsNormalized, messageHashes, subMessageHashes, topics, params);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchTrades
+     * @description unsubscribe from the trades channel
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/trade
+     * @param {string} symbol unified symbol of the market to unwatch the trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {any} status of the unwatch request
+     */
+    unWatchTrades(symbol, params = {}) {
+        return this.unWatchTradesForSymbols([symbol], params);
     }
     handleTrades(client, message) {
         //
@@ -814,12 +1192,15 @@ class bybit extends bybit$1 {
         //         ]
         //     }
         //
-        const data = this.safeValue(message, 'data', {});
-        const topic = this.safeString(message, 'topic');
+        const data = this.safeList(message, 'data', []);
+        const topic = this.safeString(message, 'topic', '');
         const trades = data;
         const parts = topic.split('.');
         const isSpot = client.url.indexOf('spot') >= 0;
-        const marketType = (isSpot) ? 'spot' : 'contract';
+        let marketType = 'contract';
+        if (isSpot) {
+            marketType = 'spot';
+        }
         const marketId = this.safeString(parts, 1);
         const market = this.safeMarket(marketId, undefined, undefined, marketType);
         const symbol = market['symbol'];
@@ -870,19 +1251,22 @@ class bybit extends bybit$1 {
         //
         const id = this.safeStringN(trade, ['i', 'T', 'v']);
         const isContract = ('BT' in trade);
-        let marketType = isContract ? 'contract' : 'spot';
+        let marketType = 'spot';
+        if (isContract) {
+            marketType = 'contract';
+        }
         if (market !== undefined) {
-            marketType = market['type'];
+            marketType = this.safeString(market, 'type');
         }
         const marketId = this.safeString(trade, 's');
-        market = this.safeMarket(marketId, market, undefined, marketType);
-        const symbol = market['symbol'];
+        const marketResolved = this.safeMarket(marketId, market, undefined, marketType);
+        const symbol = marketResolved['symbol'];
         const timestamp = this.safeInteger2(trade, 't', 'T');
         let side = this.safeStringLower(trade, 'S');
         let takerOrMaker = undefined;
         const m = this.safeValue(trade, 'm');
         if (side === undefined) {
-            side = m ? 'buy' : 'sell';
+            side = (m === true) ? 'buy' : 'sell';
         }
         else {
             // spot private
@@ -905,7 +1289,7 @@ class bybit extends bybit$1 {
             'amount': amount,
             'cost': undefined,
             'fee': undefined,
-        }, market);
+        }, marketResolved);
     }
     getPrivateType(url) {
         if (url.indexOf('spot') >= 0) {
@@ -918,39 +1302,84 @@ class bybit extends bybit$1 {
             return 'usdc';
         }
     }
+    /**
+     * @method
+     * @name bybit#watchMyTrades
+     * @description watches information on multiple trades made by the user
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/execution
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/fast-execution
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {boolean} [params.unifiedMargin] use unified margin account
+     * @param {boolean} [params.executionFast] use fast execution
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async watchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchMyTrades
-         * @description watches information on multiple trades made by the user
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/private/execution
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {boolean} [params.unifiedMargin] use unified margin account
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure
-         */
         const method = 'watchMyTrades';
         let messageHash = 'myTrades';
-        await this.loadMarkets();
-        if (symbol !== undefined) {
-            symbol = this.symbol(symbol);
-            messageHash += ':' + symbol;
+        if (this.markets === undefined) {
+            await this.loadMarkets();
         }
-        const url = this.getUrlByMarketType(symbol, true, method, params);
+        const symbolResolved = (symbol !== undefined) ? this.symbol(symbol) : symbol;
+        if (symbol !== undefined) {
+            messageHash += ':' + symbolResolved;
+        }
+        const url = await this.getUrlByMarketType(symbolResolved, true, method, params);
         await this.authenticate(url);
         const topicByMarket = {
             'spot': 'ticketInfo',
             'unified': 'execution',
             'usdc': 'user.openapi.perp.trade',
         };
-        const topic = this.safeValue(topicByMarket, this.getPrivateType(url));
-        const trades = await this.watchTopics(url, [messageHash], [topic], params);
-        if (this.newUpdates) {
-            limit = trades.getLimit(symbol, limit);
+        let topic = this.safeString(topicByMarket, this.getPrivateType(url));
+        const [executionFast, paramsExecutionFast] = this.handleOptionBoolAndParams(params, 'watchMyTrades', 'executionFast', false);
+        if (executionFast) {
+            topic = 'execution.fast';
         }
-        return this.filterBySymbolSinceLimit(trades, symbol, since, limit, true);
+        const trades = await this.watchTopics(url, [messageHash], [topic], paramsExecutionFast);
+        let limitResolved = limit;
+        if (this.newUpdates) {
+            limitResolved = trades.getLimit(symbolResolved, limit);
+        }
+        return this.filterBySymbolSinceLimit(trades, symbolResolved, since, limitResolved, true);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchMyTrades
+     * @description unWatches information on multiple trades made by the user
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/execution
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/fast-execution
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {boolean} [params.unifiedMargin] use unified margin account
+     * @param {boolean} [params.executionFast] use fast execution
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async unWatchMyTrades(symbol = undefined, params = {}) {
+        const method = 'watchMyTrades';
+        const messageHash = 'unsubscribe:myTrades';
+        const subHash = 'myTrades';
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        if (symbol !== undefined) {
+            throw new errors.NotSupported(this.id + ' unWatchMyTrades() does not support a symbol parameter, you must unwatch all my trades');
+        }
+        const url = await this.getUrlByMarketType(symbol, true, method, params);
+        await this.authenticate(url);
+        const topicByMarket = {
+            'spot': 'ticketInfo',
+            'unified': 'execution',
+            'usdc': 'user.openapi.perp.trade',
+        };
+        let topic = this.safeString(topicByMarket, this.getPrivateType(url));
+        const [executionFast, paramsExecutionFast] = this.handleOptionBoolAndParams(params, 'watchMyTrades', 'executionFast', false);
+        if (executionFast) {
+            topic = 'execution.fast';
+        }
+        return await this.unWatchTopics(url, 'myTrades', [], [messageHash], [subHash], [topic], paramsExecutionFast);
     }
     handleMyTrades(client, message) {
         //
@@ -1015,11 +1444,34 @@ class bybit extends bybit$1 {
         //         ]
         //     }
         //
-        const topic = this.safeString(message, 'topic');
+        // execution.fast
+        //
+        //     {
+        //         "topic": "execution.fast",
+        //         "creationTime": 1757405601981,
+        //         "data": [
+        //             {
+        //                 "category": "linear",
+        //                 "symbol": "BTCUSDT",
+        //                 "execId": "ffcac6ac-7571-536d-a28a-847dd7d08a0f",
+        //                 "execPrice": "112529.6",
+        //                 "execQty": "0.001",
+        //                 "orderId": "6e25ab73-7a55-4ae7-adc2-8ea95f167c85",
+        //                 "isMaker": false,
+        //                 "orderLinkId": "test-00001",
+        //                 "side": "Buy",
+        //                 "execTime": "1757405601977",
+        //                 "seq": 9515624038
+        //             }
+        //         ]
+        //     }
+        //
+        const topic = this.safeString(message, 'topic', '');
         const spot = topic === 'ticketInfo';
-        let data = this.safeValue(message, 'data', []);
+        const executionFast = topic === 'execution.fast';
+        let data = this.safeList(message, 'data', []);
         if (!Array.isArray(data)) {
-            data = this.safeValue(data, 'result', []);
+            data = this.safeList(data, 'result', []);
         }
         if (this.myTrades === undefined) {
             const limit = this.safeInteger(this.options, 'tradesLimit', 1000);
@@ -1027,16 +1479,44 @@ class bybit extends bybit$1 {
         }
         const trades = this.myTrades;
         const symbols = {};
+        // the option was renamed from filterExecTypes to execType to mirror
+        // the exchange's own field name, the old key is still read as a
+        // fallback for backward compatibility
+        // see https://github.com/ccxt/ccxt/issues/17244
+        // and https://github.com/ccxt/ccxt/issues/28181
+        let execTypeOption = this.handleOption('watchMyTrades', 'execType');
+        if (execTypeOption === undefined) {
+            execTypeOption = this.handleOption('watchMyTrades', 'filterExecTypes');
+        }
+        let execTypes = undefined;
+        if (typeof execTypeOption === 'string') {
+            // a single execution type is accepted as a plain string as well
+            execTypes = [execTypeOption];
+        }
+        else {
+            execTypes = execTypeOption;
+        }
         for (let i = 0; i < data.length; i++) {
-            const rawTrade = data[i];
+            const rawTrade = this.safeDict(data, i, {});
             let parsed = undefined;
-            if (spot) {
+            if (spot && !executionFast) {
                 parsed = this.parseWsTrade(rawTrade);
             }
             else {
+                // filter unified trades
+                let execType = this.safeString(rawTrade, 'execType', '');
+                if (executionFast) {
+                    execType = 'Trade';
+                }
+                if ((execTypes !== undefined) && !this.inArray(execType, execTypes)) {
+                    continue;
+                }
                 parsed = this.parseTrade(rawTrade);
             }
             const symbol = parsed['symbol'];
+            if (symbol === undefined) {
+                continue;
+            }
             symbols[symbol] = true;
             trades.append(parsed);
         }
@@ -1049,49 +1529,56 @@ class bybit extends bybit$1 {
         const messageHash = 'myTrades';
         client.resolve(trades, messageHash);
     }
+    /**
+     * @method
+     * @name bybit#watchPositions
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/position
+     * @description watch all open positions
+     * @param {string[]} [symbols] list of unified market symbols
+     * @param {int} [since] the earliest time in ms to fetch positions for
+     * @param {int} [limit] the maximum number of positions to retrieve
+     * @param {object} params extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/en/latest/manual.html#position-structure}
+     */
     async watchPositions(symbols = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchPositions
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/private/position
-         * @description watch all open positions
-         * @param {string[]} [symbols] list of unified market symbols
-         * @param {object} params extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/en/latest/manual.html#position-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const method = 'watchPositions';
         let messageHash = '';
-        if (!this.isEmpty(symbols)) {
-            symbols = this.marketSymbols(symbols);
-            messageHash = '::' + symbols.join(',');
+        let symbolsNormalized = symbols;
+        if ((symbols !== undefined) && !this.isEmpty(symbols)) {
+            symbolsNormalized = this.marketSymbols(symbols);
         }
-        const firstSymbol = this.safeString(symbols, 0);
-        const url = this.getUrlByMarketType(firstSymbol, true, method, params);
+        if ((symbolsNormalized !== undefined) && !this.isEmpty(symbolsNormalized)) {
+            messageHash = '::' + symbolsNormalized.join(',');
+        }
+        const firstSymbol = this.safeString(symbolsNormalized, 0);
+        const url = await this.getUrlByMarketType(firstSymbol, true, method, params);
         messageHash = 'positions' + messageHash;
         const client = this.client(url);
         await this.authenticate(url);
-        this.setPositionsCache(client, symbols);
+        this.setPositionsCache(client, symbolsNormalized);
         const cache = this.positions;
         const fetchPositionsSnapshot = this.handleOption('watchPositions', 'fetchPositionsSnapshot', true);
-        const awaitPositionsSnapshot = this.safeBool('watchPositions', 'awaitPositionsSnapshot', true);
-        if (fetchPositionsSnapshot && awaitPositionsSnapshot && cache === undefined) {
+        const awaitPositionsSnapshot = this.handleOption('watchPositions', 'awaitPositionsSnapshot', true);
+        if ((fetchPositionsSnapshot === true) && (awaitPositionsSnapshot === true) && (cache === undefined)) {
             const snapshot = await client.future('fetchPositionsSnapshot');
-            return this.filterBySymbolsSinceLimit(snapshot, symbols, since, limit, true);
+            return this.filterBySymbolsSinceLimit(snapshot, symbolsNormalized, since, limit, true);
         }
         const topics = ['position'];
         const newPositions = await this.watchTopics(url, [messageHash], topics, params);
         if (this.newUpdates) {
             return newPositions;
         }
-        return this.filterBySymbolsSinceLimit(cache, symbols, since, limit, true);
+        return this.filterBySymbolsSinceLimit(cache, symbolsNormalized, since, limit, true);
     }
     setPositionsCache(client, symbols = undefined) {
         if (this.positions !== undefined) {
             return;
         }
         const fetchPositionsSnapshot = this.handleOption('watchPositions', 'fetchPositionsSnapshot', true);
-        if (fetchPositionsSnapshot) {
+        if (fetchPositionsSnapshot === true) {
             const messageHash = 'fetchPositionsSnapshot';
             if (!(messageHash in client.futures)) {
                 client.future(messageHash);
@@ -1119,9 +1606,11 @@ class bybit extends bybit$1 {
             }
         }
         // don't remove the future from the .futures cache
-        const future = client.futures[messageHash];
-        future.resolve(cache);
-        client.resolve(cache, 'position');
+        if (messageHash in client.futures) {
+            const future = client.futures[messageHash];
+            future.resolve(cache);
+            client.resolve(cache, 'position');
+        }
     }
     handlePositions(client, message) {
         //
@@ -1168,7 +1657,7 @@ class bybit extends bybit$1 {
         }
         const cache = this.positions;
         const newPositions = [];
-        const rawPositions = this.safeValue(message, 'data', []);
+        const rawPositions = this.safeList(message, 'data', []);
         for (let i = 0; i < rawPositions.length; i++) {
             const rawPosition = rawPositions[i];
             const position = this.parsePosition(rawPosition);
@@ -1203,118 +1692,232 @@ class bybit extends bybit$1 {
         }
         client.resolve(newPositions, 'positions');
     }
-    async watchLiquidations(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchLiquidations
-         * @description watch the public liquidations of a trading pair
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/public/liquidation
-         * @param {string} symbol unified CCXT market symbol
-         * @param {int} [since] the earliest time in ms to fetch liquidations for
-         * @param {int} [limit] the maximum number of liquidation structures to retrieve
-         * @param {object} [params] exchange specific parameters for the bitmex api endpoint
-         * @returns {object} an array of [liquidation structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#liquidation-structure}
-         */
-        await this.loadMarkets();
-        const market = this.market(symbol);
-        symbol = market['symbol'];
-        const url = this.getUrlByMarketType(symbol, false, 'watchLiquidations', params);
-        params = this.cleanParams(params);
-        const messageHash = 'liquidations::' + symbol;
-        const topic = 'liquidation.' + market['id'];
-        const newLiquidation = await this.watchTopics(url, [messageHash], [topic], params);
-        if (this.newUpdates) {
-            return [newLiquidation];
+    /**
+     * @method
+     * @name bybit#unWatchPositions
+     * @description unWatches all open positions
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/position
+     * @param {string[]} [symbols] list of unified market symbols
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} status of the unwatch request
+     */
+    async unWatchPositions(symbols = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
         }
-        return this.filterBySymbolsSinceLimit(this.liquidations, [symbol], since, limit, true);
+        const method = 'watchPositions';
+        const messageHash = 'unsubscribe:positions';
+        const subHash = 'positions';
+        if ((symbols !== undefined) && !this.isEmpty(symbols)) {
+            throw new errors.NotSupported(this.id + ' unWatchPositions() does not support a symbol parameter, you must unwatch all orders');
+        }
+        const url = await this.getUrlByMarketType(undefined, true, method, params);
+        await this.authenticate(url);
+        const topics = ['position'];
+        return await this.unWatchTopics(url, 'positions', symbols, [messageHash], [subHash], topics, params);
+    }
+    /**
+     * @method
+     * @name bybit#watchLiquidations
+     * @description watch the public liquidations of a trading pair
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/public/all-liquidation
+     * @param {string} symbol unified CCXT market symbol
+     * @param {int} [since] the earliest time in ms to fetch liquidations for
+     * @param {int} [limit] the maximum number of liquidation structures to retrieve
+     * @param {object} [params] exchange specific parameters for the bitmex api endpoint
+     * @param {string} [params.method] exchange specific method, supported: liquidation, allLiquidation
+     * @returns {object} an array of [liquidation structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#liquidation-structure}
+     */
+    async watchLiquidations(symbol, since = undefined, limit = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const market = this.market(symbol);
+        const symbolValue = market['symbol'];
+        const url = await this.getUrlByMarketType(symbolValue, false, 'watchLiquidations', params);
+        const [method, paramsMethod] = this.handleOptionStringAndParams(this.cleanParams(params), 'watchLiquidations', 'method', 'allLiquidation');
+        const messageHash = 'liquidations::' + symbolValue;
+        const marketId = this.safeString(market, 'id', '');
+        const topic = method + '.' + marketId;
+        const newLiquidation = await this.watchTopics(url, [messageHash], [topic], paramsMethod);
+        if (this.newUpdates) {
+            return newLiquidation;
+        }
+        return this.filterBySymbolsSinceLimit(this.liquidations, [symbolValue], since, limit, true);
     }
     handleLiquidation(client, message) {
         //
-        //   {
-        //       "data": {
-        //           "price": "0.03803",
-        //           "side": "Buy",
-        //           "size": "1637",
-        //           "symbol": "GALAUSDT",
-        //           "updatedTime": 1673251091822
-        //       },
-        //       "topic": "liquidation.GALAUSDT",
-        //       "ts": 1673251091822,
-        //       "type": "snapshot"
-        //   }
+        //     {
+        //         "data": {
+        //             "price": "0.03803",
+        //             "side": "Buy",
+        //             "size": "1637",
+        //             "symbol": "GALAUSDT",
+        //             "updatedTime": 1673251091822
+        //         },
+        //         "topic": "liquidation.GALAUSDT",
+        //         "ts": 1673251091822,
+        //         "type": "snapshot"
+        //     }
         //
-        const rawLiquidation = this.safeDict(message, 'data', {});
-        const marketId = this.safeString(rawLiquidation, 'symbol');
-        const market = this.safeMarket(marketId, undefined, '', 'contract');
-        const symbol = this.safeSymbol(marketId);
-        const liquidation = this.parseWsLiquidation(rawLiquidation, market);
-        let liquidations = this.safeValue(this.liquidations, symbol);
-        if (liquidations === undefined) {
-            const limit = this.safeInteger(this.options, 'liquidationsLimit', 1000);
-            liquidations = new Cache.ArrayCache(limit);
+        //     {
+        //         "topic": "allLiquidation.ROSEUSDT",
+        //         "type": "snapshot",
+        //         "ts": 1739502303204,
+        //         "data": [
+        //             {
+        //                 "T": 1739502302929,
+        //                 "s": "ROSEUSDT",
+        //                 "S": "Sell",
+        //                 "v": "20000",
+        //                 "p": "0.04499"
+        //             }
+        //         ]
+        //     }
+        //
+        if (Array.isArray(message['data'])) {
+            const rawLiquidations = this.safeList(message, 'data', []);
+            for (let i = 0; i < rawLiquidations.length; i++) {
+                const rawLiquidation = this.safeDict(rawLiquidations, i);
+                const marketId = this.safeString(rawLiquidation, 's');
+                const market = this.safeMarket(marketId, undefined, '', 'contract');
+                const symbol = market['symbol'];
+                const liquidation = this.parseWsLiquidation(rawLiquidation, market);
+                if (this.liquidations === undefined) {
+                    const limit = this.safeInteger(this.options, 'liquidationsLimit', 1000);
+                    this.liquidations = new Cache.ArrayCache(limit);
+                }
+                const cache = this.liquidations;
+                cache.append(liquidation);
+                client.resolve([liquidation], 'liquidations');
+                client.resolve([liquidation], 'liquidations::' + symbol);
+            }
         }
-        liquidations.append(liquidation);
-        this.liquidations[symbol] = liquidations;
-        client.resolve([liquidation], 'liquidations');
-        client.resolve([liquidation], 'liquidations::' + symbol);
+        else {
+            const rawLiquidation = this.safeDict(message, 'data', {});
+            const marketId = this.safeString(rawLiquidation, 'symbol');
+            const market = this.safeMarket(marketId, undefined, '', 'contract');
+            const symbol = market['symbol'];
+            const liquidation = this.parseWsLiquidation(rawLiquidation, market);
+            if (this.liquidations === undefined) {
+                const limit = this.safeInteger(this.options, 'liquidationsLimit', 1000);
+                this.liquidations = new Cache.ArrayCache(limit);
+            }
+            const cache = this.liquidations;
+            cache.append(liquidation);
+            client.resolve([liquidation], 'liquidations');
+            client.resolve([liquidation], 'liquidations::' + symbol);
+        }
     }
     parseWsLiquidation(liquidation, market = undefined) {
         //
-        //    {
-        //        "price": "0.03803",
-        //        "side": "Buy",
-        //        "size": "1637",
-        //        "symbol": "GALAUSDT",
-        //        "updatedTime": 1673251091822
-        //    }
+        //     {
+        //         "price": "0.03803",
+        //         "side": "Buy",
+        //         "size": "1637",
+        //         "symbol": "GALAUSDT",
+        //         "updatedTime": 1673251091822
+        //     }
         //
-        const marketId = this.safeString(liquidation, 'symbol');
-        market = this.safeMarket(marketId, market, '', 'contract');
-        const timestamp = this.safeInteger(liquidation, 'updatedTime');
+        //     {
+        //         "T": 1739502302929,
+        //         "s": "ROSEUSDT",
+        //         "S": "Sell",
+        //         "v": "20000",
+        //         "p": "0.04499"
+        //     }
+        //
+        const marketId = this.safeString2(liquidation, 'symbol', 's');
+        const marketResolved = this.safeMarket(marketId, market, '', 'contract');
+        const timestamp = this.safeInteger2(liquidation, 'updatedTime', 'T');
+        // bybit sends the side of the liquidated position (Buy - a long was liquidated),
+        // the unified side is the side of the liquidation order, as on binance and okx
+        const positionSide = this.safeStringLower2(liquidation, 'side', 'S');
+        let side = undefined;
+        if (positionSide === 'buy') {
+            side = 'sell';
+        }
+        else if (positionSide === 'sell') {
+            side = 'buy';
+        }
         return this.safeLiquidation({
             'info': liquidation,
-            'symbol': this.safeSymbol(marketId, market),
-            'contracts': this.safeNumber(liquidation, 'size'),
-            'contractSize': this.safeNumber(market, 'contractSize'),
-            'price': this.safeNumber(liquidation, 'price'),
+            'symbol': marketResolved['symbol'],
+            'contracts': this.safeNumber2(liquidation, 'size', 'v'),
+            'contractSize': this.safeNumber(marketResolved, 'contractSize'),
+            'price': this.safeNumber2(liquidation, 'price', 'p'),
+            'side': side,
             'baseValue': undefined,
             'quoteValue': undefined,
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
         });
     }
+    /**
+     * @method
+     * @name bybit#watchOrders
+     * @description watches information on multiple orders made by the user
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/order
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async watchOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bybit#watchOrders
-         * @description watches information on multiple orders made by the user
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/private/order
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const method = 'watchOrders';
         let messageHash = 'orders';
+        const symbolResolved = (symbol !== undefined) ? this.symbol(symbol) : symbol;
         if (symbol !== undefined) {
-            symbol = this.symbol(symbol);
-            messageHash += ':' + symbol;
+            messageHash += ':' + symbolResolved;
         }
-        const url = this.getUrlByMarketType(symbol, true, method, params);
+        const url = await this.getUrlByMarketType(symbolResolved, true, method, params);
         await this.authenticate(url);
         const topicsByMarket = {
             'spot': ['order', 'stopOrder'],
             'unified': ['order'],
             'usdc': ['user.openapi.perp.order'],
         };
-        const topics = this.safeValue(topicsByMarket, this.getPrivateType(url));
+        const topics = this.safeList(topicsByMarket, this.getPrivateType(url));
         const orders = await this.watchTopics(url, [messageHash], topics, params);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = orders.getLimit(symbol, limit);
+            limitResolved = orders.getLimit(symbolResolved, limit);
         }
-        return this.filterBySymbolSinceLimit(orders, symbol, since, limit, true);
+        return this.filterBySymbolSinceLimit(orders, symbolResolved, since, limitResolved, true);
+    }
+    /**
+     * @method
+     * @name bybit#unWatchOrders
+     * @description unWatches information on multiple orders made by the user
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/order
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {boolean} [params.unifiedMargin] use unified margin account
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async unWatchOrders(symbol = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const method = 'watchOrders';
+        const messageHash = 'unsubscribe:orders';
+        const subHash = 'orders';
+        if (symbol !== undefined) {
+            throw new errors.NotSupported(this.id + ' unWatchOrders() does not support a symbol parameter, you must unwatch all orders');
+        }
+        const url = await this.getUrlByMarketType(symbol, true, method, params);
+        await this.authenticate(url);
+        const topicsByMarket = {
+            'spot': ['order', 'stopOrder'],
+            'unified': ['order'],
+            'usdc': ['user.openapi.perp.order'],
+        };
+        const topics = this.safeList(topicsByMarket, this.getPrivateType(url));
+        return await this.unWatchTopics(url, 'orders', [], [messageHash], [subHash], topics, params);
     }
     handleOrderWs(client, message) {
         //
@@ -1338,7 +1941,7 @@ class bybit extends bybit$1 {
         //    }
         //
         const messageHash = this.safeString(message, 'reqId');
-        const data = this.safeDict(message, 'data');
+        const data = this.safeDict(message, 'data', {});
         const order = this.parseOrder(data);
         client.resolve(order, messageHash);
     }
@@ -1431,8 +2034,8 @@ class bybit extends bybit$1 {
             this.orders = new Cache.ArrayCacheBySymbolById(limit);
         }
         const orders = this.orders;
-        let rawOrders = this.safeValue(message, 'data', []);
-        const first = this.safeValue(rawOrders, 0, {});
+        let rawOrders = this.safeList(message, 'data', []);
+        const first = this.safeDict(rawOrders, 0, {});
         const category = this.safeString(first, 'category');
         const isSpot = category === 'spot';
         if (!isSpot) {
@@ -1440,14 +2043,16 @@ class bybit extends bybit$1 {
         }
         const symbols = {};
         for (let i = 0; i < rawOrders.length; i++) {
-            let parsed = undefined;
-            if (isSpot) {
-                parsed = this.parseWsSpotOrder(rawOrders[i]);
-            }
-            else {
-                parsed = this.parseOrder(rawOrders[i]);
-            }
+            const parsed = this.parseOrder(rawOrders[i]);
+            // if (isSpot) {
+            //     parsed = this.parseWsSpotOrder (rawOrders[i]);
+            // } else {
+            //     parsed = this.parseOrder (rawOrders[i]);
+            // }
             const symbol = parsed['symbol'];
+            if (symbol === undefined) {
+                continue;
+            }
             symbols[symbol] = true;
             orders.append(parsed);
         }
@@ -1459,162 +2064,26 @@ class bybit extends bybit$1 {
         const messageHash = 'orders';
         client.resolve(orders, messageHash);
     }
-    parseWsSpotOrder(order, market = undefined) {
-        //
-        //    {
-        //        "e": "executionReport",
-        //        "E": "1653297251061", // timestamp
-        //        "s": "LTCUSDT", // symbol
-        //        "c": "1653297250740", // user id
-        //        "S": "SELL", // side
-        //        "o": "MARKET_OF_BASE", // order type
-        //        "f": "GTC", // time in force
-        //        "q": "0.16233", // quantity
-        //        "p": "0", // price
-        //        "X": "NEW", // status
-        //        "i": "1162336018974750208", // order id
-        //        "M": "0",
-        //        "l": "0", // last filled
-        //        "z": "0", // total filled
-        //        "L": "0", // last traded price
-        //        "n": "0", // trading fee
-        //        "N": '', // fee asset
-        //        "u": true,
-        //        "w": true,
-        //        "m": false, // is limit_maker
-        //        "O": "1653297251042", // order creation
-        //        "Z": "0", // total filled
-        //        "A": "0", // account id
-        //        "C": false, // is close
-        //        "v": "0", // leverage
-        //        "d": "NO_LIQ"
-        //    }
-        // v5
-        //    {
-        //        "category":"spot",
-        //        "symbol":"LTCUSDT",
-        //        "orderId":"1474764674982492160",
-        //        "orderLinkId":"1690541649154749",
-        //        "blockTradeId":"",
-        //        "side":"Buy",
-        //        "positionIdx":0,
-        //        "orderStatus":"Cancelled",
-        //        "cancelType":"UNKNOWN",
-        //        "rejectReason":"EC_NoError",
-        //        "timeInForce":"GTC",
-        //        "isLeverage":"0",
-        //        "price":"0",
-        //        "qty":"5.00000",
-        //        "avgPrice":"0",
-        //        "leavesQty":"0.00000",
-        //        "leavesValue":"5.0000000",
-        //        "cumExecQty":"0.00000",
-        //        "cumExecValue":"0.0000000",
-        //        "cumExecFee":"",
-        //        "orderType":"Market",
-        //        "stopOrderType":"",
-        //        "orderIv":"",
-        //        "triggerPrice":"0.000",
-        //        "takeProfit":"",
-        //        "stopLoss":"",
-        //        "triggerBy":"",
-        //        "tpTriggerBy":"",
-        //        "slTriggerBy":"",
-        //        "triggerDirection":0,
-        //        "placeType":"",
-        //        "lastPriceOnCreated":"0.000",
-        //        "closeOnTrigger":false,
-        //        "reduceOnly":false,
-        //        "smpGroup":0,
-        //        "smpType":"None",
-        //        "smpOrderId":"",
-        //        "createdTime":"1690541649160",
-        //        "updatedTime":"1690541649168"
-        //     }
-        //
-        const id = this.safeString2(order, 'i', 'orderId');
-        const marketId = this.safeString2(order, 's', 'symbol');
-        const symbol = this.safeSymbol(marketId, market, undefined, 'spot');
-        const timestamp = this.safeInteger2(order, 'O', 'createdTime');
-        let price = this.safeString2(order, 'p', 'price');
-        if (price === '0') {
-            price = undefined; // market orders
-        }
-        const filled = this.safeString2(order, 'z', 'cumExecQty');
-        const status = this.parseOrderStatus(this.safeString2(order, 'X', 'orderStatus'));
-        const side = this.safeStringLower2(order, 'S', 'side');
-        const lastTradeTimestamp = this.safeString2(order, 'E', 'updatedTime');
-        const timeInForce = this.safeString2(order, 'f', 'timeInForce');
-        let amount = undefined;
-        const cost = this.safeString2(order, 'Z', 'cumExecValue');
-        let type = this.safeStringLower2(order, 'o', 'orderType');
-        if ((type !== undefined) && (type.indexOf('market') >= 0)) {
-            type = 'market';
-        }
-        if (type === 'market' && side === 'buy') {
-            amount = filled;
-        }
-        else {
-            amount = this.safeString2(order, 'orderQty', 'qty');
-        }
-        let fee = undefined;
-        const feeCost = this.safeString2(order, 'n', 'cumExecFee');
-        if (feeCost !== undefined && feeCost !== '0') {
-            const feeCurrencyId = this.safeString(order, 'N');
-            const feeCurrencyCode = this.safeCurrencyCode(feeCurrencyId);
-            fee = {
-                'cost': feeCost,
-                'currency': feeCurrencyCode,
-            };
-        }
-        const triggerPrice = this.omitZero(this.safeString(order, 'triggerPrice'));
-        return this.safeOrder({
-            'info': order,
-            'id': id,
-            'clientOrderId': this.safeString2(order, 'c', 'orderLinkId'),
-            'timestamp': timestamp,
-            'datetime': this.iso8601(timestamp),
-            'lastTradeTimestamp': lastTradeTimestamp,
-            'symbol': symbol,
-            'type': type,
-            'timeInForce': timeInForce,
-            'postOnly': undefined,
-            'side': side,
-            'price': price,
-            'stopPrice': triggerPrice,
-            'triggerPrice': triggerPrice,
-            'takeProfitPrice': this.safeString(order, 'takeProfit'),
-            'stopLossPrice': this.safeString(order, 'stopLoss'),
-            'reduceOnly': this.safeValue(order, 'reduceOnly'),
-            'amount': amount,
-            'cost': cost,
-            'average': this.safeString(order, 'avgPrice'),
-            'filled': filled,
-            'remaining': undefined,
-            'status': status,
-            'fee': fee,
-        }, market);
-    }
+    /**
+     * @method
+     * @name bybit#watchBalance
+     * @description watch balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://bybit-exchange.github.io/docs/v5/websocket/private/wallet
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
     async watchBalance(params = {}) {
-        /**
-         * @method
-         * @name bybit#watchBalance
-         * @description watch balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://bybit-exchange.github.io/docs/v5/websocket/private/wallet
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const method = 'watchBalance';
         let messageHash = 'balances';
-        let type = undefined;
-        [type, params] = this.handleMarketTypeAndParams('watchBalance', undefined, params);
-        let subType = undefined;
-        [subType, params] = this.handleSubTypeAndParams('watchBalance', undefined, params);
+        const [type, paramsMarketType] = this.handleMarketTypeAndParams('watchBalance', undefined, params);
+        const [subType, paramsSubType] = this.handleSubTypeAndParams('watchBalance', undefined, paramsMarketType);
         const unified = await this.isUnifiedEnabled();
         const isUnifiedMargin = this.safeBool(unified, 0, false);
         const isUnifiedAccount = this.safeBool(unified, 1, false);
-        const url = this.getUrlByMarketType(undefined, true, method, params);
+        const url = await this.getUrlByMarketType(undefined, true, method, paramsSubType);
         await this.authenticate(url);
         const topicByMarket = {
             'spot': 'outboundAccountInfo',
@@ -1629,7 +2098,7 @@ class bybit extends bybit$1 {
                 messageHash += ':unified';
             }
         }
-        if (!isUnifiedMargin && !isUnifiedAccount) {
+        if ((!isUnifiedMargin) && (!isUnifiedAccount)) {
             // normal account using v5
             if (type === 'spot') {
                 messageHash += ':spot';
@@ -1652,8 +2121,8 @@ class bybit extends bybit$1 {
                 }
             }
         }
-        const topics = [this.safeValue(topicByMarket, this.getPrivateType(url))];
-        return await this.watchTopics(url, [messageHash], topics, params);
+        const topics = [this.safeString(topicByMarket, this.getPrivateType(url))];
+        return await this.watchTopics(url, [messageHash], topics, paramsSubType);
     }
     handleBalance(client, message) {
         //
@@ -1802,33 +2271,33 @@ class bybit extends bybit$1 {
             this.balance = {};
         }
         let messageHash = 'balance';
-        const topic = this.safeValue(message, 'topic');
+        const topic = this.safeString(message, 'topic');
         let info = undefined;
         let rawBalances = [];
         let account = undefined;
         if (topic === 'outboundAccountInfo') {
             account = 'spot';
-            const data = this.safeValue(message, 'data', []);
+            const data = this.safeList(message, 'data', []);
             for (let i = 0; i < data.length; i++) {
-                const B = this.safeValue(data[i], 'B', []);
+                const B = this.safeList(data[i], 'B', []);
                 rawBalances = this.arrayConcat(rawBalances, B);
             }
             info = rawBalances;
         }
         if (topic === 'wallet') {
-            const data = this.safeValue(message, 'data', {});
+            const data = this.safeList(message, 'data', []);
             for (let i = 0; i < data.length; i++) {
-                const result = this.safeValue(data, 0, {});
+                const result = this.safeDict(data, 0, {});
                 account = this.safeStringLower(result, 'accountType');
-                rawBalances = this.arrayConcat(rawBalances, this.safeValue(result, 'coin', []));
+                rawBalances = this.arrayConcat(rawBalances, this.safeList(result, 'coin', []));
             }
-            info = data;
+            info = this.safeList(message, 'data', []);
         }
         for (let i = 0; i < rawBalances.length; i++) {
             this.parseWsBalance(rawBalances[i], account);
         }
         if (account !== undefined) {
-            if (this.safeValue(this.balance, account) === undefined) {
+            if (this.safeDict(this.balance, account) === undefined) {
                 this.balance[account] = {};
             }
             this.balance[account]['info'] = info;
@@ -1878,40 +2347,118 @@ class bybit extends bybit$1 {
         const account = this.account();
         const currencyId = this.safeString2(balance, 'a', 'coin');
         const code = this.safeCurrencyCode(currencyId);
-        account['free'] = this.safeStringN(balance, ['availableToWithdraw', 'f', 'free', 'availableToWithdraw']);
-        account['used'] = this.safeString2(balance, 'l', 'locked');
-        account['total'] = this.safeString(balance, 'walletBalance');
-        if (accountType !== undefined) {
-            if (this.safeValue(this.balance, accountType) === undefined) {
-                this.balance[accountType] = {};
-            }
-            this.balance[accountType][code] = account;
+        account['free'] = this.safeStringN(balance, ['availableToWithdraw', 'f', 'free']);
+        const used = this.safeString2(balance, 'l', 'locked');
+        if (used !== undefined) {
+            account['used'] = used;
         }
         else {
-            this.balance[code] = account;
+            // the unified account wallet stream has no locked field, the margin
+            // lives in the per coin initial margin fields, so the used amount
+            // is derived from those, see https://github.com/ccxt/ccxt/issues/24365
+            const totalPositionIm = this.safeString(balance, 'totalPositionIM', '0');
+            const totalOrderIm = this.safeString(balance, 'totalOrderIM', '0');
+            account['used'] = Precise["default"].stringAdd(totalPositionIm, totalOrderIm);
+        }
+        // on the unified rows the free amount and the margin are both measured
+        // against the equity, which includes the unrealized pnl, so the equity
+        // is the consistent total, the spot rows fall back to the wallet balance
+        account['total'] = this.safeString2(balance, 'equity', 'walletBalance');
+        if (accountType !== undefined) {
+            if (this.safeDict(this.balance, accountType) === undefined) {
+                this.balance[accountType] = {};
+            }
+            if ((accountType !== undefined) && (code !== undefined)) {
+                this.balance[accountType][code] = account;
+            }
+        }
+        else {
+            if (code !== undefined) {
+                this.balance[code] = account;
+            }
         }
     }
     async watchTopics(url, messageHashes, topics, params = {}) {
+        const client = this.client(url);
+        const newTopics = [];
+        const topicsLength = topics.length;
+        const messageHashesLength = messageHashes.length;
+        if (topicsLength === messageHashesLength) {
+            for (let i = 0; i < topicsLength; i++) {
+                const messageHash = messageHashes[i];
+                if (!(messageHash in client.subscriptions)) {
+                    newTopics.push(topics[i]);
+                }
+            }
+        }
+        else {
+            // watchOrders spot: two topics, one hash. Collect topics already
+            // recorded on any subscription so a later call with a new hash
+            // does not resend already-subscribed topics.
+            const subscribedTopics = {};
+            const subscriptionHashes = Object.keys(client.subscriptions);
+            for (let i = 0; i < subscriptionHashes.length; i++) {
+                const existing = this.safeDict(client.subscriptions, subscriptionHashes[i], {});
+                const recordedTopics = this.safeList(existing, 'topics', []);
+                const recordedLength = recordedTopics.length;
+                for (let j = 0; j < recordedLength; j++) {
+                    subscribedTopics[recordedTopics[j]] = true;
+                }
+            }
+            for (let i = 0; i < topicsLength; i++) {
+                const topic = topics[i];
+                if (!(topic in subscribedTopics)) {
+                    newTopics.push(topic);
+                }
+            }
+        }
+        let message = undefined;
+        let subscription = undefined;
+        const newTopicsLength = newTopics.length;
+        if (newTopicsLength > 0) {
+            const reqId = this.requestId();
+            const request = {
+                'op': 'subscribe',
+                'req_id': reqId,
+                'args': newTopics,
+            };
+            message = this.extend(request, params);
+            subscription = {
+                'id': reqId,
+                'topics': newTopics,
+            };
+        }
+        return await this.watchMultiple(url, messageHashes, message, messageHashes, subscription);
+    }
+    async unWatchTopics(url, topic, symbols, messageHashes, subMessageHashes, topics, params = {}, subExtension = {}) {
+        const reqId = this.requestId();
         const request = {
-            'op': 'subscribe',
-            'req_id': this.requestId(),
+            'op': 'unsubscribe',
+            'req_id': reqId,
             'args': topics,
         };
+        const subscription = {
+            'id': reqId,
+            'topic': topic,
+            'messageHashes': messageHashes,
+            'subMessageHashes': subMessageHashes,
+            'symbols': symbols,
+        };
         const message = this.extend(request, params);
-        return await this.watchMultiple(url, messageHashes, message, topics);
+        return await this.watchMultiple(url, messageHashes, message, messageHashes, this.extend(subscription, subExtension));
     }
     async authenticate(url, params = {}) {
         this.checkRequiredCredentials();
         const messageHash = 'authenticated';
         const client = this.client(url);
-        const future = client.future(messageHash);
+        const future = client.reusableFuture(messageHash);
         const authenticated = this.safeValue(client.subscriptions, messageHash);
         if (authenticated === undefined) {
             const expiresInt = this.milliseconds() + 10000;
             const expires = this.numberToString(expiresInt);
             const path = 'GET/realtime';
             const auth = path + expires;
-            const signature = this.hmac(this.encode(auth), this.encode(this.secret), sha256.sha256, 'hex');
+            const signature = this.hmac(this.encode(auth), this.encode(this.secret), sha2_js.sha256, 'hex');
             const request = {
                 'op': 'auth',
                 'args': [
@@ -1976,10 +2523,10 @@ class bybit extends bybit$1 {
                 this.throwBroadlyMatchedException(this.exceptions['broad'], msg, feedback);
                 throw new errors.ExchangeError(feedback);
             }
-            const success = this.safeValue(message, 'success');
-            if (success !== undefined && !success) {
-                const ret_msg = this.safeString(message, 'ret_msg');
-                const request = this.safeValue(message, 'request', {});
+            const success = this.safeBool(message, 'success');
+            if ((success !== undefined) && (!success)) {
+                const ret_msg = this.safeString(message, 'ret_msg', '');
+                const request = this.safeDict(message, 'request', {});
                 const op = this.safeString(request, 'op');
                 if (op === 'auth') {
                     throw new errors.AuthenticationError('Authentication failed: ' + ret_msg);
@@ -1991,27 +2538,61 @@ class bybit extends bybit$1 {
             return false;
         }
         catch (error) {
-            if (error instanceof errors.AuthenticationError) {
-                const messageHash = 'authenticated';
-                client.reject(error, messageHash);
-                if (messageHash in client.subscriptions) {
-                    delete client.subscriptions[messageHash];
+            const reqId = this.safeString2(message, 'req_id', 'reqId');
+            let foundSubscription = false;
+            if (reqId !== undefined) {
+                const keys = Object.keys(client.subscriptions);
+                for (let i = 0; i < keys.length; i++) {
+                    const messageHash = keys[i];
+                    if (!(messageHash in client.subscriptions)) {
+                        continue;
+                    }
+                    const subscription = this.safeDict(client.subscriptions, messageHash);
+                    const subId = this.safeString(subscription, 'id');
+                    if (reqId === subId) {
+                        foundSubscription = true;
+                        delete client.subscriptions[messageHash];
+                        client.reject(error, messageHash);
+                    }
                 }
             }
-            else {
-                const messageHash = this.safeString(message, 'reqId');
-                client.reject(error, messageHash);
+            if (!foundSubscription) {
+                if (reqId !== undefined) {
+                    client.reject(error, reqId);
+                }
+                else if (error instanceof errors.AuthenticationError) {
+                    const authenticatedHash = 'authenticated';
+                    client.reject(error, authenticatedHash);
+                    if (authenticatedHash in client.subscriptions) {
+                        delete client.subscriptions[authenticatedHash];
+                    }
+                    const op = this.safeString(message, 'op');
+                    if ((op !== undefined) && (op !== 'auth')) {
+                        // an operation response that carries no reqId, e.g. bybit
+                        // omits it on some permission rejections of trade ops,
+                        // would leave the awaiting future pending forever, and
+                        // since nothing on this client can proceed without
+                        // authentication, reject everything pending, mirroring the
+                        // behavior of unattributable non auth errors, see
+                        // https://github.com/ccxt/ccxt/issues/29361
+                        client.reject(error);
+                    }
+                }
+                else {
+                    client.reject(error, reqId);
+                }
             }
             return true;
         }
     }
     handleMessage(client, message) {
-        if (this.handleErrorMessage(client, message)) {
+        const topic = this.safeString2(message, 'topic', 'op', '');
+        if (this.handleErrorMessage(client, message) === true) {
             return;
         }
         // contract pong
         const ret_msg = this.safeString(message, 'ret_msg');
-        if (ret_msg === 'pong') {
+        if ((ret_msg === 'pong') || (topic === 'pong')) {
             this.handlePong(client, message);
             return;
         }
@@ -2023,11 +2604,10 @@ class bybit extends bybit$1 {
         }
         // pong
         const event = this.safeString(message, 'event');
-        if (event === 'sub') {
+        if (event === 'sub' || (topic === 'subscribe')) {
             this.handleSubscriptionStatus(client, message);
             return;
         }
-        const topic = this.safeString2(message, 'topic', 'op');
         const methods = {
             'orderbook': this.handleOrderBook,
             'kline': this.handleOHLCV,
@@ -2040,25 +2620,36 @@ class bybit extends bybit$1 {
             'wallet': this.handleBalance,
             'outboundAccountInfo': this.handleBalance,
             'execution': this.handleMyTrades,
+            'execution.fast': this.handleMyTrades,
             'ticketInfo': this.handleMyTrades,
             'user.openapi.perp.trade': this.handleMyTrades,
             'position': this.handlePositions,
             'liquidation': this.handleLiquidation,
+            'allLiquidation': this.handleLiquidation,
             'pong': this.handlePong,
             'order.create': this.handleOrderWs,
             'order.amend': this.handleOrderWs,
             'order.cancel': this.handleOrderWs,
             'auth': this.handleAuthenticate,
+            'unsubscribe': this.handleUnSubscribe,
         };
         const exacMethod = this.safeValue(methods, topic);
         if (exacMethod !== undefined) {
             exacMethod.call(this, client, message);
             return;
         }
+        // 'order' is a substring of 'orderbook', so an orderbook topic like
+        // 'orderbook.50.BTCUSDT' could be wrongly captured by the 'order' key in a
+        // first-match loop (in Go map iteration order is randomized). Check the
+        // orderbook prefix explicitly, then fall back to a simple first-match.
+        if (topic.indexOf('orderbook') >= 0) {
+            this.handleOrderBook(client, message);
+            return;
+        }
         const keys = Object.keys(methods);
         for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-            if (topic.indexOf(keys[i]) >= 0) {
+            if (topic.indexOf(key) >= 0) {
                 const method = methods[key];
                 method.call(this, client, message);
                 return;
@@ -2087,7 +2678,15 @@ class bybit extends bybit$1 {
         //
         //   { pong: 1653296711335 }
         //
-        client.lastPong = this.safeInteger(message, 'pong');
+        //
+        //   {
+        //       "req_id": "2",
+        //       "op": "pong",
+        //       "args": [ "1757405570352" ],
+        //       "conn_id": "d266o6hqo29sqmnq4vk0-1yus1"
+        //   }
+        //
+        client.lastPong = this.safeInteger(message, 'pong', this.milliseconds());
         return message;
     }
     handleAuthenticate(client, message) {
@@ -2106,10 +2705,17 @@ class bybit extends bybit$1 {
         //        "connId":"cojifin88smerbj9t560-404"
         //    }
         //
-        const success = this.safeValue(message, 'success');
+        //    {
+        //        "success": true,
+        //        "ret_msg": "",
+        //        "op": "auth",
+        //        "conn_id": "d266o6hqo29sqmnq4vk0-1yus1"
+        //    }
+        //
+        const success = this.safeBool(message, 'success', false);
         const code = this.safeInteger(message, 'retCode');
         const messageHash = 'authenticated';
-        if (success || code === 0) {
+        if (success || (code === 0)) {
             const future = this.safeValue(client.futures, messageHash);
             future.resolve(true);
         }
@@ -2139,6 +2745,46 @@ class bybit extends bybit$1 {
         //
         return message;
     }
+    handleUnSubscribe(client, message) {
+        //
+        // {"success":true,"ret_msg":"","conn_id":"7188110e-6908-41e9-b863-6365127e92ad","req_id":"3","op":"unsubscribe"}
+        //
+        // client.subscription will be something like:
+        // {
+        //     "publicTrade.LTCUSDT":true,
+        //     "publicTrade.ADAUSDT":true,
+        //     "unsubscribe:trade:LTC/USDT:USDT": {
+        //        "id":4,
+        //         "subHash": "trade:LTC/USDT"
+        //     },
+        // }
+        const reqId = this.safeString(message, 'req_id');
+        const keys = Object.keys(client.subscriptions);
+        for (let i = 0; i < keys.length; i++) {
+            const messageHash = keys[i];
+            if (!(messageHash in client.subscriptions)) {
+                continue;
+                // the previous iteration can have deleted the messageHash from the subscriptions
+            }
+            if (messageHash.startsWith('unsubscribe')) {
+                const subscription = client.subscriptions[messageHash];
+                const subId = this.safeString(subscription, 'id');
+                if (reqId !== subId) {
+                    continue;
+                }
+                const messageHashes = this.safeList(subscription, 'messageHashes', []);
+                const subMessageHashes = this.safeList(subscription, 'subMessageHashes', []);
+                for (let j = 0; j < messageHashes.length; j++) {
+                    const unsubHash = messageHashes[j];
+                    const subHash = this.safeString(subMessageHashes, j);
+                    const usePrefix = (subHash === 'orders') || (subHash === 'myTrades') || (subHash === 'positions');
+                    this.cleanUnsubscription(client, subHash, unsubHash, usePrefix);
+                }
+                this.cleanCache(subscription);
+            }
+        }
+        return message;
+    }
 }
 
-module.exports = bybit;
+exports["default"] = bybit;

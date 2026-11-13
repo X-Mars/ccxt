@@ -8,18 +8,19 @@ namespace ccxt\async;
 use Exception; // a common import
 use ccxt\async\abstract\binancecoinm as binance;
 use React\Async;
+use React\Promise\PromiseInterface;
 
 class binancecoinm extends binance {
-
-    public function describe() {
+    public function describe(): array {
         return $this->deep_extend(parent::describe(), array(
             'id' => 'binancecoinm',
             'name' => 'Binance COIN-M',
             'urls' => array(
-                'logo' => 'https://user-images.githubusercontent.com/1294454/117738721-668c8d80-b205-11eb-8c49-3fad84c4a07f.jpg',
+                'logo' => 'https://github.com/user-attachments/assets/387cfc4e-5f33-48cd-8f5c-cd4854dabf0c',
                 'doc' => array(
                     'https://binance-docs.github.io/apidocs/delivery/en/',
                     'https://binance-docs.github.io/apidocs/spot/en',
+                    'https://developers.binance.com/en',
                 ),
             ),
             'has' => array(
@@ -32,24 +33,32 @@ class binancecoinm extends binance {
                 'createStopMarketOrder' => true,
             ),
             'options' => array(
-                'fetchMarkets' => array( 'inverse' ),
+                'fetchMarkets' => array(
+                    'types' => array(
+                        'inverse',
+                    ),
+                ),
                 'defaultSubType' => 'inverse',
                 'leverageBrackets' => null,
             ),
         ));
     }
 
-    public function transfer_in(string $code, $amount, $params = array ()) {
-        return Async\async(function () use ($code, $amount, $params) {
-            // transfer from spot wallet to coinm futures wallet
-            return Async\await($this->futuresTransfer ($code, $amount, 3, $params));
-        }) ();
+    public function transfer_in(string $code, float $amount, $params = array()): PromiseInterface {
+        return Async\async(self::do_transfer_in(...))($code, $amount, $params);
     }
 
-    public function transfer_out(string $code, $amount, $params = array ()) {
-        return Async\async(function () use ($code, $amount, $params) {
-            // transfer from coinm futures wallet to spot wallet
-            return Async\await($this->futuresTransfer ($code, $amount, 4, $params));
-        }) ();
+    private function do_transfer_in(string $code, float $amount, $params = array()) {
+        // transfer from spot wallet to coinm futures wallet
+        return Async\await($this->futuresTransfer($code, $amount, 3, $params));
+    }
+
+    public function transfer_out(string $code, float $amount, $params = array()): PromiseInterface {
+        return Async\async(self::do_transfer_out(...))($code, $amount, $params);
+    }
+
+    private function do_transfer_out(string $code, float $amount, $params = array()) {
+        // transfer from coinm futures wallet to spot wallet
+        return Async\await($this->futuresTransfer($code, $amount, 4, $params));
     }
 }

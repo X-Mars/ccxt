@@ -12,21 +12,25 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.base import test_balance  # noqa E402
-from ccxt.test.base import test_shared_methods  # noqa E402
+from ccxt.test.exchange.base import test_balance  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 async def test_watch_balance(exchange, skipped_properties, code):
     method = 'watchBalance'
     now = exchange.milliseconds()
     ends = now + 15000
     while now < ends:
-        response = None
+        response = {}
+        success = True
         try:
             response = await exchange.watch_balance()
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
                 raise e
             now = exchange.milliseconds()
+            # continue;
+            success = False
+        if not success:
             continue
         test_balance(exchange, skipped_properties, method, response)
         now = exchange.milliseconds()

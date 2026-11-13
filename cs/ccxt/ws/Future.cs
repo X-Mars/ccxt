@@ -3,7 +3,7 @@ namespace ccxt;
 
 using System.Runtime.CompilerServices;
 
-public partial class Exchange
+public partial class BaseExchange
 {
 
     public class Future
@@ -19,17 +19,36 @@ public partial class Exchange
 
         public void resolve(object data = null)
         {
-            if (!this.tcs.Task.IsCompleted)
-            {
-                this.tcs.SetResult(data);
-            }
-            // this.tcs = new TaskCompletionSource<object>(); // reset
-            // this.task = this.tcs.Task;
+            // TrySetResult is atomically settle-once: losers of a concurrent
+            // resolve/reject race become no-ops, with no lock held while awaiter
+            // continuations run inline on the settling thread
+            this.tcs.TrySetResult(data);
         }
 
         public void reject(object data)
         {
-            this.tcs.SetException(new Exception(data.ToString()));
+            // var callSite = new System.Diagnostics.StackTrace(1, true).GetFrame(0);
+            // var msg = (callSite?.GetFileName() ?? "Unknown" ) + " " + (callSite?.GetFileLineNumber() ?? 0) + " " + (callSite?.GetMethod()?.Name ?? "Unknown");
+            // System.Diagnostics.Debug.WriteLine($"Future.reject called with: {data} (Type: {data?.GetType().Name ?? "null"})" + " ::: " + msg);
+            
+            Exception exception;
+            
+            if (data is Exception ex)
+            {
+                exception = ex;
+            }
+            else if (data == null)
+            {
+                exception = new Exception("Future rejected with null data");
+            }
+            else
+            {
+                exception = new Exception($"Future rejected: {data?.ToString() ?? "null"} (Type: {data?.GetType().Name ?? "null"})\n");
+            }
+            // TrySetException is atomically settle-once: a teardown or close-path
+            // reject racing a message-handler resolve becomes a no-op instead of
+            // throwing InvalidOperationException on the completed task
+            this.tcs.TrySetException(exception);
             // this.tcs = new TaskCompletionSource<object>(); // reset
             // this.task = this.tcs.Task;
         }

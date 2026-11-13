@@ -8,6 +8,10 @@ import assert from 'assert';
 import Precise from '../../../base/Precise.js';
 import testSharedMethods from './test.sharedMethods.js';
 function testOrderBook(exchange, skippedProperties, method, orderbook, symbol) {
+    // prediction-market structures are keyed by an outcome handle, not a `symbol`
+    if (exchange.safeBool(exchange.has, 'prediction', false)) {
+        skippedProperties = exchange.extend({ 'symbol': true }, skippedProperties);
+    }
     const format = {
         'symbol': 'ETH/BTC',
         'asks': [
@@ -24,16 +28,10 @@ function testOrderBook(exchange, skippedProperties, method, orderbook, symbol) {
         // 'info': {},
     };
     const emptyAllowedFor = ['nonce'];
-    // turn into copy: https://discord.com/channels/690203284119617602/921046068555313202/1220626834887282728
-    orderbook = exchange.deepExtend({}, orderbook);
     testSharedMethods.assertStructure(exchange, skippedProperties, method, orderbook, format, emptyAllowedFor);
     testSharedMethods.assertTimestampAndDatetime(exchange, skippedProperties, method, orderbook);
     testSharedMethods.assertSymbol(exchange, skippedProperties, method, orderbook, 'symbol', symbol);
     const logText = testSharedMethods.logTemplate(exchange, method, orderbook);
-    //
-    if (('bid' in skippedProperties) || ('ask' in skippedProperties)) {
-        return;
-    }
     // todo: check non-emtpy arrays for bids/asks for toptier exchanges
     const bids = orderbook['bids'];
     const bidsLength = bids.length;
@@ -70,11 +68,11 @@ function testOrderBook(exchange, skippedProperties, method, orderbook, symbol) {
         }
     }
     if (!('spread' in skippedProperties)) {
-        if (bidsLength && asksLength) {
+        if ((bidsLength > 0) && (asksLength > 0)) {
             const firstBid = exchange.safeString(bids[0], 0);
             const firstAsk = exchange.safeString(asks[0], 0);
             // check bid-ask spread
-            assert(Precise.stringLt(firstBid, firstAsk), 'bids[0][0] (' + firstAsk + ') should be < than asks[0][0] (' + firstAsk + ')' + logText);
+            assert(Precise.stringLt(firstBid, firstAsk), 'bids[0][0] (' + firstBid + ') should be < than asks[0][0] (' + firstAsk + ')' + logText);
         }
     }
 }

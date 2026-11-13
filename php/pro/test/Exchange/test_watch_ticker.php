@@ -9,28 +9,36 @@ namespace ccxt;
 // -----------------------------------------------------------------------------
 use React\Async;
 use React\Promise;
-include_once PATH_TO_CCXT . '/test/base/test_ticker.php';
-include_once PATH_TO_CCXT . '/test/base/test_shared_methods.php';
+include_once PATH_TO_CCXT . '/test/exchange/base/test_ticker.php';
 
 function test_watch_ticker($exchange, $skipped_properties, $symbol) {
     return Async\async(function () use ($exchange, $skipped_properties, $symbol) {
         $method = 'watchTicker';
         $now = $exchange->milliseconds();
         $ends = $now + 15000;
-        while ($now < $ends) {
+        $max_idle_time = 5000;
+        $idle = false;
+        while (($now < $ends) && !$idle) {
             $response = null;
+            $success = true;
+            $start_time = $exchange->milliseconds();
             try {
-                $response = Async\await($exchange->watch_ticker($symbol));
+                $response = \React\Async\await($exchange->watch_ticker($symbol));
             } catch(\Throwable $e) {
                 if (!is_temporary_failure($e)) {
                     throw $e;
                 }
-                $now = $exchange->milliseconds();
-                continue;
+                $success = false;
             }
-            assert(is_array($response), $exchange->id . ' ' . $method . ' ' . $symbol . ' must return an object. ' . $exchange->json($response));
             $now = $exchange->milliseconds();
-            test_ticker($exchange, $skipped_properties, $method, $response, $symbol);
+            if (($success) && ($response !== null)) {
+                assert($exchange->is_dictionary($response), $exchange->id . ' ' . $method . ' ' . $symbol . ' must return a dictionary. ' . $exchange->json($response));
+                test_ticker($exchange, $skipped_properties, $method, $response, $symbol);
+                if (($now - $start_time) > $max_idle_time) {
+                    $idle = true;
+                }
+            }
         }
+        return true;
     }) ();
 }

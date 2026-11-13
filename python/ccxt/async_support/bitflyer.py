@@ -6,8 +6,7 @@
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.bitflyer import ImplicitAPI
 import hashlib
-from ccxt.base.types import Balances, Currency, Int, Market, MarketInterface, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Trade, TradingFeeInterface, Transaction
-from typing import List
+from ccxt.base.types import Balances, Currency, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Position, Str, Strings, Ticker, FundingRate, Trade, TradingFeeInterface, Transaction, MarketInterface
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
 from ccxt.base.errors import OrderNotFound
@@ -18,7 +17,7 @@ from ccxt.base.precise import Precise
 
 class bitflyer(Exchange, ImplicitAPI):
 
-    def describe(self):
+    def describe(self) -> dict:
         return self.deep_extend(super(bitflyer, self).describe(), {
             'id': 'bitflyer',
             'name': 'bitFlyer',
@@ -33,16 +32,37 @@ class bitflyer(Exchange, ImplicitAPI):
                 'swap': None,  # has but not fully implemented
                 'future': None,  # has but not fully implemented
                 'option': False,
+                'borrowCrossMargin': False,
+                'borrowIsolatedMargin': False,
+                'borrowMargin': False,
                 'cancelAllOrders': None,  # https://lightning.bitflyer.com/docs?lang=en#cancel-all-orders
                 'cancelOrder': True,
                 'createOrder': True,
+                'fetchAllGreeks': False,
                 'fetchBalance': True,
+                'fetchBorrowInterest': False,
+                'fetchBorrowRate': False,
+                'fetchBorrowRateHistories': False,
+                'fetchBorrowRateHistory': False,
+                'fetchBorrowRates': False,
+                'fetchBorrowRatesPerSymbol': False,
                 'fetchClosedOrders': 'emulated',
+                'fetchCrossBorrowRate': False,
+                'fetchCrossBorrowRates': False,
+                'fetchCurrencies': False,
                 'fetchDeposits': True,
+                'fetchFundingRate': True,
+                'fetchFundingRateHistory': False,
+                'fetchFundingRates': False,
+                'fetchGreeks': False,
+                'fetchIsolatedBorrowRate': False,
+                'fetchIsolatedBorrowRates': False,
                 'fetchMarginMode': False,
                 'fetchMarkets': True,
                 'fetchMyTrades': True,
                 'fetchOpenOrders': 'emulated',
+                'fetchOption': False,
+                'fetchOptionChain': False,
                 'fetchOrder': 'emulated',
                 'fetchOrderBook': True,
                 'fetchOrders': True,
@@ -54,12 +74,15 @@ class bitflyer(Exchange, ImplicitAPI):
                 'fetchTradingFees': False,
                 'fetchTransfer': False,
                 'fetchTransfers': False,
+                'fetchVolatilityHistory': False,
                 'fetchWithdrawals': True,
+                'repayCrossMargin': False,
+                'repayIsolatedMargin': False,
                 'transfer': False,
                 'withdraw': True,
             },
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/1294454/28051642-56154182-660e-11e7-9b0d-6042d1e6edd8.jpg',
+                'logo': 'https://github.com/user-attachments/assets/d0217747-e54d-4533-8416-0d553dca74bb',
                 'api': {
                     'rest': 'https://api.{hostname}',
                 },
@@ -68,48 +91,50 @@ class bitflyer(Exchange, ImplicitAPI):
             },
             'api': {
                 'public': {
-                    'get': [
-                        'getmarkets/usa',  # new(wip)
-                        'getmarkets/eu',  # new(wip)
-                        'getmarkets',     # or 'markets'
-                        'getboard',       # ...
-                        'getticker',
-                        'getexecutions',
-                        'gethealth',
-                        'getboardstate',
-                        'getchats',
-                    ],
+                    'get': {
+                        'getmarkets/usa': {'cost': 1},
+                        'getmarkets/eu': {'cost': 1},
+                        'getmarkets': {'cost': 1},
+                        'getboard': {'cost': 1},
+                        'getticker': {'cost': 1},
+                        'getexecutions': {'cost': 1},
+                        'gethealth': {'cost': 1},
+                        'getboardstate': {'cost': 1},
+                        'getchats': {'cost': 1},
+                        'getfundingrate': {'cost': 1},
+                        'getfundingratehistory': {'cost': 1},
+                    },
                 },
                 'private': {
-                    'get': [
-                        'getpermissions',
-                        'getbalance',
-                        'getbalancehistory',
-                        'getcollateral',
-                        'getcollateralhistory',
-                        'getcollateralaccounts',
-                        'getaddresses',
-                        'getcoinins',
-                        'getcoinouts',
-                        'getbankaccounts',
-                        'getdeposits',
-                        'getwithdrawals',
-                        'getchildorders',
-                        'getparentorders',
-                        'getparentorder',
-                        'getexecutions',
-                        'getpositions',
-                        'gettradingcommission',
-                    ],
-                    'post': [
-                        'sendcoin',
-                        'withdraw',
-                        'sendchildorder',
-                        'cancelchildorder',
-                        'sendparentorder',
-                        'cancelparentorder',
-                        'cancelallchildorders',
-                    ],
+                    'get': {
+                        'getpermissions': {'cost': 1},
+                        'getbalance': {'cost': 1},
+                        'getbalancehistory': {'cost': 1},
+                        'getcollateral': {'cost': 1},
+                        'getcollateralhistory': {'cost': 1},
+                        'getcollateralaccounts': {'cost': 1},
+                        'getaddresses': {'cost': 1},
+                        'getcoinins': {'cost': 1},
+                        'getcoinouts': {'cost': 1},
+                        'getbankaccounts': {'cost': 1},
+                        'getdeposits': {'cost': 1},
+                        'getwithdrawals': {'cost': 1},
+                        'getchildorders': {'cost': 1},
+                        'getparentorders': {'cost': 1},
+                        'getparentorder': {'cost': 1},
+                        'getexecutions': {'cost': 1},
+                        'getpositions': {'cost': 1},
+                        'gettradingcommission': {'cost': 1},
+                    },
+                    'post': {
+                        'sendcoin': {'cost': 1},
+                        'withdraw': {'cost': 1},
+                        'sendchildorder': {'cost': 1},
+                        'cancelchildorder': {'cost': 1},
+                        'sendparentorder': {'cost': 1},
+                        'cancelparentorder': {'cost': 1},
+                        'cancelallchildorders': {'cost': 1},
+                    },
                 },
             },
             'fees': {
@@ -119,6 +144,82 @@ class bitflyer(Exchange, ImplicitAPI):
                 },
             },
             'precisionMode': TICK_SIZE,
+            'features': {
+                'spot': {
+                    'sandbox': False,
+                    'createOrder': {
+                        'marginMode': False,
+                        'triggerPrice': False,
+                        'triggerPriceType': None,
+                        'triggerDirection': False,
+                        'stopLossPrice': False,
+                        'takeProfitPrice': False,
+                        'attachedStopLossTakeProfit': None,
+                        'timeInForce': {
+                            'IOC': True,
+                            'FOK': True,
+                            'PO': True,
+                            'GTD': True,  # todo implement
+                        },
+                        'hedged': False,
+                        'trailing': False,  # todo recheck
+                        'leverage': False,
+                        'marketBuyRequiresPrice': False,
+                        'marketBuyByCost': False,
+                        'selfTradePrevention': False,
+                        'iceberg': False,
+                    },
+                    'createOrders': None,
+                    'fetchMyTrades': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'daysBack': None,
+                        'untilDays': None,
+                        'symbolRequired': True,
+                    },
+                    'fetchOrder': {
+                        'marginMode': False,
+                        'trigger': False,
+                        'trailing': False,
+                        'symbolRequired': True,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'trigger': False,
+                        'trailing': False,
+                        'symbolRequired': True,
+                    },
+                    'fetchOrders': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'daysBack': None,
+                        'untilDays': None,
+                        'trigger': False,
+                        'trailing': False,
+                        'symbolRequired': True,
+                    },
+                    'fetchClosedOrders': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'daysBack': None,
+                        'daysBackCanceled': None,
+                        'untilDays': None,
+                        'trigger': False,
+                        'trailing': False,
+                        'symbolRequired': True,
+                    },
+                    'fetchOHLCV': None,
+                },
+                'swap': {
+                    'linear': None,
+                    'inverse': None,
+                },
+                'future': {
+                    'linear': None,
+                    'inverse': None,
+                },
+            },
             'exceptions': {
                 'exact': {
                     '-2': OnMaintenance,  # {"status":-2,"error_message":"Under maintenance","data":null}
@@ -126,11 +227,11 @@ class bitflyer(Exchange, ImplicitAPI):
             },
         })
 
-    def parse_expiry_date(self, expiry):
+    def parse_expiry_date(self, expiry: str) -> Int:
         day = expiry[0:2]
         monthName = expiry[2:5]
-        year = expiry[5:9]
-        months: dict = {
+        expiryYear = expiry[5:9]
+        months = {
             'JAN': '01',
             'FEB': '02',
             'MAR': '03',
@@ -145,53 +246,58 @@ class bitflyer(Exchange, ImplicitAPI):
             'DEC': '12',
         }
         month = self.safe_string(months, monthName)
-        return self.parse8601(year + '-' + month + '-' + day + 'T00:00:00Z')
+        if month is None:
+            return None
+        return self.parse8601(expiryYear + '-' + month + '-' + day + 'T00:00:00Z')
 
     def safe_market(self, marketId: Str = None, market: Market = None, delimiter: Str = None, marketType: Str = None) -> MarketInterface:
         # Bitflyer has a different type of conflict in markets, because
-        # some of their ids(ETH/BTC and BTC/JPY) are duplicated in US, EU and JP.
+        # some of their ids (ETH/BTC and BTC/JPY) are duplicated in US, EU and JP.
         # Since they're the same we just need to return one
         return super(bitflyer, self).safe_market(marketId, market, delimiter, 'spot')
 
-    async def fetch_markets(self, params={}) -> List[Market]:
+    async def fetch_markets(self, params: dict = {}) -> list[Market]:
         """
         retrieves data on all markets for bitflyer
-        :see: https://lightning.bitflyer.com/docs?lang=en#market-list
+
+        https://lightning.bitflyer.com/docs?lang=en#market-list
+
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :returns dict[]: an array of objects representing market data
         """
         jp_markets = await self.publicGetGetmarkets(params)
         #
         #     [
-        #         # spot
-        #         {"product_code": "BTC_JPY", "market_type": "Spot"},
-        #         {"product_code": "BCH_BTC", "market_type": "Spot"},
-        #         # forex swap
-        #         {"product_code": "FX_BTC_JPY", "market_type": "FX"},
-        #         # future
+        #         // spot
+        #         { "product_code": "BTC_JPY", "market_type": "Spot" },
+        #         { "product_code": "BCH_BTC", "market_type": "Spot" },
+        #         // forex swap
+        #         { "product_code": "FX_BTC_JPY", "market_type": "FX" },
+        #
+        #         // future
         #         {
         #             "product_code": "BTCJPY11FEB2022",
         #             "alias": "BTCJPY_MAT1WK",
         #             "market_type": "Futures",
         #         },
-        #     ]
+        #     ];
         #
         us_markets = await self.publicGetGetmarketsUsa(params)
         #
         #     [
-        #         {"product_code": "BTC_USD", "market_type": "Spot"},
-        #         {"product_code": "BTC_JPY", "market_type": "Spot"},
-        #     ]
+        #         { "product_code": "BTC_USD", "market_type": "Spot" },
+        #         { "product_code": "BTC_JPY", "market_type": "Spot" },
+        #     ];
         #
         eu_markets = await self.publicGetGetmarketsEu(params)
         #
         #     [
-        #         {"product_code": "BTC_EUR", "market_type": "Spot"},
-        #         {"product_code": "BTC_JPY", "market_type": "Spot"},
-        #     ]
+        #         { "product_code": "BTC_EUR", "market_type": "Spot" },
+        #         { "product_code": "BTC_JPY", "market_type": "Spot" },
+        #     ];
         #
-        markets = self.array_concat(jp_markets, us_markets)
-        markets = self.array_concat(markets, eu_markets)
+        markets = self.array_concat(self.to_array(jp_markets), self.to_array(us_markets))
+        markets = self.array_concat(markets, self.to_array(eu_markets))
         result = []
         for i in range(0, len(markets)):
             market = markets[i]
@@ -217,8 +323,8 @@ class bitflyer(Exchange, ImplicitAPI):
                 alias = self.safe_string(market, 'alias')
                 if alias is None:
                     # no alias:
-                    # {product_code: 'BTCJPY11MAR2022', market_type: 'Futures'}
-                    # TODO self will break if there are products with 4 chars
+                    # { product_code: 'BTCJPY11MAR2022', market_type: 'Futures' }
+                    # TODO this will break if there are products with 4 chars
                     baseId = id[0:3]
                     quoteId = id[3:6]
                     # last 9 chars are expiry date
@@ -231,13 +337,19 @@ class bitflyer(Exchange, ImplicitAPI):
                     quoteId = currencyIds[-3:]
                     splitId = id.split(currencyIds)
                     expiryDate = self.safe_string(splitId, 1)
+                    if expiryDate is None:
+                        continue
                     expiry = self.parse_expiry_date(expiryDate)
+                if expiry is None:
+                    continue
                 type = 'future'
             base = self.safe_currency_code(baseId)
             quote = self.safe_currency_code(quoteId)
+            if (base is None) or (quote is None):
+                continue
             symbol = base + '/' + quote
-            taker = self.fees['trading']['taker']
-            maker = self.fees['trading']['maker']
+            taker = self.safe_number(self.fees['trading'], 'taker')
+            maker = self.safe_number(self.fees['trading'], 'maker')
             contract = swap or future
             if contract:
                 maker = 0.0
@@ -299,26 +411,30 @@ class bitflyer(Exchange, ImplicitAPI):
             })
         return result
 
-    def parse_balance(self, response) -> Balances:
-        result: dict = {'info': response}
+    def parse_balance_list(self, response: list[dict]) -> Balances:
+        result = {'info': response}
         for i in range(0, len(response)):
-            balance = response[i]
+            balance = self.safe_dict(response, i)
             currencyId = self.safe_string(balance, 'currency_code')
             code = self.safe_currency_code(currencyId)
             account = self.account()
             account['total'] = self.safe_string(balance, 'amount')
             account['free'] = self.safe_string(balance, 'available')
-            result[code] = account
+            if code is not None:
+                result[code] = account
         return self.safe_balance(result)
 
-    async def fetch_balance(self, params={}) -> Balances:
+    async def fetch_balance(self, params: dict = {}) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
-        :see: https://lightning.bitflyer.com/docs?lang=en#get-account-asset-balance
+
+        https://lightning.bitflyer.com/docs?lang=en#get-account-asset-balance
+
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `balance structure <https://docs.ccxt.com/#/?id=balance-structure>`
+        :returns dict: a `balance structure <https://docs.ccxt.com/?id=balance-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         response = await self.privateGetGetbalance(params)
         #
         #     [
@@ -339,20 +455,23 @@ class bitflyer(Exchange, ImplicitAPI):
         #         }
         #     ]
         #
-        return self.parse_balance(response)
+        return self.parse_balance_list(response)
 
-    async def fetch_order_book(self, symbol: str, limit: Int = None, params={}) -> OrderBook:
+    async def fetch_order_book(self, symbol: str, limit: Int = None, params: dict = {}) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
-        :see: https://lightning.bitflyer.com/docs?lang=en#order-book
+
+        https://lightning.bitflyer.com/docs?lang=en#order-book
+
         :param str symbol: unified symbol of the market to fetch the order book for
         :param int [limit]: the maximum amount of order book entries to return
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: A dictionary of `order book structures <https://docs.ccxt.com/#/?id=order-book-structure>` indexed by market symbols
+        :returns dict: an `order book structure <https://docs.ccxt.com/?id=order-book-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'product_code': market['id'],
         }
         orderbook = await self.publicGetGetboard(self.extend(request, params))
@@ -385,17 +504,20 @@ class bitflyer(Exchange, ImplicitAPI):
             'info': ticker,
         }, market)
 
-    async def fetch_ticker(self, symbol: str, params={}) -> Ticker:
+    async def fetch_ticker(self, symbol: str, params: dict = {}) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-        :see: https://lightning.bitflyer.com/docs?lang=en#ticker
+
+        https://lightning.bitflyer.com/docs?lang=en#ticker
+
         :param str symbol: unified symbol of the market to fetch the ticker for
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `ticker structure <https://docs.ccxt.com/#/?id=ticker-structure>`
+        :returns dict: a `ticker structure <https://docs.ccxt.com/?id=ticker-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'product_code': market['id'],
         }
         response = await self.publicGetGetticker(self.extend(request, params))
@@ -403,7 +525,7 @@ class bitflyer(Exchange, ImplicitAPI):
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
         #
-        # fetchTrades(public) v1
+        # fetchTrades (public) v1
         #
         #      {
         #          "id":2278466664,
@@ -434,22 +556,20 @@ class bitflyer(Exchange, ImplicitAPI):
                 side = None
         order = None
         if side is not None:
-            idInner = side + '_child_order_acceptance_id'
-            if idInner in trade:
-                order = trade[idInner]
+            order = self.safe_string(trade, side + '_child_order_acceptance_id')
         if order is None:
             order = self.safe_string(trade, 'child_order_acceptance_id')
         timestamp = self.parse8601(self.safe_string(trade, 'exec_date'))
         priceString = self.safe_string(trade, 'price')
         amountString = self.safe_string(trade, 'size')
         id = self.safe_string(trade, 'id')
-        market = self.safe_market(None, market)
+        marketResolved = self.safe_market(None, market)
         return self.safe_trade({
             'id': id,
             'info': trade,
             'timestamp': timestamp,
             'datetime': self.iso8601(timestamp),
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'order': order,
             'type': None,
             'side': side,
@@ -458,21 +578,24 @@ class bitflyer(Exchange, ImplicitAPI):
             'amount': amountString,
             'cost': None,
             'fee': None,
-        }, market)
+        }, marketResolved)
 
-    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
+    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
-        :see: https://lightning.bitflyer.com/docs?lang=en#list-executions
+
+        https://lightning.bitflyer.com/docs?lang=en#list-executions
+
         :param str symbol: unified symbol of the market to fetch trades for
         :param int [since]: timestamp in ms of the earliest trade to fetch
         :param int [limit]: the maximum amount of trades to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/#/?id=public-trades>`
+        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/?id=public-trades>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'product_code': market['id'],
         }
         if limit is not None:
@@ -493,17 +616,20 @@ class bitflyer(Exchange, ImplicitAPI):
         #
         return self.parse_trades(response, market, since, limit)
 
-    async def fetch_trading_fee(self, symbol: str, params={}) -> TradingFeeInterface:
+    async def fetch_trading_fee(self, symbol: str, params: dict = {}) -> TradingFeeInterface:
         """
         fetch the trading fees for a market
-        :see: https://lightning.bitflyer.com/docs?lang=en#get-trading-commission
+
+        https://lightning.bitflyer.com/docs?lang=en#get-trading-commission
+
         :param str symbol: unified market symbol
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `fee structure <https://docs.ccxt.com/#/?id=fee-structure>`
+        :returns dict: a `fee structure <https://docs.ccxt.com/?id=fee-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'product_code': market['id'],
         }
         response = await self.privateGetGettradingcommission(self.extend(request, params))
@@ -522,20 +648,23 @@ class bitflyer(Exchange, ImplicitAPI):
             'tierBased': None,
         }
 
-    async def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}):
+    async def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params: dict = {}) -> Order:
         """
         create a trade order
-        :see: https://lightning.bitflyer.com/docs?lang=en#send-a-new-order
+
+        https://lightning.bitflyer.com/docs?lang=en#send-a-new-order
+
         :param str symbol: unified symbol of the market to create an order in
         :param str type: 'market' or 'limit'
         :param str side: 'buy' or 'sell'
         :param float amount: how much of currency you want to trade in units of base currency
-        :param float [price]: the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
+        :param float [price]: the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns dict: an `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
-        await self.load_markets()
-        request: dict = {
+        if self.markets is None:
+            await self.load_markets()
+        request = {
             'product_code': self.market_id(symbol),
             'child_order_type': type.upper(),
             'side': side.upper(),
@@ -543,33 +672,42 @@ class bitflyer(Exchange, ImplicitAPI):
             'size': amount,
         }
         result = await self.privatePostSendchildorder(self.extend(request, params))
-        # {"status": - 200, "error_message": "Insufficient funds", "data": null}
+        # { "status": - 200, "error_message": "Insufficient funds", "data": null }
         id = self.safe_string(result, 'child_order_acceptance_id')
         return self.safe_order({
             'id': id,
             'info': result,
         })
 
-    async def cancel_order(self, id: str, symbol: Str = None, params={}):
+    async def cancel_order(self, id: str, symbol: Str = None, params: dict = {}) -> Order:
         """
         cancels an open order
-        :see: https://lightning.bitflyer.com/docs?lang=en#cancel-order
+
+        https://lightning.bitflyer.com/docs?lang=en#cancel-order
+
         :param str id: order id
         :param str symbol: unified symbol of the market the order was made in
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: An `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns dict: An `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' cancelOrder() requires a symbol argument')
-        await self.load_markets()
-        request: dict = {
+        if self.markets is None:
+            await self.load_markets()
+        request = {
             'product_code': self.market_id(symbol),
             'child_order_acceptance_id': id,
         }
-        return await self.privatePostCancelchildorder(self.extend(request, params))
+        response = await self.privatePostCancelchildorder(self.extend(request, params))
+        #
+        #    200 OK.
+        #
+        return self.safe_order({
+            'info': response,
+        })
 
-    def parse_order_status(self, status: Str):
-        statuses: dict = {
+    def parse_order_status(self, status: Str) -> Str:
+        statuses = {
             'ACTIVE': 'open',
             'COMPLETED': 'closed',
             'CANCELED': 'canceled',
@@ -612,7 +750,6 @@ class bitflyer(Exchange, ImplicitAPI):
             'postOnly': None,
             'side': side,
             'price': price,
-            'stopPrice': None,
             'triggerPrice': None,
             'cost': None,
             'amount': amount,
@@ -623,91 +760,104 @@ class bitflyer(Exchange, ImplicitAPI):
             'trades': None,
         }, market)
 
-    async def fetch_orders(self, symbol: Str = None, since: Int = None, limit: Int = 100, params={}) -> List[Order]:
+    async def fetch_orders(self, symbol: Str = None, since: Int = None, limit: Int = 100, params: dict = {}) -> list[Order]:
         """
         fetches information on multiple orders made by the user
-        :see: https://lightning.bitflyer.com/docs?lang=en#list-orders
+
+        https://lightning.bitflyer.com/docs?lang=en#list-orders
+
         :param str symbol: unified market symbol of the market orders were made in
         :param int [since]: the earliest time in ms to fetch orders for
         :param int [limit]: the maximum number of order structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns Order[]: a list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns Order[]: a list of `order structures <https://docs.ccxt.com/?id=order-structure>`
         """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' fetchOrders() requires a symbol argument')
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'product_code': market['id'],
             'count': limit,
         }
         response = await self.privateGetGetchildorders(self.extend(request, params))
-        orders = self.parse_orders(response, market, since, limit)
         if symbol is not None:
-            orders = self.filter_by(orders, 'symbol', symbol)
-        return orders
+            return self.filter_by(self.parse_orders(response, market, since, limit), 'symbol', symbol)
+        return self.parse_orders(response, market, since, limit)
 
-    async def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = 100, params={}) -> List[Order]:
+    async def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = 100, params: dict = {}) -> list[Order]:
         """
         fetch all unfilled currently open orders
-        :see: https://lightning.bitflyer.com/docs?lang=en#list-orders
+
+        https://lightning.bitflyer.com/docs?lang=en#list-orders
+
         :param str symbol: unified market symbol
         :param int [since]: the earliest time in ms to fetch open orders for
         :param int [limit]: the maximum number of  open orders structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns Order[]: a list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns Order[]: a list of `order structures <https://docs.ccxt.com/?id=order-structure>`
         """
-        request: dict = {
+        request = {
             'child_order_state': 'ACTIVE',
         }
         return await self.fetch_orders(symbol, since, limit, self.extend(request, params))
 
-    async def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = 100, params={}) -> List[Order]:
+    async def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = 100, params: dict = {}) -> list[Order]:
         """
         fetches information on multiple closed orders made by the user
-        :see: https://lightning.bitflyer.com/docs?lang=en#list-orders
+
+        https://lightning.bitflyer.com/docs?lang=en#list-orders
+
         :param str symbol: unified market symbol of the market orders were made in
         :param int [since]: the earliest time in ms to fetch orders for
         :param int [limit]: the maximum number of order structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns Order[]: a list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns Order[]: a list of `order structures <https://docs.ccxt.com/?id=order-structure>`
         """
-        request: dict = {
+        request = {
             'child_order_state': 'COMPLETED',
         }
         return await self.fetch_orders(symbol, since, limit, self.extend(request, params))
 
-    async def fetch_order(self, id: str, symbol: Str = None, params={}):
+    async def fetch_order(self, id: str, symbol: Str = None, params: dict = {}) -> Order:
         """
         fetches information on an order made by the user
-        :see: https://lightning.bitflyer.com/docs?lang=en#list-orders
+
+        https://lightning.bitflyer.com/docs?lang=en#list-orders
+
+        :param str id: the order id
         :param str symbol: unified symbol of the market the order was made in
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: An `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns dict: An `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' fetchOrder() requires a symbol argument')
         orders = await self.fetch_orders(symbol)
         ordersById = self.index_by(orders, 'id')
-        if id in ordersById:
-            return ordersById[id]
+        found = self.safe_dict(ordersById, id)
+        if found is not None:
+            return found
         raise OrderNotFound(self.id + ' No order found with id ' + id)
 
-    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}):
+    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         fetch all trades made by the user
-        :see: https://lightning.bitflyer.com/docs?lang=en#list-executions
+
+        https://lightning.bitflyer.com/docs?lang=en#list-executions
+
         :param str symbol: unified market symbol
         :param int [since]: the earliest time in ms to fetch trades for
         :param int [limit]: the maximum number of trades structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/#/?id=trade-structure>`
+        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/?id=trade-structure>`
         """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' fetchMyTrades() requires a symbol argument')
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'product_code': market['id'],
         }
         if limit is not None:
@@ -729,18 +879,21 @@ class bitflyer(Exchange, ImplicitAPI):
         #
         return self.parse_trades(response, market, since, limit)
 
-    async def fetch_positions(self, symbols: Strings = None, params={}):
+    async def fetch_positions(self, symbols: Strings = None, params: dict = {}) -> list[Position]:
         """
         fetch all open positions
-        :see: https://lightning.bitflyer.com/docs?lang=en#get-open-interest-summary
+
+        https://lightning.bitflyer.com/docs?lang=en#get-open-interest-summary
+
         :param str[] symbols: list of unified market symbols
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict[]: a list of `position structure <https://docs.ccxt.com/#/?id=position-structure>`
+        :returns dict[]: a list of `position structure <https://docs.ccxt.com/?id=position-structure>`
         """
         if symbols is None:
             raise ArgumentsRequired(self.id + ' fetchPositions() requires a `symbols` argument, exactly one symbol in an array')
-        await self.load_markets()
-        request: dict = {
+        if self.markets is None:
+            await self.load_markets()
+        request = {
             'product_code': self.market_ids(symbols),
         }
         response = await self.privateGetGetpositions(self.extend(request, params))
@@ -764,23 +917,26 @@ class bitflyer(Exchange, ImplicitAPI):
         # todo unify parsePosition/parsePositions
         return response
 
-    async def withdraw(self, code: str, amount: float, address: str, tag=None, params={}):
+    async def withdraw(self, code: str, amount: float, address: str, params: dict = {}) -> Transaction:
         """
         make a withdrawal
-        :see: https://lightning.bitflyer.com/docs?lang=en#withdrawing-funds
+
+        https://lightning.bitflyer.com/docs?lang=en#withdrawing-funds
+
         :param str code: unified currency code
         :param float amount: the amount to withdraw
         :param str address: the address to withdraw to
-        :param str tag:
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `transaction structure <https://docs.ccxt.com/#/?id=transaction-structure>`
+        :param str [params.tag]: memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+        :returns dict: a `transaction structure <https://docs.ccxt.com/?id=transaction-structure>`
         """
         self.check_address(address)
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         if code != 'JPY' and code != 'USD' and code != 'EUR':
             raise ExchangeError(self.id + ' allows withdrawing JPY, USD, EUR only, ' + code + ' is not supported')
         currency = self.currency(code)
-        request: dict = {
+        request = {
             'currency_code': currency['id'],
             'amount': amount,
             # 'bank_account_id': 1234,
@@ -793,19 +949,22 @@ class bitflyer(Exchange, ImplicitAPI):
         #
         return self.parse_transaction(response, currency)
 
-    async def fetch_deposits(self, code: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Transaction]:
+    async def fetch_deposits(self, code: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Transaction]:
         """
         fetch all deposits made to an account
-        :see: https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-deposit-history
+
+        https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-deposit-history
+
         :param str code: unified currency code
         :param int [since]: the earliest time in ms to fetch deposits for
         :param int [limit]: the maximum number of deposits structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict[]: a list of `transaction structures <https://docs.ccxt.com/#/?id=transaction-structure>`
+        :returns dict[]: a list of `transaction structures <https://docs.ccxt.com/?id=transaction-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         currency = None
-        request: dict = {}
+        request = {}
         if code is not None:
             currency = self.currency(code)
         if limit is not None:
@@ -827,19 +986,22 @@ class bitflyer(Exchange, ImplicitAPI):
         #
         return self.parse_transactions(response, currency, since, limit)
 
-    async def fetch_withdrawals(self, code: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Transaction]:
+    async def fetch_withdrawals(self, code: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Transaction]:
         """
         fetch all withdrawals made from an account
-        :see: https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-transaction-history
+
+        https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-transaction-history
+
         :param str code: unified currency code
         :param int [since]: the earliest time in ms to fetch withdrawals for
         :param int [limit]: the maximum number of withdrawals structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict[]: a list of `transaction structures <https://docs.ccxt.com/#/?id=transaction-structure>`
+        :returns dict[]: a list of `transaction structures <https://docs.ccxt.com/?id=transaction-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         currency = None
-        request: dict = {}
+        request = {}
         if code is not None:
             currency = self.currency(code)
         if limit is not None:
@@ -863,15 +1025,15 @@ class bitflyer(Exchange, ImplicitAPI):
         #
         return self.parse_transactions(response, currency, since, limit)
 
-    def parse_deposit_status(self, status):
-        statuses: dict = {
+    def parse_deposit_status(self, status: Str) -> Str:
+        statuses = {
             'PENDING': 'pending',
             'COMPLETED': 'ok',
         }
         return self.safe_string(statuses, status, status)
 
-    def parse_withdrawal_status(self, status):
-        statuses: dict = {
+    def parse_withdrawal_status(self, status: Str) -> Str:
+        statuses = {
             'PENDING': 'pending',
             'COMPLETED': 'ok',
         }
@@ -956,40 +1118,104 @@ class bitflyer(Exchange, ImplicitAPI):
             'fee': fee,
         }
 
-    def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
+    async def fetch_funding_rate(self, symbol: str, params: dict = {}) -> FundingRate:
+        """
+        fetch the current funding rate
+
+        https://lightning.bitflyer.com/docs#funding-rate
+
+        :param str symbol: unified market symbol
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: a `funding rate structure <https://docs.ccxt.com/?id=funding-rate-structure>`
+        """
+        if self.markets is None:
+            await self.load_markets()
+        market = self.market(symbol)
+        request = {
+            'product_code': market['id'],
+        }
+        response = await self.publicGetGetfundingrate(self.extend(request, params))
+        #
+        #    {
+        #        "current_funding_rate": -0.003750000000
+        #        "next_funding_rate_settledate": "2024-04-15T13:00:00"
+        #    }
+        #
+        return self.parse_funding_rate(response, market)
+
+    def parse_funding_rate(self, contract: object, market: Market = None) -> FundingRate:
+        #
+        #    {
+        #        "current_funding_rate": -0.003750000000
+        #        "next_funding_rate_settledate": "2024-04-15T13:00:00"
+        #    }
+        #
+        nextFundingDatetime = self.safe_string(contract, 'next_funding_rate_settledate')
+        nextFundingTimestamp = self.parse8601(nextFundingDatetime)
+        return {
+            'info': contract,
+            'symbol': self.safe_string(market, 'symbol'),
+            'markPrice': None,
+            'indexPrice': None,
+            'interestRate': None,
+            'estimatedSettlePrice': None,
+            'timestamp': None,
+            'datetime': None,
+            'fundingRate': None,
+            'fundingTimestamp': None,
+            'fundingDatetime': None,
+            'nextFundingRate': self.safe_number(contract, 'current_funding_rate'),
+            'nextFundingTimestamp': nextFundingTimestamp,
+            'nextFundingDatetime': self.iso8601(nextFundingTimestamp),
+            'previousFundingRate': None,
+            'previousFundingTimestamp': None,
+            'previousFundingDatetime': None,
+            'interval': None,
+        }
+
+    def sign(self, path: str, api: list[str] = ['public'], method: str = 'GET', params: dict = {}) -> dict:
+        apiName = api[0]
+        bodySigned = None
+        headersSigned = None
         request = '/' + self.version + '/'
-        if api == 'private':
+        if apiName == 'private':
             request += 'me/'
         request += path
         if method == 'GET':
-            if params:
-                request += '?' + self.urlencode(params)
-        baseUrl = self.implode_hostname(self.urls['api']['rest'])
-        url = baseUrl + request
-        if api == 'private':
+            query = self.urlencode(params)
+            if query != '':
+                request += '?' + query
+        apiUrl = self.safe_string(self.urls['api'], 'rest')
+        if apiUrl is None:
+            raise ExchangeError(self.id + ' sign() has no API URL for self endpoint')
+        url = self.implode_hostname(apiUrl) + request
+        if apiName == 'private':
             self.check_required_credentials()
             nonce = str(self.nonce())
-            auth = ''.join([nonce, method, request])
-            if params:
+            auth = nonce + method + request
+            if len(params) > 0:
                 if method != 'GET':
                     body = self.json(params)
+                    bodySigned = body
                     auth += body
-            headers = {
+            headersSigned = {
                 'ACCESS-KEY': self.apiKey,
                 'ACCESS-TIMESTAMP': nonce,
                 'ACCESS-SIGN': self.hmac(self.encode(auth), self.encode(self.secret), hashlib.sha256),
                 'Content-Type': 'application/json',
             }
-        return {'url': url, 'method': method, 'body': body, 'headers': headers}
+        headersResolved = headersSigned
+        bodyResolved = bodySigned
+        return {'url': url, 'method': method, 'body': bodyResolved, 'headers': headersResolved}
 
-    def handle_errors(self, code: int, reason: str, url: str, method: str, headers: dict, body: str, response, requestHeaders, requestBody):
+    def handle_errors(self, code: int, reason: str, url: str, method: str, headers: dict, body: str, response: object, requestHeaders: dict, requestBody: Str):
         if response is None:
             return None  # fallback to the default error handler
         feedback = self.id + ' ' + body
         # i.e. {"status":-2,"error_message":"Under maintenance","data":null}
         errorMessage = self.safe_string(response, 'error_message')
-        statusCode = self.safe_number(response, 'status')
+        statusCode = self.safe_string(response, 'status')
         if errorMessage is not None:
             self.throw_exactly_matched_exception(self.exceptions['exact'], statusCode, feedback)
-            self.throw_broadly_matched_exception(self.exceptions['broad'], errorMessage, feedback)
+            raise ExchangeError(feedback)
         return None

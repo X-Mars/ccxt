@@ -1,12 +1,13 @@
 
 //  ---------------------------------------------------------------------------
 
+import { sha256 } from '@noble/hashes/sha2.js';
+import { md5 } from '@noble/hashes/legacy.js';
 import Exchange from './abstract/btcbox.js';
 import { ExchangeError, InsufficientFunds, InvalidOrder, AuthenticationError, PermissionDenied, InvalidNonce, OrderNotFound, DDoSProtection } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
-import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import type { Balances, Dict, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Ticker, Trade, int } from './base/types.js';
+import type { Balances, Dict, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade, int, Endpoint, List, NullableDict } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -15,7 +16,7 @@ import type { Balances, Dict, Int, Market, Num, Order, OrderBook, OrderSide, Ord
  * @augments Exchange
  */
 export default class btcbox extends Exchange {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'id': 'btcbox',
             'name': 'BtcBox',
@@ -31,28 +32,59 @@ export default class btcbox extends Exchange {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelOrder': true,
                 'closeAllPositions': false,
                 'closePosition': false,
                 'createOrder': true,
+                'createOrderWithTakeProfitAndStopLoss': false,
+                'createOrderWithTakeProfitAndStopLossWs': false,
+                'createPostOnlyOrder': false,
                 'createReduceOnlyOrder': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
+                'fetchCurrencies': false,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
+                'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
+                'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchOrders': true,
@@ -64,15 +96,21 @@ export default class btcbox extends Exchange {
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchTicker': true,
-                'fetchTickers': false,
+                'fetchTickers': true,
                 'fetchTrades': true,
                 'fetchTransfer': false,
                 'fetchTransfers': false,
+                'fetchVolatilityHistory': false,
                 'fetchWithdrawal': false,
                 'fetchWithdrawals': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
+                'repayMargin': false,
                 'setLeverage': false,
+                'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
                 'transfer': false,
@@ -80,7 +118,7 @@ export default class btcbox extends Exchange {
                 'ws': false,
             },
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/51840849/87327317-98c55400-c53c-11ea-9a11-81f7d951cc74.jpg',
+                'logo': 'https://github.com/user-attachments/assets/1e2cb499-8d0f-4f8f-9464-3c015cfbc76b',
                 'api': {
                     'rest': 'https://www.btcbox.co.jp/api',
                 },
@@ -90,28 +128,96 @@ export default class btcbox extends Exchange {
             },
             'api': {
                 'public': {
-                    'get': [
-                        'depth',
-                        'orders',
-                        'ticker',
-                    ],
+                    'get': {
+                        'depth': { 'cost': 1 } as Endpoint<Dict>,
+                        'orders': { 'cost': 1 } as Endpoint<List>,
+                        'ticker': { 'cost': 1 } as Endpoint<Dict>,
+                        'tickers': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
                 'private': {
-                    'post': [
-                        'balance',
-                        'trade_add',
-                        'trade_cancel',
-                        'trade_list',
-                        'trade_view',
-                        'wallet',
-                    ],
+                    'post': {
+                        'balance': { 'cost': 1 } as Endpoint<Dict>,
+                        'order_history': { 'cost': 1 } as Endpoint<List>,
+                        'trade_add': { 'cost': 1 } as Endpoint<Dict>,
+                        'trade_cancel': { 'cost': 1 } as Endpoint<Dict>,
+                        'trade_list': { 'cost': 1 } as Endpoint<List>,
+                        'trade_view': { 'cost': 1 } as Endpoint<Dict>,
+                        'wallet': { 'cost': 1 } as Endpoint<Dict>,
+                    },
+                },
+                'webApi': {
+                    'get': {
+                        'ajax/coin/coinInfo': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
             },
-            'markets': {
-                'BTC/JPY': this.safeMarketStructure ({ 'id': 'btc', 'symbol': 'BTC/JPY', 'base': 'BTC', 'quote': 'JPY', 'baseId': 'btc', 'quoteId': 'jpy', 'taker': this.parseNumber ('0.0005'), 'maker': this.parseNumber ('0.0005'), 'type': 'spot', 'spot': true }),
-                'ETH/JPY': this.safeMarketStructure ({ 'id': 'eth', 'symbol': 'ETH/JPY', 'base': 'ETH', 'quote': 'JPY', 'baseId': 'eth', 'quoteId': 'jpy', 'taker': this.parseNumber ('0.0010'), 'maker': this.parseNumber ('0.0010'), 'type': 'spot', 'spot': true }),
-                'LTC/JPY': this.safeMarketStructure ({ 'id': 'ltc', 'symbol': 'LTC/JPY', 'base': 'LTC', 'quote': 'JPY', 'baseId': 'ltc', 'quoteId': 'jpy', 'taker': this.parseNumber ('0.0010'), 'maker': this.parseNumber ('0.0010'), 'type': 'spot', 'spot': true }),
-                'BCH/JPY': this.safeMarketStructure ({ 'id': 'bch', 'symbol': 'BCH/JPY', 'base': 'BCH', 'quote': 'JPY', 'baseId': 'bch', 'quoteId': 'jpy', 'taker': this.parseNumber ('0.0010'), 'maker': this.parseNumber ('0.0010'), 'type': 'spot', 'spot': true }),
+            'options': {
+                'fetchMarkets': {
+                    'webApiEnable': true, // fetches from WEB
+                    'webApiRetries': 3,
+                },
+            },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': false,
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': false,
+                            'FOK': false,
+                            'PO': false,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'leverage': false,
+                        'marketBuyRequiresPrice': false,
+                        'marketBuyByCost': false,
+                        'selfTradePrevention': false,
+                        'trailing': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': undefined,
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchClosedOrders': undefined,
+                    'fetchOHLCV': undefined,
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
             },
             'precisionMode': TICK_SIZE,
             'exceptions': {
@@ -129,13 +235,157 @@ export default class btcbox extends Exchange {
         });
     }
 
-    parseBalance (response): Balances {
+    /**
+     * @method
+     * @name btcbox#fetchMarkets
+     * @description retrieves data on all markets for ace
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
+    override async fetchMarkets (params: Dict = {}): Promise<Market[]> {
+        const promise1 = this.publicGetTickers ();
+        const promise2 = this.fetchWebEndpoint ('fetchMarkets', 'webApiGetAjaxCoinCoinInfo', true);
+        const [ response1, response2 ] = await Promise.all ([ promise1, promise2 ]);
+        //
+        const result2Data = this.safeDict (response2, 'data', {});
+        const marketIds = Object.keys (response1);
+        const markets: Market[] = [];
+        for (let i = 0; i < marketIds.length; i++) {
+            const marketId = marketIds[i];
+            const symbolParts = marketId.split ('_');
+            const baseCurr = this.safeString (symbolParts, 0, '');
+            const quote = this.safeString (symbolParts, 1, '');
+            const quoteId = quote.toLowerCase ();
+            const id = baseCurr.toLowerCase ();
+            const res = this.safeDict (response1, marketId, {});
+            const symbol = baseCurr + '/' + quote;
+            const fee = (id === 'BTC') ? this.parseNumber ('0.0005') : this.parseNumber ('0.0010');
+            const details = this.safeDict (result2Data, id, {});
+            const tradeDetails = this.safeDict (details, 'trade', {});
+            markets.push (this.safeMarketStructure ({
+                'id': id,
+                'uppercaseId': undefined,
+                'symbol': symbol,
+                'base': baseCurr,
+                'baseId': id,
+                'quote': quote,
+                'quoteId': quoteId,
+                'settle': undefined,
+                'settleId': undefined,
+                'type': 'spot',
+                'spot': true,
+                'margin': false,
+                'swap': false,
+                'future': false,
+                'option': false,
+                'taker': fee,
+                'maker': fee,
+                'contract': false,
+                'linear': undefined,
+                'inverse': undefined,
+                'contractSize': undefined,
+                'expiry': undefined,
+                'expiryDatetime': undefined,
+                'strike': undefined,
+                'optionType': undefined,
+                'limits': {
+                    'amount': {
+                        'min': undefined,
+                        'max': undefined,
+                    },
+                    'price': {
+                        'min': undefined,
+                        'max': undefined,
+                    },
+                    'cost': {
+                        'min': undefined,
+                        'max': undefined,
+                    },
+                    'leverage': {
+                        'min': undefined,
+                        'max': undefined,
+                    },
+                },
+                'precision': {
+                    'price': this.parseNumber (this.parsePrecision (this.safeString (tradeDetails, 'pricedecimal'))),
+                    'amount': undefined,
+                },
+                'active': this.safeString (tradeDetails, 'enable') === '1',
+                'created': undefined,
+                'info': res,
+            }));
+        }
+        return markets;
+    }
+
+    override parseMarket (market: Dict): Market {
+        const baseId = this.safeString (market, 'base');
+        const base = this.safeCurrencyCode (baseId);
+        const quoteId = this.safeString (market, 'quote');
+        const quote = this.safeCurrencyCode (quoteId);
+        if ((base === undefined) || (quote === undefined)) {
+            return undefined;
+        }
+        const symbol = base + '/' + quote;
+        return this.safeMarketStructure ({
+            'id': this.safeString (market, 'symbol'),
+            'uppercaseId': undefined,
+            'symbol': symbol,
+            'base': base,
+            'baseId': baseId,
+            'quote': quote,
+            'quoteId': quoteId,
+            'settle': undefined,
+            'settleId': undefined,
+            'type': 'spot',
+            'spot': true,
+            'margin': false,
+            'swap': false,
+            'future': false,
+            'option': false,
+            'contract': false,
+            'linear': undefined,
+            'inverse': undefined,
+            'contractSize': undefined,
+            'expiry': undefined,
+            'expiryDatetime': undefined,
+            'strike': undefined,
+            'optionType': undefined,
+            'limits': {
+                'amount': {
+                    'min': this.safeNumber (market, 'minLimitBaseAmount'),
+                    'max': this.safeNumber (market, 'maxLimitBaseAmount'),
+                },
+                'price': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+                'cost': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+                'leverage': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+            },
+            'precision': {
+                'price': this.parseNumber (this.parsePrecision (this.safeString (market, 'quotePrecision'))),
+                'amount': this.parseNumber (this.parsePrecision (this.safeString (market, 'basePrecision'))),
+            },
+            'active': undefined,
+            'created': undefined,
+            'info': market,
+        });
+    }
+
+    override parseBalance (response: Dict): Balances {
         const result: Dict = { 'info': response };
         const codes = Object.keys (this.currencies);
         for (let i = 0; i < codes.length; i++) {
             const code = codes[i];
             const currency = this.currency (code);
-            const currencyId = currency['id'];
+            const currencyId = this.safeString (currency, 'id', '');
             const free = currencyId + '_balance';
             if (free in response) {
                 const account = this.account ();
@@ -148,32 +398,36 @@ export default class btcbox extends Exchange {
         return this.safeBalance (result);
     }
 
-    async fetchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name btcbox#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://blog.btcbox.jp/en/archives/8762#toc13
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name btcbox#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://blog.btcbox.jp/en/archives/8762#toc13
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async fetchBalance (params: Dict = {}): Promise<Balances> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privatePostBalance (params);
         return this.parseBalance (response);
     }
 
-    async fetchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name btcbox#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://blog.btcbox.jp/en/archives/8762#toc6
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name btcbox#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://blog.btcbox.jp/en/archives/8762#toc6
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async fetchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {};
         const numSymbols = this.symbols.length;
@@ -184,7 +438,7 @@ export default class btcbox extends Exchange {
         return this.parseOrderBook (response, market['symbol']);
     }
 
-    parseTicker (ticker: Dict, market: Market = undefined): Ticker {
+    override parseTicker (ticker: Dict, market: Market = undefined): Ticker {
         const symbol = this.safeSymbol (undefined, market);
         const last = this.safeString (ticker, 'last');
         return this.safeTicker ({
@@ -211,17 +465,19 @@ export default class btcbox extends Exchange {
         }, market);
     }
 
-    async fetchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name btcbox#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://blog.btcbox.jp/en/archives/8762#toc5
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name btcbox#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://blog.btcbox.jp/en/archives/8762#toc5
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {};
         const numSymbols = this.symbols.length;
@@ -232,20 +488,36 @@ export default class btcbox extends Exchange {
         return this.parseTicker (response, market);
     }
 
-    parseTrade (trade: Dict, market: Market = undefined): Trade {
+    /**
+     * @method
+     * @name btcbox#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
+     * @param {string[]} [symbols] unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTickers (symbols: Strings = undefined, params: Dict = {}): Promise<Tickers> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const response = await this.publicGetTickers (params);
+        return this.parseTickers (response, symbols);
+    }
+
+    override parseTrade (trade: Dict, market: Market = undefined): Trade {
         //
         // fetchTrades (public)
         //
         //      {
         //          "date":"0",
-        //          "price":3,
+        //          "price":4,
         //          "amount":0.1,
         //          "tid":"1",
         //          "type":"buy"
         //      }
         //
         const timestamp = this.safeTimestamp (trade, 'date');
-        market = this.safeMarket (undefined, market);
+        const marketResolved: Market = this.safeMarket (undefined, market);
         const id = this.safeString (trade, 'tid');
         const priceString = this.safeString (trade, 'price');
         const amountString = this.safeString (trade, 'amount');
@@ -257,7 +529,7 @@ export default class btcbox extends Exchange {
             'order': undefined,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'type': type,
             'side': side,
             'takerOrMaker': undefined,
@@ -265,22 +537,24 @@ export default class btcbox extends Exchange {
             'amount': amountString,
             'cost': undefined,
             'fee': undefined,
-        }, market);
+        }, marketResolved);
     }
 
-    async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name btcbox#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://blog.btcbox.jp/en/archives/8762#toc7
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name btcbox#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://blog.btcbox.jp/en/archives/8762#toc7
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {};
         const numSymbols = this.symbols.length;
@@ -302,21 +576,23 @@ export default class btcbox extends Exchange {
         return this.parseTrades (response, market, since, limit);
     }
 
-    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcbox#createOrder
-         * @description create a trade order
-         * @see https://blog.btcbox.jp/en/archives/8762#toc18
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name btcbox#createOrder
+     * @description create a trade order
+     * @see https://blog.btcbox.jp/en/archives/8762#toc18
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'amount': amount,
@@ -328,29 +604,29 @@ export default class btcbox extends Exchange {
         //
         //     {
         //         "result":true,
-        //         "id":"11"
+        //         "id":"12"
         //     }
         //
         return this.parseOrder (response, market);
     }
 
-    async cancelOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcbox#cancelOrder
-         * @description cancels an open order
-         * @see https://blog.btcbox.jp/en/archives/8762#toc17
-         * @param {string} id order id
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
-        // a special case for btcbox – default symbol is BTC/JPY
-        if (symbol === undefined) {
-            symbol = 'BTC/JPY';
+    /**
+     * @method
+     * @name btcbox#cancelOrder
+     * @description cancels an open order
+     * @see https://blog.btcbox.jp/en/archives/8762#toc17
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
         }
-        const market = this.market (symbol);
+        // a special case for btcbox – default symbol is BTC/JPY
+        const symbolResolved: string = (symbol === undefined) ? 'BTC/JPY' : symbol;
+        const market = this.market (symbolResolved);
         const request: Dict = {
             'id': id,
             'coin': market['baseId'],
@@ -362,7 +638,7 @@ export default class btcbox extends Exchange {
         return this.parseOrder (response, market);
     }
 
-    parseOrderStatus (status: Str) {
+    parseOrderStatus (status: Str): Str {
         const statuses: Dict = {
             // TODO: complete list
             'part': 'open', // partially or not at all executed
@@ -371,14 +647,17 @@ export default class btcbox extends Exchange {
             'closed': 'closed', // never encountered, seems to be bug in the doc
             'no': 'closed', // not clarified in the docs...
         };
+        if (status === undefined) {
+            return undefined;
+        }
         return this.safeString (statuses, status, status);
     }
 
-    parseOrder (order: Dict, market: Market = undefined): Order {
+    override parseOrder (order: Dict, market: Market = undefined): Order {
         //
         //     {
         //         "id":11,
-        //         "datetime":"2014-10-21 10:47:20",
+        //         "datetime":"2014-10-21 10:47:21",
         //         "type":"sell",
         //         "price":42000,
         //         "amount_original":1.2,
@@ -389,9 +668,9 @@ export default class btcbox extends Exchange {
         //
         const id = this.safeString (order, 'id');
         const datetimeString = this.safeString (order, 'datetime');
-        let timestamp = undefined;
+        let timestamp: Int = undefined;
         if (datetimeString !== undefined) {
-            timestamp = this.parse8601 (order['datetime'] + '+09:00'); // Tokyo time
+            timestamp = this.parse8601 (datetimeString + '+09:00'); // Tokyo time
         }
         const amount = this.safeString (order, 'amount_original');
         const remaining = this.safeString (order, 'amount_outstanding');
@@ -405,7 +684,7 @@ export default class btcbox extends Exchange {
             }
         }
         const trades = undefined; // todo: this.parseTrades (order['trades']);
-        market = this.safeMarket (undefined, market);
+        const marketResolved: Market = this.safeMarket (undefined, market);
         const side = this.safeString (order, 'type');
         return this.safeOrder ({
             'id': id,
@@ -421,34 +700,34 @@ export default class btcbox extends Exchange {
             'timeInForce': undefined,
             'postOnly': undefined,
             'status': status,
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'price': price,
-            'stopPrice': undefined,
             'triggerPrice': undefined,
             'cost': undefined,
             'trades': trades,
             'fee': undefined,
             'info': order,
             'average': undefined,
-        }, market);
+        }, marketResolved);
     }
 
-    async fetchOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcbox#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://blog.btcbox.jp/en/archives/8762#toc16
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
-        // a special case for btcbox – default symbol is BTC/JPY
-        if (symbol === undefined) {
-            symbol = 'BTC/JPY';
+    /**
+     * @method
+     * @name btcbox#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://blog.btcbox.jp/en/archives/8762#toc16
+     * @param {string} id the order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
         }
-        const market = this.market (symbol);
+        // a special case for btcbox – default symbol is BTC/JPY
+        const symbolResolved: string = (symbol === undefined) ? 'BTC/JPY' : symbol;
+        const market = this.market (symbolResolved);
         const request = this.extend ({
             'id': id,
             'coin': market['baseId'],
@@ -457,7 +736,7 @@ export default class btcbox extends Exchange {
         //
         //      {
         //          "id":11,
-        //          "datetime":"2014-10-21 10:47:20",
+        //          "datetime":"2014-10-21 10:47:21",
         //          "type":"sell",
         //          "price":42000,
         //          "amount_original":1.2,
@@ -469,13 +748,13 @@ export default class btcbox extends Exchange {
         return this.parseOrder (response, market);
     }
 
-    async fetchOrdersByType (type, symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}) {
-        await this.loadMarkets ();
-        // a special case for btcbox – default symbol is BTC/JPY
-        if (symbol === undefined) {
-            symbol = 'BTC/JPY';
+    async fetchOrdersByType (type: Str, symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
         }
-        const market = this.market (symbol);
+        // a special case for btcbox – default symbol is BTC/JPY
+        const symbolResolved: string = (symbol === undefined) ? 'BTC/JPY' : symbol;
+        const market = this.market (symbolResolved);
         const request: Dict = {
             'type': type, // 'open' or 'all'
             'coin': market['baseId'],
@@ -493,102 +772,108 @@ export default class btcbox extends Exchange {
         //      },
         // ]
         //
-        const orders = this.parseOrders (response, market, since, limit);
         // status (open/closed/canceled) is undefined
         // btcbox does not return status, but we know it's 'open' as we queried for open orders
+        const extra: Dict = {};
         if (type === 'open') {
-            for (let i = 0; i < orders.length; i++) {
-                orders[i]['status'] = 'open';
-            }
+            extra['status'] = 'open';
         }
-        return orders;
+        return this.parseOrders (response, market, since, limit, extra);
     }
 
-    async fetchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name btcbox#fetchOrders
-         * @description fetches information on multiple orders made by the user
-         * @see https://blog.btcbox.jp/en/archives/8762#toc15
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name btcbox#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://blog.btcbox.jp/en/archives/8762#toc15
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
         return await this.fetchOrdersByType ('all', symbol, since, limit, params);
     }
 
-    async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name btcbox#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://blog.btcbox.jp/en/archives/8762#toc15
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name btcbox#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://blog.btcbox.jp/en/archives/8762#toc15
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
         return await this.fetchOrdersByType ('open', symbol, since, limit, params);
     }
 
-    nonce () {
+    override nonce (): int {
         return this.milliseconds ();
     }
 
-    sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let url = this.urls['api']['rest'] + '/' + this.version + '/' + path;
-        if (api === 'public') {
-            if (Object.keys (params).length) {
-                url += '?' + this.urlencode (params);
+    override sign (path: string, api: string[] = [ 'public' ], method: string = 'GET', params: Dict = {}): Dict {
+        const apiName = api[0];
+        const apiUrl = this.safeString (this.urls['api'], 'rest');
+        if (apiUrl === undefined) {
+            throw new ExchangeError (this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + '/' + this.version + '/' + path;
+        if (apiName === 'public') {
+            if (Object.keys (params).length > 0) {
+                url = apiUrl + '/' + this.version + '/' + path + '?' + this.urlencode (params);
             }
+        } else if (apiName === 'webApi') {
+            url = this.safeString (this.urls, 'www', '') + '/' + path;
         } else {
             this.checkRequiredCredentials ();
-            const nonce = this.nonce ().toString ();
+            const nonce = this.numberToString (this.nonce ());
             const query = this.extend ({
                 'key': this.apiKey,
                 'nonce': nonce,
             }, params);
             const request = this.urlencode (query);
-            const secret = this.hash (this.encode (this.secret), sha256);
+            const secret = this.hash (this.encode (this.secret), md5);
             query['signature'] = this.hmac (this.encode (request), this.encode (secret), sha256);
-            body = this.urlencode (query);
-            headers = {
+            const signedBody: Str = this.urlencode (query);
+            const signedHeaders: Dict = {
                 'Content-Type': 'application/x-www-form-urlencoded',
             };
+            return { 'url': url, 'method': method, 'body': signedBody, 'headers': signedHeaders };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        return { 'url': url, 'method': method, 'body': undefined, 'headers': undefined };
     }
 
-    handleErrors (httpCode: int, reason: string, url: string, method: string, headers: Dict, body: string, response, requestHeaders, requestBody) {
+    override handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response: any, requestHeaders: NullableDict, requestBody: Str) {
         if (response === undefined) {
             return undefined; // resort to defaultErrorHandler
         }
         // typical error response: {"result":false,"code":"401"}
-        if (httpCode >= 400) {
+        if (code >= 400) {
             return undefined; // resort to defaultErrorHandler
         }
-        const result = this.safeValue (response, 'result');
-        if (result === undefined || result === true) {
+        const result = this.safeBool (response, 'result');
+        if (result === undefined || result) {
             return undefined; // either public API (no error codes expected) or success
         }
-        const code = this.safeValue (response, 'code');
+        const codeError = this.safeString (response, 'code');
         const feedback = this.id + ' ' + body;
-        this.throwExactlyMatchedException (this.exceptions, code, feedback);
+        this.throwExactlyMatchedException (this.exceptions, codeError, feedback);
         throw new ExchangeError (feedback); // unknown message
     }
 
-    async request (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined, config = {}) {
-        let response = await this.fetch2 (path, api, method, params, headers, body, config);
+    override async request (path: string, api: string[] = [ 'public' ], method = 'GET', params: Dict = {}, config: Dict = {}) {
+        let response = await this.fetch2 (path, api, method, params, config);
         if (typeof response === 'string') {
             // sometimes the exchange returns whitespace prepended to json
-            response = this.strip (response);
-            if (!this.isJsonEncodedObject (response)) {
-                throw new ExchangeError (this.id + ' ' + response);
+            const strippedResponse = this.strip (response);
+            if (!this.isJsonEncodedObject (strippedResponse)) {
+                throw new ExchangeError (this.id + ' ' + strippedResponse);
             }
-            response = JSON.parse (response);
+            response = JSON.parse (strippedResponse);
         }
         return response;
     }

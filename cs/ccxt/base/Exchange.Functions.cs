@@ -6,7 +6,7 @@ namespace ccxt;
 
 using dict = Dictionary<string, object>;
 
-public partial class Exchange
+public partial class BaseExchange
 {
 
     private bool isHttpMethod(string method)
@@ -15,9 +15,11 @@ public partial class Exchange
     }
 
 
-    public dict keysort(object parameters2)
+    // Declared types spell Dictionary<string, object> out (never the file-local `dict` alias, which
+    // stays expression-position only) so the classifier's string-keyed type tables name them verbatim.
+    public Dictionary<string, object> keysort(object parameters2)
     {
-        var parameters = (dict)parameters2;
+        var parameters = (IDictionary<string, object>)parameters2;
         var keys = new List<string>(parameters.Keys);
         keys.Sort();
         var outDict = new dict();
@@ -28,7 +30,37 @@ public partial class Exchange
         return outDict;
     }
 
+    public List<string> sort(object inputListObj)
+    {
+        var sortedList = new List<string>();
 
+        if (inputListObj is IList<string> stringList)
+        {
+            sortedList.AddRange(stringList);
+        }
+        else if (inputListObj is IList<object> objectList)
+        {
+            foreach (var item in objectList)
+            {
+                if (item is string str)
+                {
+                    sortedList.Add(str);
+                }
+            }
+        }
+        else
+        {
+            // Unsupported type; return empty list
+            return sortedList;
+        }
+
+        sortedList.Sort();
+        return sortedList;
+    }
+
+
+    // list params (e.g. batch-order bodies) flow through fetch2 into omit and must
+    // pass through untouched, so the object-receiver overloads stay object-returning
     public object omit(object a, params object[] parameters)
     {
         var keys = new List<object>();
@@ -69,26 +101,34 @@ public partial class Exchange
         return outDict;
     }
 
-    public dict omitN(object aa, List<object> keys)
-    {
-        var a = (dict)aa;
-        var outDict = new dict();
-        var aKeys = new List<string>(a.Keys);
-        foreach (string key in aKeys)
-        {
-            if (!keys.Contains(key))
-            {
-                outDict.Add(key, a[key]);
-            }
-        }
-        return outDict;
-    }
-
-    public object omit(dict a, string key)
+    // A Dictionary<string, object> receiver can never be the pass-through above (the concrete
+    // class implements no IList, and no box reaching omit derives from it): both dict-receiver
+    // overloads hand back the fresh outDict, the object key form through the same object path.
+    public Dictionary<string, object> omit(Dictionary<string, object> a, string key)
     {
         var keys = new List<object>();
         keys.Add(key);
         return omit(a, keys);
+    }
+
+    public Dictionary<string, object> omit(Dictionary<string, object> a, object k)
+    {
+        return (dict)omit((object)a, k);
+    }
+
+    // Same for an interface-typed receiver: no type in the tree implements both
+    // IDictionary<string, object> and IList<object>, so the pass-through branch is
+    // unreachable and the object path hands back the fresh outDict (cast back below).
+    public Dictionary<string, object> omit(IDictionary<string, object> a, string key)
+    {
+        var keys = new List<object>();
+        keys.Add(key);
+        return (dict)omit((object)a, keys);
+    }
+
+    public Dictionary<string, object> omit(IDictionary<string, object> a, object k)
+    {
+        return (dict)omit((object)a, k);
     }
 
     public IList<object> toArray(object a)
@@ -96,10 +136,23 @@ public partial class Exchange
         if (a == null)
             return null;
 
-        // if (a.GetType() == typeof(List<object>))
-        // {
-        //     return (List<object>)a;
-        // }
+        // a typed core (fetchMarkets -> List<MarketInterface>) hands its result to
+        // generated dict logic; detype each element so setMarkets/deepExtend still
+        // see the plain dictionaries they merge fees and defaults into.
+        if (a is System.Collections.IEnumerable typedRows && !(a is IList<object>) && !(a is IDictionary<string, object>) && !(a is string))
+        {
+            var elem = a.GetType().IsGenericType ? a.GetType().GetGenericArguments()[0] : null;
+            if (elem != null && elem.IsValueType && !elem.IsPrimitive && elem.Namespace == "ccxt")
+            {
+                var detyped = new List<object>();
+                foreach (var row in typedRows)
+                {
+                    detyped.Add(FromTyped(row));
+                }
+                return detyped;
+            }
+        }
+
         if (a is List<object>)
         {
             return (List<object>)a;
@@ -107,13 +160,45 @@ public partial class Exchange
 
         if (a is IList<object>)
         {
-            // return ((IList<object>)a).ToList();
+            // a live WS cache is mutated by the receive thread while callers index the
+            // result; SlimConcurrentList.ToArray snapshots under a single read lock,
+            // whereas Count + CopyTo (what Enumerable.ToList uses) locks them separately
+            if (a is ccxt.pro.SlimConcurrentList<object> concurrentList)
+            {
+                return concurrentList.ToArray();
+            }
             return ((IList<object>)a);
+        }
+
+        // a typed core hands back List<Dictionary<string, object>> / List<T>; List<T> is
+        // invariant so none of those IS an IList<object> - re-box through the non-generic
+        // IList before the dictionary branch, which would otherwise cast-throw on a list
+        if (a is System.Collections.IList && !(a is IDictionary<string, object>))
+        {
+            var boxedRows = new List<object>();
+            foreach (var row in (System.Collections.IList)a)
+            {
+                boxedRows.Add(row);
+            }
+            return boxedRows;
         }
         // if (a.GetType() == typeof(List<string>))
         // {
         //     return (List<string>)a;
         // }
+
+        if (a is IDictionary<string, object>)
+        {
+            // var b = (Dictionary<string, object>)a;
+            var b2 = (IDictionary<string, object>)a;
+            var outList2 = new List<object>();
+            var keys2 = new List<string>(((IDictionary<string, object>)a).Keys);
+            foreach (string key in keys2)
+            {
+                outList2.Add(b2[key]);
+            }
+            return outList2;
+        }
 
         var b = (dict)a;
         var outList = new List<object>();
@@ -125,7 +210,13 @@ public partial class Exchange
         return outList;
     }
 
-    public object arrayConcat(object aa, object bb)
+    // List<object> (not `object`): every path hands back the fresh List<object> built below or
+    // null, so the declaration can carry the real box — build/csharp-local-types.js names
+    // `object x = this.arrayConcat(...)` locals from this signature. The Task branch keeps its
+    // exact-type probe but re-boxes its elements into a List<object> so the declared type stays
+    // truthful; nothing else builds or consumes a List<Task<object>> concat (the only other
+    // List<Task<object>> site is PromiseAll's own local), so no runtime box changes in practice.
+    public List<object> arrayConcat(object aa, object bb)
     {
         // if (aa.GetType() == typeof(List<object>))
         if (aa is List<object>)
@@ -144,7 +235,7 @@ public partial class Exchange
         {
             var a = (List<Task<object>>)aa;
             var b = (List<Task<object>>)bb;
-            var outList = new List<Task<object>>();
+            var outList = new List<object>();
             foreach (var elem in a)
                 outList.Add(elem);
             foreach (var elem in b)
@@ -154,10 +245,41 @@ public partial class Exchange
         return null;
     }
 
+    // public List<object> aggregate(object bidasks)
+    // {
+    //     var outList = new List<object>();
+    //     return outList; // stub to override
+    // }
+
     public List<object> aggregate(object bidasks)
     {
-        var outList = new List<object>();
-        return outList; // stub to override
+        var result = new Dictionary<double, double>();
+
+        if (bidasks is IList<object> list)
+        {
+            foreach (var entry in list)
+            {
+                if (entry is IList<object> pair && pair.Count >= 2)
+                {
+                    double price = Convert.ToDouble(pair[0]);
+                    double volume = Convert.ToDouble(pair[1]);
+
+                    if (volume > 0)
+                    {
+                        if (!result.ContainsKey(price))
+                        {
+                            result[price] = 0;
+                        }
+                        result[price] += volume;
+                    }
+                }
+            }
+        }
+
+        var res = result
+            .Select(kv => new List<object> { kv.Key, kv.Value })
+            .ToList();
+        return res.Select(x => (object)x).ToList();
     }
 
     // public List<object> filterByValueSinceLimit(object aa, object key, object value, object since, object limit, object timestamp = null, object tail = null)
@@ -196,12 +318,6 @@ public partial class Exchange
     // }
 
 
-    public string uuidv1()
-    {
-        return Guid.NewGuid().ToString(); //stub
-    }
-
-
     public List<object> extractParams(object str)
     {
         var regex = new Regex(@"\{([^\}]+)\}");
@@ -217,16 +333,8 @@ public partial class Exchange
 
     public bool isJsonEncodedObject(object str)
     {
-        var str2 = (string)str;
-        if (str2 != null && (str2.StartsWith("{") || str2.StartsWith("[")))
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-
+        var str2 = str as string;
+        return str2 != null && (str2.StartsWith("{") || str2.StartsWith("["));
     }
 
     public string json(object obj)
@@ -252,6 +360,13 @@ public partial class Exchange
     {
         if (obj == null)
             return null;
+        // Check if the object is an exception
+        if (obj is Exception ex)
+        {
+            var errorObj = new { name = ex.GetType().Name };
+            return JsonConvert.SerializeObject(errorObj);
+        }
+
         return JsonConvert.SerializeObject(obj);
         // if (obj.GetType() == typeof(dict))
         // {
@@ -276,8 +391,4 @@ public partial class Exchange
         // return null;
     }
 
-    public object ordered(object ob)
-    {
-        return ob; //stub
-    }
 }

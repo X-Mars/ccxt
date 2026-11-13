@@ -10,6 +10,7 @@ var rsa = require('./lib/jsbn/rsa.js');
 var jsbn = require('./lib/jsbn/jsbn.js');
 var asn11_0 = require('./lib/jsrsasign/asn1-1.0.js');
 
+// ----------------------------------------------------------------------------
 /**
  * Create a new JSEncryptRSAKey that extends Tom Wu's RSA key object.
  * This object is just a decorator for parsing the key parameter
@@ -186,7 +187,7 @@ class JSEncryptRSAKey extends rsa.RSAKey {
     getPublicBaseKey() {
         const first_sequence = new asn11_0.KJUR.asn1.DERSequence({
             array: [
-                new asn11_0.KJUR.asn1.DERObjectIdentifier({ oid: "1.2.840.113549.1.1.1" }),
+                new asn11_0.KJUR.asn1.DERObjectIdentifier({ oid: "1.2.840.113549.1.1.1" }), // RSA Encryption pkcs #1 oid
                 new asn11_0.KJUR.asn1.DERNull(),
             ],
         });

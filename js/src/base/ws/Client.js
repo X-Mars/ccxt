@@ -5,36 +5,55 @@
 // EDIT THE CORRESPONDENT .ts FILE INSTEAD
 
 import { RequestTimeout, NetworkError, NotSupported, BaseError, ExchangeClosedByUser } from '../../base/errors.js';
-import { inflateSync, gunzipSync } from '../../static_dependencies/fflake/browser.js';
 import { Future } from './Future.js';
-import { isNode, isJsonEncodedObject, deepExtend, milliseconds, } from '../../base/functions.js';
-import { utf8 } from '../../static_dependencies/scure-base/index.js';
+import { isNode, isBun, isJsonEncodedObject, deepExtend, milliseconds, } from '../../base/functions.js';
+import { utf8 } from '@scure/base';
+// websocket decompression backends are resolved once at startup so the message
+// hot path stays branch-free: node:zlib under Node, the fflate npm package elsewhere.
+// inflate is always raw deflate (no zlib header), hence node's inflateRawSync.
+let gunzipSync = undefined;
+let inflateRawSync = undefined;
+if (isNode) {
+    import(/* webpackIgnore: true */ 'node:zlib').then((mod) => { gunzipSync = mod.gunzipSync; inflateRawSync = mod.inflateRawSync; }).catch(() => { });
+}
+else {
+    import(/* webpackMode: "eager" */ 'fflate').then((mod) => { gunzipSync = mod.gunzipSync; inflateRawSync = mod.inflateSync; }).catch(() => { });
+}
+// platform checks are likewise resolved once at module load so the send/ping
+// hot paths stay branch-cheap:
+// - usesNodeWsPackage: the 'ws' npm package is in use (node-style send callbacks, connection.ping ())
+// - bunHasNativePing: bun's native WebSocket exposes ping () as a non-standard extension
+// - hasPing: the active WebSocket implementation supports connection.ping ()
+const usesNodeWsPackage = isNode && !isBun;
+const bunHasNativePing = isBun && (typeof globalThis.WebSocket !== 'undefined') && (typeof globalThis.WebSocket.prototype.ping === 'function');
+const hasPing = usesNodeWsPackage || bunHasNativePing;
 export default class Client {
     constructor(url, onMessageCallback, onErrorCallback, onCloseCallback, onConnectedCallback, config = {}) {
         this.verbose = false;
+        this.decompressBinary = true;
         const defaults = {
             url,
             onMessageCallback,
             onErrorCallback,
             onCloseCallback,
             onConnectedCallback,
-            verbose: false,
-            protocols: undefined,
-            options: undefined,
+            verbose: false, // verbose output
+            protocols: undefined, // ws-specific protocols
+            options: undefined, // ws-specific options
             futures: {},
             subscriptions: {},
-            rejections: {},
-            connected: undefined,
-            error: undefined,
-            connectionStarted: undefined,
-            connectionEstablished: undefined,
+            rejections: {}, // so that we can reject things in the future
+            connected: undefined, // connection-related Future
+            error: undefined, // stores low-level networking exception, if any
+            connectionStarted: undefined, // initiation timestamp in milliseconds
+            connectionEstablished: undefined, // success timestamp in milliseconds
             isConnected: false,
-            connectionTimer: undefined,
-            connectionTimeout: 10000,
-            pingInterval: undefined,
-            ping: undefined,
-            keepAlive: 30000,
-            maxPingPongMisses: 2.0,
+            connectionTimer: undefined, // connection-related setTimeout
+            connectionTimeout: 10000, // in milliseconds, false to disable
+            pingInterval: undefined, // stores the ping-related interval
+            ping: undefined, // ping-function (if defined)
+            keepAlive: 30000, // ping-pong keep-alive rate in milliseconds
+            maxPingPongMisses: 2.0, // how many missing pongs to throw a RequestTimeout
             // timeout is not used atm
             // timeout: 30000, // throw if a request is not satisfied in 30 seconds, false to disable
             connection: undefined,
@@ -45,6 +64,10 @@ export default class Client {
         Object.assign(this, deepExtend(defaults, config));
         // connection-related Future
         this.connected = Future();
+    }
+    reusableFuture(messageHash) {
+        // only used in go
+        return this.future(messageHash);
     }
     future(messageHash) {
         if (!(messageHash in this.futures)) {
@@ -142,20 +165,34 @@ export default class Client {
             this.lastPong = this.lastPong || now;
             if ((this.lastPong + this.keepAlive * this.maxPingPongMisses) < now) {
                 this.onError(new RequestTimeout('Connection to ' + this.url + ' timed out due to a ping-pong keepalive missing on time'));
+                // onError rejects the pending futures and the exchange drops
+                // this client from its registry, but the socket itself is
+                // still OPEN: nothing above tears it down, and the server
+                // never asked for a close. left alone it keeps receiving
+                // frames and dispatching them into the exchange caches next
+                // to the replacement connection the next watch call opens.
+                // close the transport here, the same way onConnectionTimeout
+                // does for a dial that never completed, so the timeout ends
+                // the connection and not only the futures waiting on it
+                this.close();
             }
             else {
                 let message;
                 if (this.ping) {
                     message = this.ping(this);
                 }
+                if (this.verbose) {
+                    this.log(new Date(), 'onPingInterval', '|', this.url);
+                }
                 if (message) {
                     this.send(message).catch((error) => {
                         this.onError(error);
                     });
                 }
-                else if (isNode) {
+                else if (hasPing) {
                     // can't do this inside browser
                     // https://stackoverflow.com/questions/10585355/sending-websocket-ping-pong-frame-from-browser
+                    // under bun the native WebSocket implements ping () as a non-standard extension
                     this.connection.ping();
                 }
                 else {
@@ -170,7 +207,7 @@ export default class Client {
     }
     onOpen() {
         if (this.verbose) {
-            this.log(new Date(), 'onOpen');
+            this.log(new Date(), 'onOpen', '|', this.url);
         }
         this.connectionEstablished = milliseconds();
         this.isConnected = true;
@@ -185,18 +222,18 @@ export default class Client {
     // however, some devs may want to track connection states in their app
     onPing() {
         if (this.verbose) {
-            this.log(new Date(), 'onPing');
+            this.log(new Date(), 'onPing', '|', this.url);
         }
     }
     onPong() {
         this.lastPong = milliseconds();
         if (this.verbose) {
-            this.log(new Date(), 'onPong');
+            this.log(new Date(), 'onPong', '|', this.url);
         }
     }
     onError(error) {
         if (this.verbose) {
-            this.log(new Date(), 'onError', error.message);
+            this.log(new Date(), 'onError', error.message, '|', this.url);
         }
         if (!(error instanceof BaseError)) {
             // in case of ErrorEvent from node_modules/ws/lib/event-target.js
@@ -209,7 +246,7 @@ export default class Client {
     /* eslint-disable no-shadow */
     onClose(event) {
         if (this.verbose) {
-            this.log(new Date(), 'onClose', event);
+            this.log(new Date(), 'onClose', event, '|', this.url);
         }
         if (!this.error) {
             // todo: exception types for server-side disconnects
@@ -227,7 +264,7 @@ export default class Client {
     // but may be used to read protocol-level data like cookies, headers, etc
     onUpgrade(message) {
         if (this.verbose) {
-            this.log(new Date(), 'onUpgrade');
+            this.log(new Date(), 'onUpgrade', '|', this.url);
         }
     }
     async send(message) {
@@ -236,7 +273,8 @@ export default class Client {
         }
         message = (typeof message === 'string') ? message : JSON.stringify(message);
         const future = Future();
-        if (isNode) {
+        if (usesNodeWsPackage) {
+            // bun's native WebSocket send () does not accept a completion callback
             /* eslint-disable no-inner-declarations */
             /* eslint-disable jsdoc/require-jsdoc */
             function onSendComplete(error) {
@@ -263,23 +301,43 @@ export default class Client {
         // MessageEvent {isTrusted: true, data: "{"e":"depthUpdate","E":1581358737706,"s":"ETHBTC",…"0.06200000"]],"a":[["0.02261300","0.00000000"]]}", origin: "wss://stream.binance.com:9443", lastEventId: "", source: null, …}
         let message = messageEvent.data;
         let arrayBuffer;
-        if (typeof message !== 'string') {
-            if (this.gunzip || this.inflate) {
-                arrayBuffer = new Uint8Array(message.buffer.slice(message.byteOffset, message.byteOffset + message.byteLength));
-                if (this.gunzip) {
-                    arrayBuffer = gunzipSync(arrayBuffer);
+        try {
+            if (typeof message !== 'string') {
+                if (this.gunzip || this.inflate) {
+                    arrayBuffer = new Uint8Array(message.buffer.slice(message.byteOffset, message.byteOffset + message.byteLength));
+                    if (this.gunzip) {
+                        arrayBuffer = gunzipSync(arrayBuffer);
+                    }
+                    else if (this.inflate) {
+                        arrayBuffer = inflateRawSync(arrayBuffer);
+                    }
+                    message = utf8.encode(arrayBuffer);
                 }
-                else if (this.inflate) {
-                    arrayBuffer = inflateSync(arrayBuffer);
+                else {
+                    if (this.decompressBinary) {
+                        message = message.toString();
+                    }
+                    else if (message instanceof ArrayBuffer) {
+                        // browsers deliver binary frames as an ArrayBuffer (binaryType = 'arraybuffer'),
+                        // hand them on as bytes like the node Buffer, which binaryToBase16 accepts
+                        message = new Uint8Array(message);
+                    }
                 }
-                message = utf8.encode(arrayBuffer);
             }
-            else {
-                message = message.toString();
-            }
+        }
+        catch (error) {
+            // a frame that cannot be decompressed/decoded is connection-fatal: the
+            // stream is corrupt, so no later frame can be trusted. it must be handled
+            // here - if it escaped onMessage it would reject the fire-and-forget
+            // deliverLoop (node: unhandled rejection crash) or be swallowed by the
+            // host event dispatch (browsers/bun). onError rejects all pending futures.
+            this.onError(error);
+            this.close();
+            return;
         }
         try {
             if (isJsonEncodedObject(message)) {
+                message = message.toString();
                 message = JSON.parse(message.replace(/:(\d{15,}),/g, ':"$1",'));
             }
             if (this.verbose) {
@@ -290,7 +348,7 @@ export default class Client {
             }
         }
         catch (e) {
-            this.log(new Date(), 'onMessage JSON.parse', e);
+            this.log(new Date(), 'onMessage JSON.parse', e, '|', this.url);
             // reset with a json encoding error ?
         }
         try {

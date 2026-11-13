@@ -28,6 +28,7 @@ function _interopNamespace(e) {
 var net__namespace = /*#__PURE__*/_interopNamespace(net);
 var tls__namespace = /*#__PURE__*/_interopNamespace(tls);
 
+// ----------------------------------------------------------------------------
 function isHTTPS(protocol) {
     return typeof protocol === 'string' ? /^https:?$/i.test(protocol) : false;
 }
@@ -36,6 +37,10 @@ function isHTTPS(protocol) {
  * to the specified "HTTP proxy server" in order to proxy HTTP requests.
  */
 class HttpProxyAgent extends index.Agent {
+    static { this.protocols = ['http', 'https']; }
+    get secureProxy() {
+        return isHTTPS(this.proxy.protocol);
+    }
     constructor(proxy, opts) {
         super(opts);
         this.proxy = typeof proxy === 'string' ? new URL(proxy) : proxy;
@@ -53,9 +58,6 @@ class HttpProxyAgent extends index.Agent {
             host,
             port,
         };
-    }
-    get secureProxy() {
-        return isHTTPS(this.proxy.protocol);
     }
     async connect(req, opts) {
         const { proxy } = this;
@@ -125,7 +127,6 @@ class HttpProxyAgent extends index.Agent {
         return socket;
     }
 }
-HttpProxyAgent.protocols = ['http', 'https'];
 function omit(obj, ...keys) {
     const ret = {};
     let key;

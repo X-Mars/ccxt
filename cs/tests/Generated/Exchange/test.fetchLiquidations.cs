@@ -7,21 +7,22 @@ namespace Tests;
 
 public partial class testMainClass : BaseTest
 {
-    async static public Task testFetchLiquidations(Exchange exchange, object skippedProperties, object code)
+    async static public Task<object> testFetchLiquidations(BaseExchange exchange, object skippedProperties, object code)
     {
-        object method = "fetchLiquidations";
-        if (!isTrue(getValue(exchange.has, "fetchLiquidations")))
+        string method = "fetchLiquidations";
+        if ((getValue(exchange.has, "fetchLiquidations") == null) || (getValue(exchange.has, "fetchLiquidations") is false))
         {
-            return;
+            return true;
         }
-        object items = await exchange.fetchLiquidations(code);
+        object items = await invokeExchangeDynamically(exchange, "fetchLiquidations", code);
         assert(((items is IList<object>) || (items.GetType().IsGenericType && items.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>)))), add(add(add(add(add(add(exchange.id, " "), method), " "), code), " must return an array. "), exchange.json(items)));
-        object now = exchange.milliseconds();
-        for (object i = 0; isLessThan(i, getArrayLength(items)); postFixIncrement(ref i))
+        // const now = exchange.milliseconds ();
+        for (int i = 0; i < getArrayLength(items); i++)
         {
             testLiquidation(exchange, skippedProperties, method, getValue(items, i), code);
         }
         testSharedMethods.assertTimestampOrder(exchange, method, code, items);
+        return true;
     }
 
 }

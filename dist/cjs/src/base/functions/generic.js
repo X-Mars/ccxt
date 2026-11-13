@@ -17,18 +17,37 @@ const unique = (x) => Array.from(index(x));
 const arrayConcat = (a, b) => a.concat(b);
 // ------------------------------------------------------------------------
 const inArray = (needle, haystack) => haystack.includes(needle);
-const toArray = (object) => Object.values(object);
+const toArray = (object) => {
+    if ((object === undefined) || (object === null)) {
+        return [];
+    }
+    return Object.values(object);
+};
 const isEmpty = (object) => {
-    if (!object) {
+    if (object === null || object === undefined) {
         return true;
     }
-    return (Array.isArray(object) ? object : Object.keys(object)).length < 1;
+    if (Array.isArray(object)) {
+        return object.length < 1;
+    }
+    if (type.isDict(object)) {
+        return Object.keys(object).length < 1;
+    }
+    return false;
 };
 const keysort = (x, out = {}) => {
+    if (x === undefined) {
+        return out;
+    }
     for (const k of keys(x).sort()) {
         out[k] = x[k];
     }
     return out;
+};
+const sort = (array) => {
+    const newArray = array.slice();
+    newArray.sort();
+    return newArray;
 };
 /*
     Accepts a map/array of objects and a key name to be used as an index:
@@ -46,6 +65,9 @@ const keysort = (x, out = {}) => {
     }
 */
 const groupBy = (x, k, out = {}) => {
+    if (x === undefined) {
+        return out;
+    }
     for (const v of values(x)) {
         if (k in v) {
             const p = v[k];
@@ -56,6 +78,9 @@ const groupBy = (x, k, out = {}) => {
     return out;
 };
 const indexBy = (x, k, out = {}) => {
+    if (x === undefined) {
+        return out;
+    }
     for (const v of values(x)) {
         if (k in v) {
             out[v[k]] = v;
@@ -64,6 +89,9 @@ const indexBy = (x, k, out = {}) => {
     return out;
 };
 const filterBy = (x, k, value = undefined, out = []) => {
+    if (x === undefined) {
+        return out;
+    }
     for (const v of values(x)) {
         if (v[k] === value) {
             out.push(v);
@@ -71,7 +99,7 @@ const filterBy = (x, k, value = undefined, out = []) => {
     }
     return out;
 };
-const sortBy = (array, key, descending = false, defaultValue = 0, direction = descending ? -1 : 1) => array.sort((a, b) => {
+const sortBy = (array, key, descending = false, defaultValue = 0, direction = descending ? -1 : 1) => array.slice().sort((a, b) => {
     const first = (key in a) ? a[key] : defaultValue;
     const second = (key in b) ? b[key] : defaultValue;
     if (first < second) {
@@ -84,7 +112,7 @@ const sortBy = (array, key, descending = false, defaultValue = 0, direction = de
         return 0;
     }
 });
-const sortBy2 = (array, key1, key2, descending = false, direction = descending ? -1 : 1) => array.sort((a, b) => {
+const sortBy2 = (array, key1, key2, descending = false, direction = descending ? -1 : 1) => array.slice().sort((a, b) => {
     if (a[key1] < b[key1]) {
         return -direction;
     }
@@ -115,7 +143,10 @@ const flatten = function flatten(x, out = []) {
     return out;
 };
 const pluck = (x, k) => values(x).filter((v) => k in v).map((v) => v[k]);
-const omit = (x, ...args) => {
+function omit(x, ...args) {
+    if (x === undefined) {
+        return x;
+    }
     if (!Array.isArray(x)) {
         const out = clone(x);
         for (const k of args) {
@@ -131,27 +162,44 @@ const omit = (x, ...args) => {
         return out;
     }
     return x;
-};
+}
 const sum = (...xs) => {
     const ns = xs.filter(type.isNumber); // leave only numbers
     return (ns.length > 0) ? ns.reduce((a, b) => a + b, 0) : undefined;
 };
-const deepExtend = function deepExtend(...xs) {
-    let out = undefined;
-    for (const x of xs) {
-        if (type.isDictionary(x)) {
-            if (!type.isDictionary(out)) {
-                out = {};
+const deepExtend = function (...args) {
+    let result = null;
+    let resultIsObject = false;
+    for (const arg of args) {
+        if (arg !== null && typeof arg === 'object' && arg.constructor === Object) {
+            // This is a plain object (even if empty) so set the return type.
+            if (result === null || !resultIsObject) {
+                result = {};
+                resultIsObject = true;
             }
-            for (const k in x) {
-                out[k] = deepExtend(out[k], x[k]);
+            // Skip actual merging if object is empty.
+            if (Object.keys(arg).length === 0) {
+                continue;
+            }
+            for (const key in arg) {
+                const value = arg[key];
+                const current = result[key];
+                if (current !== null && typeof current === 'object' && current.constructor === Object &&
+                    value !== null && typeof value === 'object' && value.constructor === Object) {
+                    result[key] = deepExtend(current, value);
+                }
+                else {
+                    result[key] = value;
+                }
             }
         }
         else {
-            out = x;
+            // arg is null or other non-object.
+            result = arg;
+            resultIsObject = false;
         }
     }
-    return out;
+    return result;
 };
 const merge = (target, ...args) => {
     // doesn't overwrite defined keys with undefined
@@ -185,6 +233,7 @@ exports.merge = merge;
 exports.omit = omit;
 exports.ordered = ordered;
 exports.pluck = pluck;
+exports.sort = sort;
 exports.sortBy = sortBy;
 exports.sortBy2 = sortBy2;
 exports.sum = sum;

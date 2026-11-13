@@ -1,11 +1,11 @@
 
 //  ---------------------------------------------------------------------------
 
+import { sha256 } from '@noble/hashes/sha2.js';
 import Exchange from './abstract/coincheck.js';
-import { BadSymbol, ExchangeError, AuthenticationError } from './base/errors.js';
+import { BadSymbol, ExchangeError, AuthenticationError, ArgumentsRequired } from './base/errors.js';
 import { TICK_SIZE } from './base/functions/number.js';
-import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import type { Balances, Currency, Dict, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Ticker, Trade, TradingFees, Transaction, int } from './base/types.js';
+import type { Balances, Currency, Dict, Fee, FeeString, Int, Market, NullableDict, Num, Order, OrderBook, OrderSide, OrderType, Str, Ticker, Trade, TradingFees, Transaction, int, Status, Endpoint } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -14,10 +14,10 @@ import type { Balances, Currency, Dict, Int, Market, Num, Order, OrderBook, Orde
  * @augments Exchange
  */
 export default class coincheck extends Exchange {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'id': 'coincheck',
-            'name': 'coincheck',
+            'name': 'Coincheck',
             'countries': [ 'JP', 'ID' ],
             'rateLimit': 1500,
             'has': {
@@ -28,30 +28,59 @@ export default class coincheck extends Exchange {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelOrder': true,
                 'closeAllPositions': false,
                 'closePosition': false,
                 'createOrder': true,
+                'createOrderWithTakeProfitAndStopLoss': false,
+                'createOrderWithTakeProfitAndStopLossWs': false,
+                'createPostOnlyOrder': false,
                 'createReduceOnlyOrder': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
                 'fetchDeposits': true,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
+                'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrderBook': true,
                 'fetchPosition': false,
                 'fetchPositionHistory': false,
@@ -61,13 +90,20 @@ export default class coincheck extends Exchange {
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
+                'fetchStatus': true,
                 'fetchTicker': true,
                 'fetchTrades': true,
                 'fetchTradingFee': false,
                 'fetchTradingFees': true,
+                'fetchVolatilityHistory': false,
                 'fetchWithdrawals': true,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
+                'repayMargin': false,
                 'setLeverage': false,
+                'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
                 'ws': true,
@@ -86,45 +122,48 @@ export default class coincheck extends Exchange {
             },
             'api': {
                 'public': {
-                    'get': [
-                        'exchange/orders/rate',
-                        'order_books',
-                        'rate/{pair}',
-                        'ticker',
-                        'trades',
-                    ],
+                    'get': {
+                        'exchange/orders/rate': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange_status': { 'cost': 1 } as Endpoint<Dict>,
+                        'order_books': { 'cost': 1 } as Endpoint<Dict>,
+                        'rate/{pair}': { 'cost': 1 } as Endpoint<Dict>,
+                        'ticker': { 'cost': 1 } as Endpoint<Dict>,
+                        'trades': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
                 'private': {
-                    'get': [
-                        'accounts',
-                        'accounts/balance',
-                        'accounts/leverage_balance',
-                        'bank_accounts',
-                        'deposit_money',
-                        'exchange/orders/opens',
-                        'exchange/orders/transactions',
-                        'exchange/orders/transactions_pagination',
-                        'exchange/leverage/positions',
-                        'lending/borrows/matches',
-                        'send_money',
-                        'withdraws',
-                    ],
-                    'post': [
-                        'bank_accounts',
-                        'deposit_money/{id}/fast',
-                        'exchange/orders',
-                        'exchange/transfers/to_leverage',
-                        'exchange/transfers/from_leverage',
-                        'lending/borrows',
-                        'lending/borrows/{id}/repay',
-                        'send_money',
-                        'withdraws',
-                    ],
-                    'delete': [
-                        'bank_accounts/{id}',
-                        'exchange/orders/{id}',
-                        'withdraws/{id}',
-                    ],
+                    'get': {
+                        'accounts': { 'cost': 1 } as Endpoint<Dict>,
+                        'accounts/balance': { 'cost': 1 } as Endpoint<Dict>,
+                        'accounts/leverage_balance': { 'cost': 1 } as Endpoint<Dict>,
+                        'bank_accounts': { 'cost': 1 } as Endpoint<Dict>,
+                        'deposit_money': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/orders/{id}': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/orders/opens': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/orders/cancel_status': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/orders/transactions': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/orders/transactions_pagination': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/leverage/positions': { 'cost': 1 } as Endpoint<Dict>,
+                        'lending/borrows/matches': { 'cost': 1 } as Endpoint<Dict>,
+                        'send_money': { 'cost': 1 } as Endpoint<Dict>,
+                        'withdraws': { 'cost': 1 } as Endpoint<Dict>,
+                    },
+                    'post': {
+                        'bank_accounts': { 'cost': 1 } as Endpoint<Dict>,
+                        'deposit_money/{id}/fast': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/orders': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/transfers/to_leverage': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/transfers/from_leverage': { 'cost': 1 } as Endpoint<Dict>,
+                        'lending/borrows': { 'cost': 1 } as Endpoint<Dict>,
+                        'lending/borrows/{id}/repay': { 'cost': 1 } as Endpoint<Dict>,
+                        'send_money': { 'cost': 1 } as Endpoint<Dict>,
+                        'withdraws': { 'cost': 1 } as Endpoint<Dict>,
+                    },
+                    'delete': {
+                        'bank_accounts/{id}': { 'cost': 1 } as Endpoint<Dict>,
+                        'exchange/orders/{id}': { 'cost': 1 } as Endpoint<Dict>,
+                        'withdraws/{id}': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
             },
             'markets': {
@@ -154,6 +193,60 @@ export default class coincheck extends Exchange {
                 // 'LTC/BTC': { 'id': 'ltc_btc', 'symbol': 'LTC/BTC', 'base': 'LTC', 'quote': 'BTC', 'baseId': 'ltc', 'quoteId': 'btc' },
                 // 'DASH/BTC': { 'id': 'dash_btc', 'symbol': 'DASH/BTC', 'base': 'DASH', 'quote': 'BTC', 'baseId': 'dash', 'quoteId': 'btc' },
             },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': false, // todo
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false, // todo
+                        'takeProfitPrice': false, // todo
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': false,
+                            'FOK': false,
+                            'PO': true,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'trailing': false,
+                        'leverage': false,
+                        'marketBuyByCost': false,
+                        'marketBuyRequiresPrice': false,
+                        'selfTradePrevention': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': undefined,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrder': undefined,
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrders': undefined,
+                    'fetchClosedOrders': undefined,
+                    'fetchOHLCV': undefined,
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+            },
             'fees': {
                 'trading': {
                     'tierBased': false,
@@ -173,17 +266,18 @@ export default class coincheck extends Exchange {
         });
     }
 
-    parseBalance (response): Balances {
+    override parseBalance (response: Dict): Balances {
         const result: Dict = { 'info': response };
         const codes = Object.keys (this.currencies);
         for (let i = 0; i < codes.length; i++) {
             const code = codes[i];
             const currency = this.currency (code);
             const currencyId = currency['id'];
-            if (currencyId in response) {
+            const free = this.safeString (response, currencyId);
+            if (free !== undefined) {
                 const account = this.account ();
                 const reserved = currencyId + '_reserved';
-                account['free'] = this.safeString (response, currencyId);
+                account['free'] = free;
                 account['used'] = this.safeString (response, reserved);
                 result[code] = account;
             }
@@ -191,49 +285,101 @@ export default class coincheck extends Exchange {
         return this.safeBalance (result);
     }
 
-    async fetchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name coincheck#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://coincheck.com/documents/exchange/api#order-transactions-pagination
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coincheck#fetchStatus
+     * @description the latest known information on the availability of the exchange API
+     * @see https://coincheck.com/documents/exchange/api#status-retrieval
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [status structure]{@link https://docs.ccxt.com/?id=exchange-status-structure}
+     */
+    override async fetchStatus (params: Dict = {}): Promise<Status> {
+        const response = await this.publicGetExchangeStatus (params);
+        //
+        //     {
+        //         "exchange_status": [
+        //             {
+        //                 "pair": "btc_jpy",
+        //                 "status": "available",
+        //                 "timestamp": 1782787596,
+        //                 "availability": {
+        //                     "order": true,
+        //                     "market_order": true,
+        //                     "cancel": true
+        //                 }
+        //             }
+        //         ]
+        //     }
+        //
+        const exchangeStatuses: Dict[] = this.safeList (response, 'exchange_status', []);
+        let status = 'ok';
+        let updated: Int = undefined;
+        for (let i = 0; i < exchangeStatuses.length; i++) {
+            const exchangeStatus = this.safeDict (exchangeStatuses, i);
+            const rawStatus = this.safeString (exchangeStatus, 'status');
+            if (updated === undefined) {
+                updated = this.safeTimestamp (exchangeStatus, 'timestamp');
+            }
+            if (rawStatus !== 'available') {
+                status = 'maintenance';
+            }
+        }
+        return {
+            'status': status,
+            'updated': updated,
+            'eta': undefined,
+            'url': undefined,
+            'info': response,
+        };
+    }
+
+    /**
+     * @method
+     * @name coincheck#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://coincheck.com/documents/exchange/api#order-transactions-pagination
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async fetchBalance (params: Dict = {}): Promise<Balances> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privateGetAccountsBalance (params);
         return this.parseBalance (response);
     }
 
-    async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name coincheck#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://coincheck.com/documents/exchange/api#order-opens
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coincheck#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://coincheck.com/documents/exchange/api#order-opens
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         // Only BTC/JPY is meaningful
-        let market = undefined;
+        let market: Market = undefined;
         if (symbol !== undefined) {
             market = this.market (symbol);
         }
         const response = await this.privateGetExchangeOrdersOpens (params);
-        const rawOrders = this.safeValue (response, 'orders', []);
+        const rawOrders: Dict[] = this.safeList (response, 'orders', []);
         const parsedOrders = this.parseOrders (rawOrders, market, since, limit);
-        const result = [];
+        const result: Order[] = [];
         for (let i = 0; i < parsedOrders.length; i++) {
             result.push (this.extend (parsedOrders[i], { 'status': 'open' }));
         }
         return result as Order[];
     }
 
-    parseOrder (order: Dict, market: Market = undefined): Order {
+    override parseOrder (order: Dict, market: Market = undefined): Order {
         //
         // fetchOpenOrders
         //
@@ -273,7 +419,6 @@ export default class coincheck extends Exchange {
             'status': status,
             'symbol': symbol,
             'price': price,
-            'stopPrice': undefined,
             'triggerPrice': undefined,
             'cost': undefined,
             'fee': undefined,
@@ -283,18 +428,20 @@ export default class coincheck extends Exchange {
         }, market);
     }
 
-    async fetchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name coincheck#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://coincheck.com/documents/exchange/api#order-book
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coincheck#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://coincheck.com/documents/exchange/api#order-book
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async fetchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
@@ -303,7 +450,7 @@ export default class coincheck extends Exchange {
         return this.parseOrderBook (response, market['symbol']);
     }
 
-    parseTicker (ticker: Dict, market: Market = undefined): Ticker {
+    override parseTicker (ticker: Dict, market: Market = undefined): Ticker {
         //
         // {
         //     "last":4192632.0,
@@ -342,20 +489,22 @@ export default class coincheck extends Exchange {
         }, market);
     }
 
-    async fetchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name coincheck#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://coincheck.com/documents/exchange/api#ticker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
+    /**
+     * @method
+     * @name coincheck#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://coincheck.com/documents/exchange/api#ticker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
         if (symbol !== 'BTC/JPY') {
             throw new BadSymbol (this.id + ' fetchTicker() supports BTC/JPY only');
         }
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
@@ -375,7 +524,7 @@ export default class coincheck extends Exchange {
         return this.parseTicker (ticker, market);
     }
 
-    parseTrade (trade: Dict, market: Market = undefined): Trade {
+    override parseTrade (trade: Dict, market: Market = undefined): Trade {
         //
         // fetchTrades (public)
         //
@@ -410,23 +559,24 @@ export default class coincheck extends Exchange {
         const id = this.safeString (trade, 'id');
         const priceString = this.safeString (trade, 'rate');
         const marketId = this.safeString (trade, 'pair');
-        market = this.safeMarket (marketId, market, '_');
-        const baseId = market['baseId'];
-        const quoteId = market['quoteId'];
-        const symbol = market['symbol'];
-        let takerOrMaker = undefined;
-        let amountString = undefined;
-        let costString = undefined;
-        let side = undefined;
-        let fee = undefined;
-        let orderId = undefined;
-        if ('liquidity' in trade) {
-            if (this.safeString (trade, 'liquidity') === 'T') {
+        const marketResolved: Market = this.safeMarket (marketId, market, '_');
+        const baseId = marketResolved['baseId'];
+        const quoteId = marketResolved['quoteId'];
+        const symbol = marketResolved['symbol'];
+        let takerOrMaker: Str = undefined;
+        let amountString: Str = undefined;
+        let costString: Str = undefined;
+        let side: Str = undefined;
+        let fee: FeeString = undefined;
+        let orderId: Str = undefined;
+        const liquidity = this.safeString (trade, 'liquidity');
+        if (liquidity !== undefined) {
+            if (liquidity === 'T') {
                 takerOrMaker = 'taker';
-            } else if (this.safeString (trade, 'liquidity') === 'M') {
+            } else if (liquidity === 'M') {
                 takerOrMaker = 'maker';
             }
-            const funds = this.safeValue (trade, 'funds', {});
+            const funds = this.safeDict (trade, 'funds', {});
             amountString = this.safeString (funds, baseId);
             costString = this.safeString (funds, quoteId);
             fee = {
@@ -453,22 +603,24 @@ export default class coincheck extends Exchange {
             'amount': amountString,
             'cost': costString,
             'fee': fee,
-        }, market);
+        }, marketResolved);
     }
 
-    async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}) {
-        /**
-         * @method
-         * @name coincheck#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://coincheck.com/documents/exchange/api#order-transactions-pagination
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coincheck#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://coincheck.com/documents/exchange/api#order-transactions-pagination
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {};
         if (limit !== undefined) {
@@ -497,23 +649,25 @@ export default class coincheck extends Exchange {
         //                  ]
         //      }
         //
-        const transactions = this.safeList (response, 'data', []);
+        const transactions: Dict[] = this.safeList (response, 'data', []);
         return this.parseTrades (transactions, market, since, limit);
     }
 
-    async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name coincheck#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://coincheck.com/documents/exchange/api#public-trades
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coincheck#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://coincheck.com/documents/exchange/api#public-trades
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
@@ -532,20 +686,22 @@ export default class coincheck extends Exchange {
         //          "created_at": "2021-12-08T14:10:33.000Z"
         //      }
         //
-        const data = this.safeList (response, 'data', []);
+        const data: Dict[] = this.safeList (response, 'data', []);
         return this.parseTrades (data, market, since, limit);
     }
 
-    async fetchTradingFees (params = {}): Promise<TradingFees> {
-        /**
-         * @method
-         * @name coincheck#fetchTradingFees
-         * @description fetch the trading fees for multiple markets
-         * @see https://coincheck.com/documents/exchange/api#account-info
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [fee structures]{@link https://docs.ccxt.com/#/?id=fee-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coincheck#fetchTradingFees
+     * @description fetch the trading fees for multiple markets
+     * @see https://coincheck.com/documents/exchange/api#account-info
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [fee structures]{@link https://docs.ccxt.com/?id=fee-structure} indexed by market symbols
+     */
+    override async fetchTradingFees (params: Dict = {}): Promise<TradingFees> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privateGetAccounts (params);
         //
         //     {
@@ -566,12 +722,16 @@ export default class coincheck extends Exchange {
         //         }
         //     }
         //
-        const fees = this.safeValue (response, 'exchange_fees', {});
+        const fees = this.safeDict (response, 'exchange_fees', {});
         const result: Dict = {};
-        for (let i = 0; i < this.symbols.length; i++) {
-            const symbol = this.symbols[i];
+        const symbols = this.symbols;
+        if (symbols === undefined) {
+            return result;
+        }
+        for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
             const market = this.market (symbol);
-            const fee = this.safeValue (fees, market['id'], {});
+            const fee = this.safeDict (fees, market['id'], {});
             result[symbol] = {
                 'info': fee,
                 'symbol': symbol,
@@ -584,36 +744,44 @@ export default class coincheck extends Exchange {
         return result;
     }
 
-    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
-        /**
-         * @method
-         * @name coincheck#createOrder
-         * @description create a trade order
-         * @see https://coincheck.com/documents/exchange/api#order-new
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coincheck#createOrder
+     * @description create a trade order
+     * @see https://coincheck.com/documents/exchange/api#order-new
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
         };
         if (type === 'market') {
-            const order_type = type + '_' + side;
-            request['order_type'] = order_type;
-            const prefix = (side === 'buy') ? (order_type + '_') : '';
-            request[prefix + 'amount'] = amount;
+            request['order_type'] = type + '_' + side;
+            if (side === 'sell') {
+                request['amount'] = amount;
+            } else {
+                const cost = this.safeNumber (params, 'cost');
+                if (cost !== undefined) {
+                    throw new ArgumentsRequired (this.id + ' createOrder() : you should use "cost" parameter instead of "amount" argument to create market buy orders');
+                }
+                request['market_buy_amount'] = cost;
+            }
         } else {
             request['order_type'] = side;
             request['rate'] = price;
             request['amount'] = amount;
         }
-        const response = await this.privatePostExchangeOrders (this.extend (request, params));
+        const response = await this.privatePostExchangeOrders (this.extend (request, this.omit (params, 'cost')));
         const id = this.safeString (response, 'id');
         return this.safeOrder ({
             'id': id,
@@ -621,17 +789,17 @@ export default class coincheck extends Exchange {
         }, market);
     }
 
-    async cancelOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name coincheck#cancelOrder
-         * @description cancels an open order
-         * @see https://coincheck.com/documents/exchange/api#order-cancel
-         * @param {string} id order id
-         * @param {string} symbol not used by coincheck cancelOrder ()
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name coincheck#cancelOrder
+     * @description cancels an open order
+     * @see https://coincheck.com/documents/exchange/api#order-cancel
+     * @param {string} id order id
+     * @param {string} symbol not used by cancelOrder ()
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
         const request: Dict = {
             'id': id,
         };
@@ -645,20 +813,22 @@ export default class coincheck extends Exchange {
         return this.parseOrder (response);
     }
 
-    async fetchDeposits (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Transaction[]> {
-        /**
-         * @method
-         * @name coincheck#fetchDeposits
-         * @description fetch all deposits made to an account
-         * @see https://coincheck.com/documents/exchange/api#account-deposits
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch deposits for
-         * @param {int} [limit] the maximum number of deposits structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets ();
-        let currency = undefined;
+    /**
+     * @method
+     * @name coincheck#fetchDeposits
+     * @description fetch all deposits made to an account
+     * @see https://coincheck.com/documents/exchange/api#account-deposits
+     * @param {string} code unified currency code
+     * @param {int} [since] the earliest time in ms to fetch deposits for
+     * @param {int} [limit] the maximum number of deposits structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    override async fetchDeposits (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Transaction[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let currency: Currency = undefined;
         const request: Dict = {};
         if (code !== undefined) {
             currency = this.currency (code);
@@ -691,24 +861,26 @@ export default class coincheck extends Exchange {
         //     }
         //   ]
         // }
-        const data = this.safeList (response, 'deposits', []);
+        const data: Dict[] = this.safeList (response, 'deposits', []);
         return this.parseTransactions (data, currency, since, limit, { 'type': 'deposit' });
     }
 
-    async fetchWithdrawals (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Transaction[]> {
-        /**
-         * @method
-         * @name coincheck#fetchWithdrawals
-         * @description fetch all withdrawals made from an account
-         * @see https://coincheck.com/documents/exchange/api#withdraws
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch withdrawals for
-         * @param {int} [limit] the maximum number of withdrawals structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets ();
-        let currency = undefined;
+    /**
+     * @method
+     * @name coincheck#fetchWithdrawals
+     * @description fetch all withdrawals made from an account
+     * @see https://coincheck.com/documents/exchange/api#withdraws
+     * @param {string} code unified currency code
+     * @param {int} [since] the earliest time in ms to fetch withdrawals for
+     * @param {int} [limit] the maximum number of withdrawals structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    override async fetchWithdrawals (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Transaction[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let currency: Currency = undefined;
         if (code !== undefined) {
             currency = this.currency (code);
         }
@@ -738,11 +910,11 @@ export default class coincheck extends Exchange {
         //     }
         //   ]
         // }
-        const data = this.safeList (response, 'data', []);
+        const data: Dict[] = this.safeList (response, 'data', []);
         return this.parseTransactions (data, currency, since, limit, { 'type': 'withdrawal' });
     }
 
-    parseTransactionStatus (status: Str) {
+    parseTransactionStatus (status: Str): Str {
         const statuses: Dict = {
             // withdrawals
             'pending': 'pending',
@@ -753,10 +925,10 @@ export default class coincheck extends Exchange {
             'confirmed': 'pending',
             'received': 'ok',
         };
-        return this.safeString (statuses, status, status);
+        return this.safeString (statuses, status as string, status);
     }
 
-    parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
+    override parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
         //
         // fetchDeposits
         //
@@ -791,7 +963,7 @@ export default class coincheck extends Exchange {
         const code = this.safeCurrencyCode (currencyId, currency);
         const status = this.parseTransactionStatus (this.safeString (transaction, 'status'));
         const updated = this.parse8601 (this.safeString (transaction, 'confirmed_at'));
-        let fee = undefined;
+        let fee: Fee = undefined;
         const feeCost = this.safeNumber (transaction, 'fee');
         if (feeCost !== undefined) {
             fee = {
@@ -823,15 +995,23 @@ export default class coincheck extends Exchange {
         };
     }
 
-    nonce () {
+    override nonce (): int {
         return this.milliseconds ();
     }
 
-    sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let url = this.urls['api']['rest'] + '/' + this.implodeParams (path, params);
+    override sign (path: string, api: string[] = [ 'public' ], method: string = 'GET', params: Dict = {}): Dict {
+        const apiName = api[0];
+        let bodySigned: Str = undefined;
+        let headersSigned: NullableDict = undefined;
+        const apiUrl = this.safeString (this.urls['api'], 'rest');
+        if (apiUrl === undefined) {
+            throw new ExchangeError (this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + '/' + this.implodeParams (path, params);
         const query = this.omit (params, this.extractParams (path));
-        if (api === 'public') {
-            if (Object.keys (query).length) {
+        const hasQuery = Object.keys (query).length > 0;
+        if (apiName === 'public') {
+            if (hasQuery) {
                 url += '?' + this.urlencode (query);
             }
         } else {
@@ -839,27 +1019,29 @@ export default class coincheck extends Exchange {
             const nonce = this.nonce ().toString ();
             let queryString = '';
             if (method === 'GET') {
-                if (Object.keys (query).length) {
+                if (hasQuery) {
                     url += '?' + this.urlencode (this.keysort (query));
                 }
             } else {
-                if (Object.keys (query).length) {
-                    body = this.urlencode (this.keysort (query));
-                    queryString = body;
+                if (hasQuery) {
+                    queryString = this.urlencode (this.keysort (query));
+                    bodySigned = queryString;
                 }
             }
             const auth = nonce + url + queryString;
-            headers = {
+            headersSigned = {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'ACCESS-KEY': this.apiKey,
                 'ACCESS-NONCE': nonce,
                 'ACCESS-SIGNATURE': this.hmac (this.encode (auth), this.encode (this.secret), sha256),
             };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const headersResolved: NullableDict = headersSigned;
+        const bodyResolved: Str = bodySigned;
+        return { 'url': url, 'method': method, 'body': bodyResolved, 'headers': headersResolved };
     }
 
-    handleErrors (httpCode: int, reason: string, url: string, method: string, headers: Dict, body: string, response, requestHeaders, requestBody) {
+    override handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response: any, requestHeaders: NullableDict, requestBody: Str) {
         if (response === undefined) {
             return undefined;
         }
@@ -873,7 +1055,7 @@ export default class coincheck extends Exchange {
             const feedback = this.id + ' ' + this.json (response);
             this.throwExactlyMatchedException (this.exceptions['exact'], error, feedback);
             this.throwBroadlyMatchedException (this.exceptions['broad'], body, feedback);
-            throw new ExchangeError (this.id + ' ' + this.json (response));
+            throw new ExchangeError (feedback);
         }
         return undefined;
     }

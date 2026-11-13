@@ -5,14 +5,14 @@ namespace ccxt;
 
 public partial class binancecoinm : binance
 {
-    public override object describe()
+    public override Dictionary<string, object> describe()
     {
         return this.deepExtend(base.describe(), new Dictionary<string, object>() {
             { "id", "binancecoinm" },
             { "name", "Binance COIN-M" },
             { "urls", new Dictionary<string, object>() {
-                { "logo", "https://user-images.githubusercontent.com/1294454/117738721-668c8d80-b205-11eb-8c49-3fad84c4a07f.jpg" },
-                { "doc", new List<object>() {"https://binance-docs.github.io/apidocs/delivery/en/", "https://binance-docs.github.io/apidocs/spot/en"} },
+                { "logo", "https://github.com/user-attachments/assets/387cfc4e-5f33-48cd-8f5c-cd4854dabf0c" },
+                { "doc", new List<object>() {"https://binance-docs.github.io/apidocs/delivery/en/", "https://binance-docs.github.io/apidocs/spot/en", "https://developers.binance.com/en"} },
             } },
             { "has", new Dictionary<string, object>() {
                 { "CORS", null },
@@ -24,24 +24,26 @@ public partial class binancecoinm : binance
                 { "createStopMarketOrder", true },
             } },
             { "options", new Dictionary<string, object>() {
-                { "fetchMarkets", new List<object>() {"inverse"} },
+                { "fetchMarkets", new Dictionary<string, object>() {
+                    { "types", new List<object>() {"inverse"} },
+                } },
                 { "defaultSubType", "inverse" },
                 { "leverageBrackets", null },
             } },
         });
     }
 
-    public async virtual Task<object> transferIn(object code, object amount, object parameters = null)
+    public async virtual Task<ccxt.TransferEntry> TransferIn(string code, object amount, IDictionary<string, object>? parameters = null)
     {
         // transfer from spot wallet to coinm futures wallet
         parameters ??= new Dictionary<string, object>();
-        return await this.futuresTransfer(code, amount, 3, parameters);
+        return ccxt.BaseExchange.ToTransferEntry(await this.futuresTransfer(code, amount, 3, parameters));
     }
 
-    public async virtual Task<object> transferOut(object code, object amount, object parameters = null)
+    public async virtual Task<ccxt.TransferEntry> TransferOut(string code, double amount, IDictionary<string, object>? parameters = null)
     {
         // transfer from coinm futures wallet to spot wallet
         parameters ??= new Dictionary<string, object>();
-        return await this.futuresTransfer(code, amount, 4, parameters);
+        return ccxt.BaseExchange.ToTransferEntry(await this.futuresTransfer(code, amount, 4, parameters));
     }
 }

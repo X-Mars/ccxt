@@ -9,8 +9,7 @@ use Exception; // a common import
 use ccxt\abstract\bit2c as Exchange;
 
 class bit2c extends Exchange {
-
-    public function describe() {
+    public function describe(): array {
         return $this->deep_extend(parent::describe(), array(
             'id' => 'bit2c',
             'name' => 'Bit2C',
@@ -25,54 +24,93 @@ class bit2c extends Exchange {
                 'future' => false,
                 'option' => false,
                 'addMargin' => false,
+                'borrowCrossMargin' => false,
+                'borrowIsolatedMargin' => false,
+                'borrowMargin' => false,
                 'cancelAllOrders' => false,
                 'cancelOrder' => true,
                 'closeAllPositions' => false,
                 'closePosition' => false,
                 'createOrder' => true,
+                'createOrderWithTakeProfitAndStopLoss' => false,
+                'createOrderWithTakeProfitAndStopLossWs' => false,
                 'createReduceOnlyOrder' => false,
                 'fetchBalance' => true,
+                'fetchBorrowInterest' => false,
+                'fetchBorrowRate' => false,
                 'fetchBorrowRateHistories' => false,
                 'fetchBorrowRateHistory' => false,
+                'fetchBorrowRates' => false,
+                'fetchBorrowRatesPerSymbol' => false,
                 'fetchCrossBorrowRate' => false,
                 'fetchCrossBorrowRates' => false,
                 'fetchDepositAddress' => true,
+                'fetchDepositAddresses' => false,
+                'fetchDepositAddressesByNetwork' => false,
                 'fetchFundingHistory' => false,
+                'fetchFundingInterval' => false,
+                'fetchFundingIntervals' => false,
                 'fetchFundingRate' => false,
                 'fetchFundingRateHistory' => false,
                 'fetchFundingRates' => false,
+                'fetchGreeks' => false,
                 'fetchIndexOHLCV' => false,
                 'fetchIsolatedBorrowRate' => false,
                 'fetchIsolatedBorrowRates' => false,
+                'fetchIsolatedPositions' => false,
                 'fetchLeverage' => false,
+                'fetchLeverages' => false,
                 'fetchLeverageTiers' => false,
+                'fetchLiquidations' => false,
+                'fetchLongShortRatio' => false,
+                'fetchLongShortRatioHistory' => false,
+                'fetchMarginAdjustmentHistory' => false,
                 'fetchMarginMode' => false,
+                'fetchMarginModes' => false,
+                'fetchMarketLeverageTiers' => false,
                 'fetchMarkOHLCV' => false,
+                'fetchMarkPrices' => false,
+                'fetchMyLiquidations' => false,
+                'fetchMySettlementHistory' => false,
                 'fetchMyTrades' => true,
+                'fetchOpenInterest' => false,
                 'fetchOpenInterestHistory' => false,
+                'fetchOpenInterests' => false,
                 'fetchOpenOrders' => true,
+                'fetchOption' => false,
+                'fetchOptionChain' => false,
                 'fetchOrder' => true,
                 'fetchOrderBook' => true,
                 'fetchPosition' => false,
+                'fetchPositionHistory' => false,
                 'fetchPositionMode' => false,
                 'fetchPositions' => false,
+                'fetchPositionsForSymbol' => false,
+                'fetchPositionsHistory' => false,
                 'fetchPositionsRisk' => false,
                 'fetchPremiumIndexOHLCV' => false,
+                'fetchSettlementHistory' => false,
                 'fetchTicker' => true,
                 'fetchTrades' => true,
                 'fetchTradingFee' => false,
                 'fetchTradingFees' => true,
                 'fetchTransfer' => false,
                 'fetchTransfers' => false,
+                'fetchUnderlyingAssets' => false,
+                'fetchVolatilityHistory' => false,
                 'reduceMargin' => false,
+                'repayCrossMargin' => false,
+                'repayIsolatedMargin' => false,
+                'repayMargin' => false,
                 'setLeverage' => false,
+                'setMargin' => false,
                 'setMarginMode' => false,
                 'setPositionMode' => false,
                 'transfer' => false,
                 'ws' => false,
             ),
             'urls' => array(
-                'logo' => 'https://user-images.githubusercontent.com/1294454/27766119-3593220e-5ece-11e7-8b3a-5a041f6bcc3f.jpg',
+                'logo' => 'https://github.com/user-attachments/assets/db0bce50-6842-4c09-a1d5-0c87d22118aa',
                 'api' => array(
                     'rest' => 'https://bit2c.co.il',
                 ),
@@ -86,35 +124,38 @@ class bit2c extends Exchange {
             'api' => array(
                 'public' => array(
                     'get' => array(
-                        'Exchanges/{pair}/Ticker',
-                        'Exchanges/{pair}/orderbook',
-                        'Exchanges/{pair}/trades',
-                        'Exchanges/{pair}/lasttrades',
+                        'Exchanges/{pair}/Ticker' => array( 'cost' => 1 ),
+                        'Exchanges/{pair}/orderbook' => array( 'cost' => 1 ),
+                        'Exchanges/{pair}/orderbook-top' => array( 'cost' => 1 ),
+                        'Exchanges/{pair}/trades' => array( 'cost' => 1 ),
+                        'Exchanges/{pair}/lasttrades' => array( 'cost' => 1 ),
                     ),
                 ),
                 'private' => array(
                     'post' => array(
-                        'Merchant/CreateCheckout',
-                        'Funds/AddCoinFundsRequest',
-                        'Order/AddFund',
-                        'Order/AddOrder',
-                        'Order/GetById',
-                        'Order/AddOrderMarketPriceBuy',
-                        'Order/AddOrderMarketPriceSell',
-                        'Order/CancelOrder',
-                        'Order/AddCoinFundsRequest',
-                        'Order/AddStopOrder',
-                        'Payment/GetMyId',
-                        'Payment/Send',
-                        'Payment/Pay',
+                        'Merchant/CreateCheckout' => array( 'cost' => 1 ),
+                        'Funds/AddCoinFundsRequest' => array( 'cost' => 1 ),
+                        'Funds/WithdrawCoin' => array( 'cost' => 1 ),
+                        'Order/AddFund' => array( 'cost' => 1 ),
+                        'Order/AddOrder' => array( 'cost' => 1 ),
+                        'Order/GetById' => array( 'cost' => 1 ),
+                        'Order/AddOrderMarketPriceBuy' => array( 'cost' => 1 ),
+                        'Order/AddOrderMarketPriceSell' => array( 'cost' => 1 ),
+                        'Order/CancelOrder' => array( 'cost' => 1 ),
+                        'Order/AddCoinFundsRequest' => array( 'cost' => 1 ),
+                        'Order/AddStopOrder' => array( 'cost' => 1 ),
+                        'Payment/GetMyId' => array( 'cost' => 1 ),
+                        'Payment/Send' => array( 'cost' => 1 ),
+                        'Payment/Pay' => array( 'cost' => 1 ),
                     ),
                     'get' => array(
-                        'Account/Balance',
-                        'Account/Balance/v2',
-                        'Order/MyOrders',
-                        'Order/GetById',
-                        'Order/AccountHistory',
-                        'Order/OrderHistory',
+                        'Account/Balance' => array( 'cost' => 1 ),
+                        'Account/Balance/v2' => array( 'cost' => 1 ),
+                        'Order/MyOrders' => array( 'cost' => 1 ),
+                        'Order/GetById' => array( 'cost' => 1 ),
+                        'Order/AccountHistory' => array( 'cost' => 1 ),
+                        'Order/OrderHistory' => array( 'cost' => 1 ),
+                        'Order/HistoryByOrderId' => array( 'cost' => 1 ),
                     ),
                 ),
             ),
@@ -163,25 +204,86 @@ class bit2c extends Exchange {
                 ),
             ),
             'options' => array(
-                'fetchTradesMethod' => 'public_get_exchanges_pair_trades',
+                'fetchTrades' => array(
+                    'method' => 'publicGetExchangesPairTrades',
+                ),
+            ),
+            'features' => array(
+                'spot' => array(
+                    'sandbox' => false,
+                    'createOrder' => array(
+                        'marginMode' => false,
+                        'triggerPrice' => false,
+                        'triggerPriceType' => null,
+                        'triggerDirection' => false,
+                        'stopLossPrice' => false,
+                        'takeProfitPrice' => false,
+                        'attachedStopLossTakeProfit' => null,
+                        'timeInForce' => array(
+                            'IOC' => false,
+                            'FOK' => false,
+                            'PO' => false,
+                            'GTD' => false,
+                        ),
+                        'hedged' => false,
+                        'trailing' => false,
+                        'leverage' => false,
+                        'marketBuyRequiresPrice' => false,
+                        'marketBuyByCost' => false,
+                        'selfTradePrevention' => false,
+                        'iceberg' => false,
+                    ),
+                    'createOrders' => null,
+                    'fetchMyTrades' => array(
+                        'marginMode' => false,
+                        'limit' => 100,
+                        'daysBack' => 30,
+                        'untilDays' => 30,
+                        'symbolRequired' => false,
+                    ),
+                    'fetchOrder' => array(
+                        'marginMode' => false,
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => false,
+                    ),
+                    'fetchOpenOrders' => array(
+                        'marginMode' => false,
+                        'limit' => null,
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => true,
+                    ),
+                    'fetchOrders' => null,
+                    'fetchClosedOrders' => null, // todo implement
+                    'fetchOHLCV' => null,
+                ),
+                'swap' => array(
+                    'linear' => null,
+                    'inverse' => null,
+                ),
+                'future' => array(
+                    'linear' => null,
+                    'inverse' => null,
+                ),
             ),
             'precisionMode' => TICK_SIZE,
             'exceptions' => array(
                 'exact' => array(
-                    'Please provide valid APIkey' => '\\ccxt\\AuthenticationError', // array( "error" : "Please provide valid APIkey" )
-                    'No order found.' => '\\ccxt\\OrderNotFound', // array( "Error" : "No order found." )
+                    'Please provide valid APIkey' => '\\ccxt\\AuthenticationError', // { "error" : "Please provide valid APIkey" }
+                    'No order found.' => '\\ccxt\\OrderNotFound', // { "Error" : "No order found." }
                 ),
                 'broad' => array(
-                    // array( "error" => "Please provide valid nonce in Request Nonce (1598218490) is not bigger than last nonce (1598218490).")
-                    // array( "error" => "Please provide valid nonce in Request UInt64.TryParse failed for nonce :" )
+                    // { "error": "Please provide valid nonce in Request Nonce (1598218490) is not bigger than last nonce (1598218490)."}
+                    // { "error": "Please provide valid nonce in Request UInt64.TryParse failed for nonce :" }
                     'Please provide valid nonce' => '\\ccxt\\InvalidNonce',
-                    'please approve new terms of use on site' => '\\ccxt\\PermissionDenied', // array( "error" : "please approve new terms of use on site." )
+                    'please approve new terms of use on site' => '\\ccxt\\PermissionDenied', // { "error" : "please approve new terms of use on site." }
                 ),
             ),
         ));
     }
 
-    public function parse_balance($response): array {
+    public function parse_balance(array $response): array {
         $result = array(
             'info' => $response,
             'timestamp' => null,
@@ -192,8 +294,9 @@ class bit2c extends Exchange {
             $code = $codes[$i];
             $account = $this->account();
             $currency = $this->currency($code);
-            $uppercase = strtoupper($currency['id']);
-            if (is_array($response) && array_key_exists($uppercase, $response)) {
+            $currencyId = $this->safe_string($currency, 'id', '');
+            $uppercase = strtoupper($currencyId);
+            if ($this->safe_string($response, $uppercase) !== null) {
                 $account['free'] = $this->safe_string($response, 'AVAILABLE_' . $uppercase);
                 $account['total'] = $this->safe_string($response, $uppercase);
             }
@@ -202,76 +305,110 @@ class bit2c extends Exchange {
         return $this->safe_balance($result);
     }
 
-    public function fetch_balance($params = array ()): array {
+    public function fetch_balance($params = array()): array {
         /**
          * query for balance and get the amount of funds available for trading or funds locked in orders
+         *
          * @see https://bit2c.co.il/home/api#balance
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=balance-structure balance structure~
+         * @return {array} a ~@link https://docs.ccxt.com/?id=balance-structure balance structure~
          */
-        $this->load_markets();
-        $response = $this->privateGetAccountBalanceV2 ($params);
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
+        $response = $this->privateGetAccountBalanceV2($params);
         //
         //     {
-        //         "AVAILABLE_NIS" => 0.0,
-        //         "NIS" => 0.0,
-        //         "LOCKED_NIS" => 0.0,
-        //         "AVAILABLE_BTC" => 0.0,
-        //         "BTC" => 0.0,
-        //         "LOCKED_BTC" => 0.0,
-        //         "AVAILABLE_ETH" => 0.0,
-        //         "ETH" => 0.0,
-        //         "LOCKED_ETH" => 0.0,
-        //         "AVAILABLE_BCHSV" => 0.0,
-        //         "BCHSV" => 0.0,
-        //         "LOCKED_BCHSV" => 0.0,
-        //         "AVAILABLE_BCHABC" => 0.0,
-        //         "BCHABC" => 0.0,
-        //         "LOCKED_BCHABC" => 0.0,
-        //         "AVAILABLE_LTC" => 0.0,
-        //         "LTC" => 0.0,
-        //         "LOCKED_LTC" => 0.0,
-        //         "AVAILABLE_ETC" => 0.0,
-        //         "ETC" => 0.0,
-        //         "LOCKED_ETC" => 0.0,
-        //         "AVAILABLE_BTG" => 0.0,
-        //         "BTG" => 0.0,
-        //         "LOCKED_BTG" => 0.0,
-        //         "AVAILABLE_GRIN" => 0.0,
-        //         "GRIN" => 0.0,
-        //         "LOCKED_GRIN" => 0.0,
-        //         "Fees" => {
-        //             "BtcNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "EthNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "BchabcNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "LtcNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "EtcNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "BtgNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "LtcBtc" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "BchsvNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "GrinNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 )
+        //         "AVAILABLE_NIS": 0.0,
+        //         "NIS": 0.0,
+        //         "LOCKED_NIS": 0.0,
+        //         "AVAILABLE_BTC": 0.0,
+        //         "BTC": 0.0,
+        //         "LOCKED_BTC": 0.0,
+        //         "AVAILABLE_ETH": 0.0,
+        //         "ETH": 0.0,
+        //         "LOCKED_ETH": 0.0,
+        //         "AVAILABLE_BCHSV": 0.0,
+        //         "BCHSV": 0.0,
+        //         "LOCKED_BCHSV": 0.0,
+        //         "AVAILABLE_BCHABC": 0.0,
+        //         "BCHABC": 0.0,
+        //         "LOCKED_BCHABC": 0.0,
+        //         "AVAILABLE_LTC": 0.0,
+        //         "LTC": 0.0,
+        //         "LOCKED_LTC": 0.0,
+        //         "AVAILABLE_ETC": 0.0,
+        //         "ETC": 0.0,
+        //         "LOCKED_ETC": 0.0,
+        //         "AVAILABLE_BTG": 0.0,
+        //         "BTG": 0.0,
+        //         "LOCKED_BTG": 0.0,
+        //         "AVAILABLE_GRIN": 0.0,
+        //         "GRIN": 0.0,
+        //         "LOCKED_GRIN": 0.0,
+        //         "Fees": {
+        //             "BtcNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "EthNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "BchabcNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "LtcNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "EtcNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "BtgNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "LtcBtc": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "BchsvNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "GrinNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 }
         //         }
         //     }
         //
         return $this->parse_balance($response);
     }
 
-    public function fetch_order_book(string $symbol, ?int $limit = null, $params = array ()): array {
+    public function fetch_order_book(string $symbol, ?int $limit = null, $params = array()): array {
         /**
          * fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+         *
          * @see https://bit2c.co.il/home/api#orderb
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch the order book for
          * @param {int} [$limit] the maximum amount of order book entries to return
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} A dictionary of ~@link https://docs.ccxt.com/#/?id=order-book-structure order book structures~ indexed by $market symbols
+         * @return {array} an ~@link https://docs.ccxt.com/?id=order-book-structure order book structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'pair' => $market['id'],
         );
-        $orderbook = $this->publicGetExchangesPairOrderbook ($this->extend($request, $params));
-        return $this->parse_order_book($orderbook, $symbol);
+        $orderbook = $this->publicGetExchangesPairOrderbook($this->extend($request, $params));
+        // the full orderbook.json snapshot can contain dead orders - rows
+        // published with a zero amount at their limit price, hours-stable and
+        // sometimes crossing the real market. per the api docs the endpoint
+        // contains open orders only, and the venue's own orderbook-top.json ui
+        // feed filters these rows out, so a non-positive amount is a dead order
+        // their full snapshot failed to purge - it is removed here, which also
+        // uncrosses the book. rows are positional price and amount pairs
+        $rawBids = $this->safe_list($orderbook, 'bids', array());
+        $rawAsks = $this->safe_list($orderbook, 'asks', array());
+        $bids = array();
+        $asks = array();
+        for ($i = 0; $i < count($rawBids); $i++) {
+            $bidRow = $rawBids[$i];
+            $bidAmount = $this->safe_string($bidRow, 1);
+            if (Precise::string_gt($bidAmount, '0')) {
+                $bids[] = $bidRow;
+            }
+        }
+        for ($i = 0; $i < count($rawAsks); $i++) {
+            $askRow = $rawAsks[$i];
+            $askAmount = $this->safe_string($askRow, 1);
+            if (Precise::string_gt($askAmount, '0')) {
+                $asks[] = $askRow;
+            }
+        }
+        $filtered = array( 'bids' => $bids, 'asks' => $asks );
+        return $this->parse_order_book($filtered, $symbol);
     }
 
     public function parse_ticker(array $ticker, ?array $market = null): array {
@@ -303,37 +440,46 @@ class bit2c extends Exchange {
         ), $market);
     }
 
-    public function fetch_ticker(string $symbol, $params = array ()): array {
+    public function fetch_ticker(string $symbol, $params = array()): array {
         /**
          * fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific $market
+         *
          * @see https://bit2c.co.il/home/api#ticker
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch the ticker for
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=ticker-structure ticker structure~
+         * @return {array} a ~@link https://docs.ccxt.com/?id=ticker-structure ticker structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'pair' => $market['id'],
         );
-        $response = $this->publicGetExchangesPairTicker ($this->extend($request, $params));
+        $response = $this->publicGetExchangesPairTicker($this->extend($request, $params));
         return $this->parse_ticker($response, $market);
     }
 
-    public function fetch_trades(string $symbol, ?int $since = null, ?int $limit = null, $params = array ()): array {
+    public function fetch_trades(string $symbol, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * get the list of most recent trades for a particular $symbol
+         *
          * @see https://bit2c.co.il/home/api#transactions
          * @see https://bit2c.co.il/home/api#trades
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch trades for
          * @param {int} [$since] timestamp in ms of the earliest trade to fetch
          * @param {int} [$limit] the maximum amount of trades to fetch
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/#/?id=public-trades trade structures~
+         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/?id=public-trades trade structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
-        $method = $this->options['fetchTradesMethod']; // public_get_exchanges_pair_trades or public_get_exchanges_pair_lasttrades
+        $optionValue = $this->safe_string($this->options, 'fetchTradesMethod'); // kept here for backward compatibility #29154
+        $method = $this->safe_string($this->handle_option_and_params(array(), 'fetchTrades', 'method', $optionValue), 0); // publicGetExchangesPairTrades or publicGetExchangesPairLasttrades
         $request = array(
             'pair' => $market['id'],
         );
@@ -343,57 +489,66 @@ class bit2c extends Exchange {
         if ($limit !== null) {
             $request['limit'] = $limit; // max 100000
         }
-        $response = null;
-        if ($method === 'public_get_exchanges_pair_trades') {
-            $response = $this->publicGetExchangesPairTrades ($this->extend($request, $params));
+        $responseList = array();
+        if (($method === 'publicGetExchangesPairTrades') || ($method === 'public_get_exchanges_pair_trades')) {
+            $response = $this->publicGetExchangesPairTrades($this->extend($request, $params));
+            //
+            //     [
+            //         {"date":1651785980,"price":127975.68,"amount":0.3750321,"isBid":true,"tid":1261018},
+            //         {"date":1651785980,"price":127987.70,"amount":0.0389527820303982335802581029,"isBid":true,"tid":1261020},
+            //         {"date":1651786701,"price":128084.03,"amount":0.0015614749161156156626239821,"isBid":true,"tid":1261022},
+            //     ]
+            //
+            if (gettype($response) === 'string') {
+                throw new ExchangeError($response);
+            }
+            $responseList = $this->to_array($response);
         } else {
-            $response = $this->publicGetExchangesPairLasttrades ($this->extend($request, $params));
+            $response = $this->publicGetExchangesPairLasttrades($this->extend($request, $params));
+            if (gettype($response) === 'string') {
+                throw new ExchangeError($response);
+            }
+            $responseList = $this->to_array($response);
         }
-        //
-        //     array(
-        //         array("date":1651785980,"price":127975.68,"amount":0.3750321,"isBid":true,"tid":1261018),
-        //         array("date":1651785980,"price":127987.70,"amount":0.0389527820303982335802581029,"isBid":true,"tid":1261020),
-        //         array("date":1651786701,"price":128084.03,"amount":0.0015614749161156156626239821,"isBid":true,"tid":1261022),
-        //     )
-        //
-        if (gettype($response) === 'string') {
-            throw new ExchangeError($response);
-        }
-        return $this->parse_trades($response, $market, $since, $limit);
+        return $this->parse_trades($responseList, $market, $since, $limit);
     }
 
-    public function fetch_trading_fees($params = array ()): array {
+    public function fetch_trading_fees($params = array()): array {
         /**
          * fetch the trading $fees for multiple markets
+         *
          * @see https://bit2c.co.il/home/api#balance
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a dictionary of ~@link https://docs.ccxt.com/#/?id=$fee-structure $fee structures~ indexed by market symbols
+         * @return {array} a dictionary of ~@link https://docs.ccxt.com/?id=$fee-structure $fee structures~ indexed by market symbols
          */
-        $this->load_markets();
-        $response = $this->privateGetAccountBalance ($params);
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
+        $response = $this->privateGetAccountBalance($params);
         //
         //     {
-        //         "AVAILABLE_NIS" => 0.0,
-        //         "NIS" => 0.0,
-        //         "LOCKED_NIS" => 0.0,
-        //         "AVAILABLE_BTC" => 0.0,
-        //         "BTC" => 0.0,
-        //         "LOCKED_BTC" => 0.0,
+        //         "AVAILABLE_NIS": 0.0,
+        //         "NIS": 0.0,
+        //         "LOCKED_NIS": 0.0,
+        //         "AVAILABLE_BTC": 0.0,
+        //         "BTC": 0.0,
+        //         "LOCKED_BTC": 0.0,
         //         ...
-        //         "Fees" => {
-        //             "BtcNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
-        //             "EthNis" => array( "FeeMaker" => 1.0, "FeeTaker" => 1.0 ),
+        //         "Fees": {
+        //             "BtcNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
+        //             "EthNis": { "FeeMaker": 1.0, "FeeTaker": 1.0 },
         //             ...
         //         }
         //     }
         //
-        $fees = $this->safe_value($response, 'Fees', array());
+        $fees = $this->safe_dict($response, 'Fees', array());
         $keys = is_array($fees) ? array_keys($fees) : array();
         $result = array();
         for ($i = 0; $i < count($keys); $i++) {
             $marketId = $keys[$i];
             $symbol = $this->safe_symbol($marketId);
-            $fee = $this->safe_value($fees, $marketId);
+            $fee = $this->safe_dict($fees, $marketId);
             $makerString = $this->safe_string($fee, 'FeeMaker');
             $takerString = $this->safe_string($fee, 'FeeTaker');
             $maker = $this->parse_number(Precise::string_div($makerString, '100'));
@@ -410,105 +565,124 @@ class bit2c extends Exchange {
         return $result;
     }
 
-    public function create_order(string $symbol, string $type, string $side, float $amount, ?float $price = null, $params = array ()) {
+    public function create_order(string $symbol, string $type, string $side, float $amount, ?float $price = null, $params = array()): array {
         /**
          * create a trade order
+         *
          * @see https://bit2c.co.il/home/api#addo
+         *
          * @param {string} $symbol unified $symbol of the $market to create an order in
          * @param {string} $type 'market' or 'limit'
          * @param {string} $side 'buy' or 'sell'
          * @param {float} $amount how much of currency you want to trade in units of base currency
-         * @param {float} [$price] the $price at which the order is to be fullfilled, in units of the quote currency, ignored in $market orders
+         * @param {float} [$price] the $price at which the order is to be fulfilled, in units of the quote currency, ignored in $market orders
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} an ~@link https://docs.ccxt.com/#/?id=order-structure order structure~
+         * @return {array} an ~@link https://docs.ccxt.com/?id=order-structure order structure~
          */
-        $this->load_markets();
-        $method = 'privatePostOrderAddOrder';
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'Amount' => $amount,
             'Pair' => $market['id'],
         );
+        $response = null;
         if ($type === 'market') {
-            $method .= 'MarketPrice' . $this->capitalize($side);
+            if ($side === 'buy') {
+                $response = $this->privatePostOrderAddOrderMarketPriceBuy($this->extend($request, $params));
+            } else {
+                $response = $this->privatePostOrderAddOrderMarketPriceSell($this->extend($request, $params));
+            }
         } else {
             $request['Price'] = $price;
             $amountString = $this->number_to_string($amount);
             $priceString = $this->number_to_string($price);
             $request['Total'] = $this->parse_to_numeric(Precise::string_mul($amountString, $priceString));
             $request['IsBid'] = ($side === 'buy');
+            $response = $this->privatePostOrderAddOrder($this->extend($request, $params));
         }
-        $response = $this->$method ($this->extend($request, $params));
         return $this->parse_order($response, $market);
     }
 
-    public function cancel_order(string $id, ?string $symbol = null, $params = array ()) {
+    public function cancel_order(string $id, ?string $symbol = null, $params = array()): array {
         /**
          * cancels an open order
+         *
          * @see https://bit2c.co.il/home/api#cancelo
+         *
          * @param {string} $id order $id
          * @param {string} $symbol Not used by bit2c cancelOrder ()
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} An ~@link https://docs.ccxt.com/#/?$id=order-structure order structure~
+         * @return {array} An ~@link https://docs.ccxt.com/?$id=order-structure order structure~
          */
         $request = array(
             'id' => $id,
         );
-        $response = $this->privatePostOrderCancelOrder ($this->extend($request, $params));
+        $response = $this->privatePostOrderCancelOrder($this->extend($request, $params));
         return $this->parse_order($response);
     }
 
-    public function fetch_open_orders(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array ()): array {
+    public function fetch_open_orders(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetch all unfilled currently open $orders
+         *
          * @see https://bit2c.co.il/home/api#geto
+         *
          * @param {string} $symbol unified $market $symbol
          * @param {int} [$since] the earliest time in ms to fetch open $orders for
          * @param {int} [$limit] the maximum number of open order structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Order[]} a list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
+         * @return {Order[]} a list of ~@link https://docs.ccxt.com/?id=order-structure order structures~
          */
         if ($symbol === null) {
-            throw new ArgumentsRequired($this->id . ' fetchOpenOrders() requires a $symbol argument');
+            throw new ArgumentsRequired($this->id . ' fetchOpenOrders() requires a symbol argument');
         }
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'pair' => $market['id'],
         );
-        $response = $this->privateGetOrderMyOrders ($this->extend($request, $params));
-        $orders = $this->safe_value($response, $market['id'], array());
-        $asks = $this->safe_value($orders, 'ask', array());
+        $response = $this->privateGetOrderMyOrders($this->extend($request, $params));
+        $orders = $this->safe_dict($response, $market['id'], array());
+        $asks = $this->safe_list($orders, 'ask', array());
         $bids = $this->safe_list($orders, 'bid', array());
         return $this->parse_orders($this->array_concat($asks, $bids), $market, $since, $limit);
     }
 
-    public function fetch_order(string $id, ?string $symbol = null, $params = array ()) {
+    public function fetch_order(string $id, ?string $symbol = null, $params = array()): array {
         /**
          * fetches information on an order made by the user
+         *
          * @see https://bit2c.co.il/home/api#getoid
+         *
+         * @param {string} $id the order $id
          * @param {string} $symbol unified $market $symbol
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} An ~@link https://docs.ccxt.com/#/?$id=order-structure order structure~
+         * @return {array} An ~@link https://docs.ccxt.com/?$id=order-structure order structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'id' => $id,
         );
-        $response = $this->privateGetOrderGetById ($this->extend($request, $params));
+        $response = $this->privateGetOrderGetById($this->extend($request, $params));
         //
         //         {
-        //             "pair" => "BtcNis",
-        //             "status" => "Completed",
-        //             "created" => 1666689837,
-        //             "type" => 0,
-        //             "order_type" => 0,
-        //             "amount" => 0.00000000,
-        //             "price" => 50000.00000000,
-        //             "stop" => 0,
-        //             "id" => 10951473,
-        //             "initialAmount" => 2.00000000
+        //             "pair": "BtcNis",
+        //             "status": "Completed",
+        //             "created": 1666689837,
+        //             "type": 0,
+        //             "order_type": 0,
+        //             "amount": 0.00000000,
+        //             "price": 50000.00000000,
+        //             "stop": 0,
+        //             "id": 10951473,
+        //             "initialAmount": 2.00000000
         //         }
         //
         return $this->parse_order($response, $market);
@@ -518,37 +692,38 @@ class bit2c extends Exchange {
         //
         //      createOrder
         //      {
-        //          "OrderResponse" => array("pair" => "BtcNis", "HasError" => False, "Error" => "", "Message" => ""),
-        //          "NewOrder" => array(
-        //              "created" => 1505531577,
-        //              "type" => 0,
-        //              "order_type" => 0,
-        //              "status_type" => 0,
-        //              "amount" => 0.01,
-        //              "price" => 10000,
-        //              "stop" => 0,
-        //              "id" => 9244416,
-        //              "initialAmount" => None,
-        //          ),
+        //          "OrderResponse": {"pair": "BtcNis", "HasError": False, "Error": "", "Message": ""},
+        //          "NewOrder": {
+        //              "created": 1505531577,
+        //              "type": 0,
+        //              "order_type": 0,
+        //              "status_type": 0,
+        //              "amount": 0.01,
+        //              "price": 10000,
+        //              "stop": 0,
+        //              "id": 9244416,
+        //              "initialAmount": None,
+        //          },
         //      }
         //      fetchOrder, fetchOpenOrders
         //      {
-        //          "pair" => "BtcNis",
-        //          "status" => "Completed",
-        //          "created" => 1535555837,
-        //          "type" => 0,
-        //          "order_type" => 0,
-        //          "amount" => 0.00000000,
-        //          "price" => 120000.00000000,
-        //          "stop" => 0,
-        //          "id" => 10555173,
-        //          "initialAmount" => 2.00000000
+        //          "pair": "BtcNis",
+        //          "status": "Completed",
+        //          "created": 1535555837,
+        //          "type": 0,
+        //          "order_type": 0,
+        //          "amount": 0.00000000,
+        //          "price": 120000.00000000,
+        //          "stop": 0,
+        //          "id": 10555173,
+        //          "initialAmount": 2.00000000
         //      }
         //
         $orderUnified = null;
         $isNewOrder = false;
-        if (is_array($order) && array_key_exists('NewOrder', $order)) {
-            $orderUnified = $order['NewOrder'];
+        $newOrder = $this->safe_value($order, 'NewOrder');
+        if ($newOrder !== null) {
+            $orderUnified = $newOrder;
             $isNewOrder = true;
         } else {
             $orderUnified = $order;
@@ -556,8 +731,8 @@ class bit2c extends Exchange {
         $id = $this->safe_string($orderUnified, 'id');
         $symbol = $this->safe_symbol(null, $market);
         $timestamp = $this->safe_integer_product($orderUnified, 'created', 1000);
-        // $status field vary between responses
-        // bit2c $status $type:
+        // status field vary between responses
+        // bit2c status type:
         // 0 = New
         // 1 = Open
         // 5 = Completed
@@ -577,7 +752,7 @@ class bit2c extends Exchange {
                 $status = 'closed';
             }
         }
-        // bit2c $order $type:
+        // bit2c order type:
         // 0 = LMT,  1 = MKT
         $type = $this->safe_string($orderUnified, 'order_type');
         if ($type === '0') {
@@ -585,7 +760,7 @@ class bit2c extends Exchange {
         } elseif ($type === '1') {
             $type = 'market';
         }
-        // bit2c $side:
+        // bit2c side:
         // 0 = buy, 1 = sell
         $side = $this->safe_string($orderUnified, 'type');
         if ($side === '0') {
@@ -597,7 +772,7 @@ class bit2c extends Exchange {
         $amount = null;
         $remaining = null;
         if ($isNewOrder) {
-            $amount = $this->safe_string($orderUnified, 'amount');  // NOTE:'initialAmount' is currently not set on new $order
+            $amount = $this->safe_string($orderUnified, 'amount');  // NOTE:'initialAmount' is currently not set on new order
             $remaining = $this->safe_string($orderUnified, 'amount');
         } else {
             $amount = $this->safe_string($orderUnified, 'initialAmount');
@@ -616,7 +791,6 @@ class bit2c extends Exchange {
             'postOnly' => null,
             'side' => $side,
             'price' => $price,
-            'stopPrice' => null,
             'triggerPrice' => null,
             'amount' => $amount,
             'filled' => null,
@@ -629,17 +803,21 @@ class bit2c extends Exchange {
         ), $market);
     }
 
-    public function fetch_my_trades(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array ()) {
+    public function fetch_my_trades(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetch all trades made by the user
+         *
          * @see https://bit2c.co.il/home/api#orderh
+         *
          * @param {string} $symbol unified $market $symbol
          * @param {int} [$since] the earliest time in ms to fetch trades for
          * @param {int} [$limit] the maximum number of trades structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/#/?id=trade-structure trade structures~
+         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/?id=trade-structure trade structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = null;
         $request = array();
         if ($limit !== null) {
@@ -654,10 +832,10 @@ class bit2c extends Exchange {
             $market = $this->market($symbol);
             $request['pair'] = $market['id'];
         }
-        $response = $this->privateGetOrderOrderHistory ($this->extend($request, $params));
+        $response = $this->privateGetOrderOrderHistory($this->extend($request, $params));
         //
-        //     array(
-        //         array(
+        //     [
+        //         {
         //             "ticks":1574767951,
         //             "created":"26/11/19 13:32",
         //             "action":1,
@@ -673,7 +851,7 @@ class bit2c extends Exchange {
         //             "secondAmountBalance":"130,233.28",
         //             "firstCoin":"ETH",
         //             "secondCoin":"₪"
-        //         ),
+        //         },
         //         {
         //             "ticks":1574767951,
         //             "created":"26/11/19 13:32",
@@ -691,12 +869,13 @@ class bit2c extends Exchange {
         //             "firstCoin":"ETH",
         //             "secondCoin":"₪"
         //         }
-        //     )
+        //     ]
         //
-        return $this->parse_trades($response, $market, $since, $limit);
+        $responseList = $this->to_array($response);
+        return $this->parse_trades($responseList, $market, $since, $limit);
     }
 
-    public function remove_comma_from_value($str) {
+    public function remove_comma_from_value(string $str): string {
         $newString = '';
         $strParts = explode(',', $str);
         for ($i = 0; $i < count($strParts); $i++) {
@@ -735,35 +914,35 @@ class bit2c extends Exchange {
         //         "secondAmountBalance":"130,233.28",
         //         "firstCoin":"ETH",
         //         "secondCoin":"₪"
-        //         "isMaker" => True,
+        //         "isMaker": True,
         //     }
         //
-        $timestamp = null;
-        $id = null;
         $price = null;
         $amount = null;
         $orderId = null;
         $fee = null;
-        $side = null;
         $makerOrTaker = null;
+        $tradeMarket = null;
         $reference = $this->safe_string($trade, 'reference');
         if ($reference !== null) {
             $id = $reference;
             $timestamp = $this->safe_timestamp($trade, 'ticks');
-            $price = $this->safe_string($trade, 'price');
-            $price = $this->remove_comma_from_value($price);
+            $rawPrice = $this->safe_string($trade, 'price');
+            if ($rawPrice !== null) {
+                $price = $this->remove_comma_from_value($rawPrice);
+            }
             $amount = $this->safe_string($trade, 'firstAmount');
-            $reference_parts = explode('|', $reference); // $reference contains 'pair|orderId_by_taker|orderId_by_maker'
+            $reference_parts = explode('|', $reference); // reference contains 'pair|orderId_by_taker|orderId_by_maker'
             $marketId = $this->safe_string($trade, 'pair');
-            $market = $this->safe_market($marketId, $market);
-            $market = $this->safe_market($reference_parts[0], $market);
-            $isMaker = $this->safe_value($trade, 'isMaker');
+            $marketByPair = $this->safe_market($marketId, $market);
+            $tradeMarket = $this->safe_market($reference_parts[0], $marketByPair);
+            $isMaker = $this->safe_bool($trade, 'isMaker', false);
             $makerOrTaker = $isMaker ? 'maker' : 'taker';
             $orderId = $isMaker ? $reference_parts[2] : $reference_parts[1];
-            $side = $this->safe_integer($trade, 'action');
-            if ($side === 0) {
+            $action = $this->safe_integer($trade, 'action');
+            if ($action === 0) {
                 $side = 'buy';
-            } elseif ($side === 1) {
+            } else {
                 $side = 'sell';
             }
             $feeCost = $this->safe_string($trade, 'feeAmount');
@@ -778,22 +957,20 @@ class bit2c extends Exchange {
             $id = $this->safe_string($trade, 'tid');
             $price = $this->safe_string($trade, 'price');
             $amount = $this->safe_string($trade, 'amount');
+            $tradeMarket = $this->safe_market(null, $market);
             $side = $this->safe_value($trade, 'isBid');
             if ($side !== null) {
-                if ($side) {
-                    $side = 'buy';
-                } else {
-                    $side = 'sell';
-                }
+                // safeValue already drops an empty string, so a present isBid is a buy here
+                $side = 'buy';
             }
         }
-        $market = $this->safe_market(null, $market);
+        $marketResolved = $this->safe_market(null, $tradeMarket);
         return $this->safe_trade(array(
             'info' => $trade,
             'id' => $id,
             'timestamp' => $timestamp,
             'datetime' => $this->iso8601($timestamp),
-            'symbol' => $market['symbol'],
+            'symbol' => $marketResolved['symbol'],
             'order' => $orderId,
             'type' => null,
             'side' => $side,
@@ -802,22 +979,26 @@ class bit2c extends Exchange {
             'amount' => $amount,
             'cost' => null,
             'fee' => $fee,
-        ), $market);
+        ), $marketResolved);
     }
 
-    public function is_fiat($code) {
+    public function is_fiat(?string $code): bool {
         return $code === 'NIS';
     }
 
-    public function fetch_deposit_address(string $code, $params = array ()) {
+    public function fetch_deposit_address(string $code, $params = array()): array {
         /**
          * fetch the deposit address for a $currency associated with this account
+         *
          * @see https://bit2c.co.il/home/api#addc
+         *
          * @param {string} $code unified $currency $code
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} an ~@link https://docs.ccxt.com/#/?id=address-structure address structure~
+         * @return {array} an ~@link https://docs.ccxt.com/?id=address-structure address structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $currency = $this->currency($code);
         if ($this->is_fiat($code)) {
             throw new NotSupported($this->id . ' fetchDepositAddress() does not support fiat currencies');
@@ -825,75 +1006,84 @@ class bit2c extends Exchange {
         $request = array(
             'Coin' => $currency['id'],
         );
-        $response = $this->privatePostFundsAddCoinFundsRequest ($this->extend($request, $params));
+        $response = $this->privatePostFundsAddCoinFundsRequest($this->extend($request, $params));
         //
         //     {
-        //         "address" => "0xf14b94518d74aff2b1a6d3429471bcfcd3881d42",
-        //         "hasTx" => False
+        //         "address": "0xf14b94518d74aff2b1a6d3429471bcfcd3881d42",
+        //         "hasTx": False
         //     }
         //
         return $this->parse_deposit_address($response, $currency);
     }
 
-    public function parse_deposit_address($depositAddress, ?array $currency = null) {
+    public function parse_deposit_address(array $depositAddress, ?array $currency = null): array {
         //
         //     {
-        //         "address" => "0xf14b94518d74aff2b1a6d3429471bcfcd3881d42",
-        //         "hasTx" => False
+        //         "address": "0xf14b94518d74aff2b1a6d3429471bcfcd3881d42",
+        //         "hasTx": False
         //     }
         //
         $address = $this->safe_string($depositAddress, 'address');
         $this->check_address($address);
         $code = $this->safe_currency_code(null, $currency);
         return array(
+            'info' => $depositAddress,
             'currency' => $code,
             'network' => null,
             'address' => $address,
             'tag' => null,
-            'info' => $depositAddress,
         );
     }
 
-    public function nonce() {
+    public function nonce(): int {
         return $this->milliseconds();
     }
 
-    public function sign($path, $api = 'public', $method = 'GET', $params = array (), $headers = null, $body = null) {
-        $url = $this->urls['api']['rest'] . '/' . $this->implode_params($path, $params);
-        if ($api === 'public') {
+    public function sign(string $path, array $api = array('public'), string $method = 'GET', $params = array()): array {
+        $apiUrl = $this->safe_string($this->urls['api'], 'rest');
+        if ($apiUrl === null) {
+            throw new ExchangeError($this->id . ' sign() has no API URL for this endpoint');
+        }
+        $url = $apiUrl . '/' . $this->implode_params($path, $params);
+        $requestBody = null;
+        $requestHeaders = null;
+        if ($api[0] === 'public') {
             $url .= '.json';
         } else {
             $this->check_required_credentials();
-            $nonce = $this->nonce();
+            // bit2c requires an increasing nonce per key
+            $nonce = $this->incrementing_nonce();
             $query = $this->extend(array(
                 'nonce' => $nonce,
             ), $params);
             $auth = $this->urlencode($query);
             if ($method === 'GET') {
-                if ($query) {
+                if (count($query) > 0) {
                     $url .= '?' . $auth;
                 }
             } else {
-                $body = $auth;
+                $requestBody = $auth;
             }
             $signature = $this->hmac($this->encode($auth), $this->encode($this->secret), 'sha512', 'base64');
-            $headers = array(
+            $requestHeaders = array(
                 'Content-Type' => 'application/x-www-form-urlencoded',
                 'key' => $this->apiKey,
                 'sign' => $signature,
             );
         }
-        return array( 'url' => $url, 'method' => $method, 'body' => $body, 'headers' => $headers );
+        $bodyResult = $requestBody;
+        $headersResult = $requestHeaders;
+        return array( 'url' => $url, 'method' => $method, 'body' => $bodyResult, 'headers' => $headersResult );
     }
 
-    public function handle_errors(int $httpCode, string $reason, string $url, string $method, array $headers, string $body, $response, $requestHeaders, $requestBody) {
+    public function handle_errors(int $code, string $reason, string $url, string $method, array $headers, string $body, mixed $response, ?array $requestHeaders, ?string $requestBody) {
         if ($response === null) {
-            return null; // fallback to default $error handler
+            return null; // fallback to default error handler
         }
         //
-        //     array( "error" : "please approve new terms of use on site." )
-        //     array( "error" => "Please provide valid nonce in Request Nonce (1598218490) is not bigger than last nonce (1598218490).")
-        //     array( "Error" : "No order found." )
+        //     { "error" : "please approve new terms of use on site." }
+        //     { "error": "Please provide valid nonce in Request Nonce (1598218490) is not bigger than last nonce (1598218490)."}
+        //     { "Error" : "No order found." }
         //
         $error = $this->safe_string($response, 'error');
         if ($error === null) {

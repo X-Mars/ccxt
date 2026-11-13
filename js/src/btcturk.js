@@ -5,11 +5,12 @@
 // EDIT THE CORRESPONDENT .ts FILE INSTEAD
 
 //  ---------------------------------------------------------------------------
+import { sha256 } from '@noble/hashes/sha2.js';
 import Exchange from './abstract/btcturk.js';
 import { BadRequest, ExchangeError, InsufficientFunds, InvalidOrder } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
-import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
+;
 //  ---------------------------------------------------------------------------
 /**
  * @class btcturk
@@ -20,7 +21,7 @@ export default class btcturk extends Exchange {
         return this.deepExtend(super.describe(), {
             'id': 'btcturk',
             'name': 'BTCTurk',
-            'countries': ['TR'],
+            'countries': ['TR'], // Turkey
             'rateLimit': 100,
             'pro': false,
             'has': {
@@ -31,35 +32,65 @@ export default class btcturk extends Exchange {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelOrder': true,
                 'closeAllPositions': false,
                 'closePosition': false,
                 'createDepositAddress': false,
                 'createOrder': true,
+                'createOrderWithTakeProfitAndStopLoss': false,
+                'createOrderWithTakeProfitAndStopLossWs': false,
+                'createPostOnlyOrder': false,
                 'createReduceOnlyOrder': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
+                'fetchCurrencies': false,
                 'fetchDepositAddress': false,
                 'fetchDepositAddresses': false,
                 'fetchDepositAddressesByNetwork': false,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
+                'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
                 'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
                 'fetchOHLCV': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrderBook': true,
                 'fetchOrders': true,
                 'fetchPosition': false,
@@ -70,11 +101,17 @@ export default class btcturk extends Exchange {
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchTicker': true,
                 'fetchTickers': true,
                 'fetchTrades': true,
+                'fetchVolatilityHistory': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
+                'repayMargin': false,
                 'setLeverage': false,
+                'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
                 'ws': false,
@@ -90,7 +127,7 @@ export default class btcturk extends Exchange {
                 '1y': '1 y',
             },
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/51840849/87153926-efbef500-c2c0-11ea-9842-05b63612c4b9.jpg',
+                'logo': 'https://github.com/user-attachments/assets/710711ff-1278-4e7a-9b03-b5503dd85b59',
                 'api': {
                     'public': 'https://api.btcturk.com/api/v2',
                     'private': 'https://api.btcturk.com/api/v1',
@@ -102,35 +139,105 @@ export default class btcturk extends Exchange {
             'api': {
                 'public': {
                     'get': {
-                        'orderbook': 1,
-                        'ticker': 0.1,
-                        'trades': 1,
-                        'ohlc': 1,
-                        'server/exchangeinfo': 1,
+                        'orderbook': { 'cost': 1 },
+                        'ticker': { 'cost': 0.1 },
+                        'ticker/currency': { 'cost': 0.1 },
+                        'trades': { 'cost': 1 }, // ?last=COUNT (max 50)
+                        'ohlc': { 'cost': 1 },
+                        'server/exchangeinfo': { 'cost': 1 },
                     },
                 },
                 'private': {
                     'get': {
-                        'users/balances': 1,
-                        'openOrders': 1,
-                        'allOrders': 1,
-                        'users/transactions/trade': 1,
+                        'users/balances': { 'cost': 1 },
+                        'openOrders': { 'cost': 1 },
+                        'allOrders': { 'cost': 1 },
+                        'order/{orderId}': { 'cost': 1 },
+                        'users/transactions/trade': { 'cost': 1 },
+                        'users/transactions/crypto': { 'cost': 1 },
+                        'users/transactions/fiat': { 'cost': 1 },
+                        'crypto-deposit-declarations': { 'cost': 1 },
                     },
                     'post': {
-                        'users/transactions/crypto': 1,
-                        'users/transactions/fiat': 1,
-                        'order': 1,
-                        'cancelOrder': 1,
+                        'users/transactions/crypto': { 'cost': 1 },
+                        'users/transactions/fiat': { 'cost': 1 },
+                        'order': { 'cost': 1 },
+                        'cancelOrder': { 'cost': 1 },
+                        'crypto-deposit-declarations/confirm': { 'cost': 1 },
                     },
                     'delete': {
-                        'order': 1,
+                        'order': { 'cost': 1 },
                     },
                 },
                 'graph': {
                     'get': {
-                        'ohlcs': 1,
-                        'klines/history': 1,
+                        'ohlcs': { 'cost': 1 },
+                        'klines/history': { 'cost': 1 },
                     },
+                },
+            },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': true,
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': false,
+                            'FOK': false,
+                            'PO': false,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'leverage': false,
+                        'marketBuyRequiresPrice': false,
+                        'marketBuyByCost': false,
+                        'selfTradePrevention': false,
+                        'trailing': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': 100000,
+                        'untilDays': 30,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrder': undefined,
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrders': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'daysBack': 100000,
+                        'untilDays': 30,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchClosedOrders': undefined,
+                    'fetchOHLCV': {
+                        'limit': undefined,
+                    },
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
                 },
             },
             'fees': {
@@ -149,15 +256,15 @@ export default class btcturk extends Exchange {
             'precisionMode': TICK_SIZE,
         });
     }
+    /**
+     * @method
+     * @name btcturk#fetchMarkets
+     * @description retrieves data on all markets for btcturk
+     * @see https://docs.btcturk.com/public-endpoints/exchange-info
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
     async fetchMarkets(params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchMarkets
-         * @description retrieves data on all markets for btcturk
-         * @see https://docs.btcturk.com/public-endpoints/exchange-info
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
         const response = await this.publicGetServerExchangeinfo(params);
         //
         //    {
@@ -181,7 +288,7 @@ export default class btcturk extends Exchange {
         //                            "minPrice": "0.0000000000001",
         //                            "maxPrice": "10000000",
         //                            "tickSize": "10",
-        //                            "minExchangeValue": "99.91",
+        //                            "minExchangeValue": "99.92",
         //                            "minAmount": null,
         //                            "maxAmount": null
         //                        }
@@ -202,8 +309,8 @@ export default class btcturk extends Exchange {
         //        ],
         //    }
         //
-        const data = this.safeValue(response, 'data');
-        const markets = this.safeValue(data, 'symbols', []);
+        const data = this.safeDict(response, 'data', {});
+        const markets = this.safeList(data, 'symbols', []);
         return this.parseMarkets(markets);
     }
     parseMarket(entry) {
@@ -212,14 +319,17 @@ export default class btcturk extends Exchange {
         const quoteId = this.safeString(entry, 'denominator');
         const base = this.safeCurrencyCode(baseId);
         const quote = this.safeCurrencyCode(quoteId);
-        const filters = this.safeValue(entry, 'filters', []);
+        if ((base === undefined) || (quote === undefined)) {
+            return undefined;
+        }
+        const filters = this.safeList(entry, 'filters', []);
         let minPrice = undefined;
         let maxPrice = undefined;
         let minAmount = undefined;
         let maxAmount = undefined;
         let minCost = undefined;
         for (let j = 0; j < filters.length; j++) {
-            const filter = filters[j];
+            const filter = this.safeDict(filters, j);
             const filterType = this.safeString(filter, 'filterType');
             if (filterType === 'PRICE_FILTER') {
                 minPrice = this.safeNumber(filter, 'minPrice');
@@ -230,7 +340,7 @@ export default class btcturk extends Exchange {
             }
         }
         const status = this.safeString(entry, 'status');
-        return {
+        return this.safeMarketStructure({
             'id': id,
             'symbol': base + '/' + quote,
             'base': base,
@@ -278,37 +388,41 @@ export default class btcturk extends Exchange {
             },
             'created': undefined,
             'info': entry,
-        };
+        });
     }
     parseBalance(response) {
-        const data = this.safeValue(response, 'data', []);
+        const data = this.safeList(response, 'data', []);
         const result = {
             'info': response,
             'timestamp': undefined,
             'datetime': undefined,
         };
         for (let i = 0; i < data.length; i++) {
-            const entry = data[i];
+            const entry = this.safeDict(data, i);
             const currencyId = this.safeString(entry, 'asset');
             const code = this.safeCurrencyCode(currencyId);
             const account = this.account();
             account['total'] = this.safeString(entry, 'balance');
             account['free'] = this.safeString(entry, 'free');
             account['used'] = this.safeString(entry, 'locked');
-            result[code] = account;
+            if (code !== undefined) {
+                result[code] = account;
+            }
         }
         return this.safeBalance(result);
     }
+    /**
+     * @method
+     * @name btcturk#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://docs.btcturk.com/private-endpoints/account-balance
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
     async fetchBalance(params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://docs.btcturk.com/private-endpoints/account-balance
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const response = await this.privateGetUsersBalances(params);
         //
         //     {
@@ -328,18 +442,20 @@ export default class btcturk extends Exchange {
         //
         return this.parseBalance(response);
     }
+    /**
+     * @method
+     * @name btcturk#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://docs.btcturk.com/public-endpoints/orderbook
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async fetchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://docs.btcturk.com/public-endpoints/orderbook
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pairSymbol': market['id'],
@@ -356,7 +472,7 @@ export default class btcturk extends Exchange {
         //         ]
         //       }
         //     }
-        const data = this.safeValue(response, 'data');
+        const data = this.safeDict(response, 'data', {});
         const timestamp = this.safeInteger(data, 'timestamp');
         return this.parseOrderBook(data, market['symbol'], timestamp, 'bids', 'asks', 0, 1);
     }
@@ -382,10 +498,21 @@ export default class btcturk extends Exchange {
         //   }
         //
         const marketId = this.safeString(ticker, 'pair');
-        market = this.safeMarket(marketId, market);
-        const symbol = market['symbol'];
+        const marketResolved = this.safeMarket(marketId, market);
+        const symbol = marketResolved['symbol'];
         const timestamp = this.safeInteger(ticker, 'timestamp');
         const last = this.safeString(ticker, 'last');
+        const open = this.safeString(ticker, 'open');
+        let change = this.safeString(ticker, 'daily');
+        let percentage = this.safeString(ticker, 'dailyPercent');
+        let average = this.safeString(ticker, 'average');
+        if ((open !== undefined) && (last !== undefined) && !Precise.stringEq(open, '0')) {
+            // The reported daily fields can disagree with last - open.
+            // Let safeTicker derive the unified change, percentage and average from these prices.
+            change = undefined;
+            percentage = undefined;
+            average = undefined;
+        }
         return this.safeTicker({
             'symbol': symbol,
             'timestamp': timestamp,
@@ -397,46 +524,51 @@ export default class btcturk extends Exchange {
             'ask': this.safeString(ticker, 'ask'),
             'askVolume': undefined,
             'vwap': undefined,
-            'open': this.safeString(ticker, 'open'),
+            'open': open,
             'close': last,
             'last': last,
             'previousClose': undefined,
-            'change': this.safeString(ticker, 'daily'),
-            'percentage': this.safeString(ticker, 'dailyPercent'),
-            'average': this.safeString(ticker, 'average'),
+            'change': change,
+            'percentage': percentage,
+            'average': average,
             'baseVolume': this.safeString(ticker, 'volume'),
             'quoteVolume': undefined,
             'info': ticker,
-        }, market);
+        }, marketResolved);
     }
+    /**
+     * @method
+     * @name btcturk#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
+     * @see https://docs.btcturk.com/public-endpoints/ticker
+     * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async fetchTickers(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchTickers
-         * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-         * @see https://docs.btcturk.com/public-endpoints/ticker
-         * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const response = await this.publicGetTicker(params);
         const tickers = this.safeList(response, 'data');
         return this.parseTickers(tickers, symbols);
     }
+    /**
+     * @method
+     * @name btcturk#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://docs.btcturk.com/public-endpoints/ticker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async fetchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://docs.btcturk.com/public-endpoints/ticker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const tickers = await this.fetchTickers([symbol], params);
-        return this.safeValue(tickers, symbol);
+        const ticker = this.safeDict(tickers, symbol);
+        return ticker;
     }
     parseTrade(trade, market = undefined) {
         //
@@ -500,19 +632,21 @@ export default class btcturk extends Exchange {
             'fee': fee,
         }, market);
     }
+    /**
+     * @method
+     * @name btcturk#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://docs.btcturk.com/public-endpoints/trades
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
     async fetchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://docs.btcturk.com/public-endpoints/trades
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         // let maxCount = 50;
         const request = {
@@ -540,7 +674,11 @@ export default class btcturk extends Exchange {
         //     }
         //
         const data = this.safeList(response, 'data');
-        return this.parseTrades(data, market, since, limit);
+        let dataList = [];
+        if (data !== undefined) {
+            dataList = data;
+        }
+        return this.parseTrades(dataList, market, since, limit);
     }
     parseOHLCV(ohlcv, market = undefined) {
         //
@@ -562,47 +700,60 @@ export default class btcturk extends Exchange {
             this.safeNumber(ohlcv, 'volume'),
         ];
     }
+    /**
+     * @method
+     * @name btcturk#fetchOHLCV
+     * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://docs.btcturk.com/public-endpoints/get-kline-data
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] timestamp in ms of the latest candle to fetch
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async fetchOHLCV(symbol, timeframe = '1h', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchOHLCV
-         * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @see https://docs.btcturk.com/public-endpoints/get-kline-data
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {int} [params.until] timestamp in ms of the latest candle to fetch
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'symbol': market['id'],
-            'resolution': this.safeValue(this.timeframes, timeframe, timeframe), // allows the user to pass custom timeframes if needed
+            'resolution': this.safeString(this.timeframes, timeframe, timeframe), // allows the user to pass custom timeframes if needed
         };
         const until = this.safeInteger(params, 'until', this.milliseconds());
-        request['to'] = this.parseToInt((until / 1000));
+        const untilSeconds = this.parseToInt((until / 1000));
+        request['to'] = untilSeconds;
         if (since !== undefined) {
             request['from'] = this.parseToInt(since / 1000);
         }
-        else if (limit === undefined) { // since will also be undefined
-            limit = 100; // default value
-        }
+        let limitResolved = undefined;
         if (limit !== undefined) {
-            limit = Math.min(limit, 11000); // max 11000 candles diapason can be covered
+            limitResolved = limit;
+            if (limit > 11000) {
+                limitResolved = 11000; // max 11000 candles diapason can be covered
+            }
+        }
+        else if (since === undefined) {
+            limitResolved = 100; // default value
+        }
+        if ((limit !== undefined) || (since === undefined)) {
             if (timeframe === '1y') { // difficult with leap years
                 throw new BadRequest(this.id + ' fetchOHLCV () does not accept a limit parameter when timeframe == "1y"');
             }
             const seconds = this.parseTimeframe(timeframe);
-            const limitSeconds = seconds * (limit - 1);
+            const limitCount = (limit === undefined) ? 100 : Math.min(limit, 11000);
+            const limitSeconds = this.parseToInt(seconds * (limitCount - 1));
             if (since !== undefined) {
-                const to = this.parseToInt(since / 1000) + limitSeconds;
-                request['to'] = Math.min(request['to'], to);
+                const sinceSeconds = this.parseToInt(since / 1000);
+                const to = sinceSeconds + limitSeconds;
+                if (to < untilSeconds) {
+                    request['to'] = to;
+                }
             }
             else {
-                request['from'] = this.parseToInt(0 / 1000) - limitSeconds;
+                request['from'] = 0 - limitSeconds;
             }
         }
         const response = await this.graphGetKlinesHistory(this.extend(request, params));
@@ -641,45 +792,47 @@ export default class btcturk extends Exchange {
         //        ]
         //    }
         //
-        return this.parseOHLCVs(response, market, timeframe, since, limit);
+        return this.parseOHLCVs(response, market, timeframe, since, limitResolved);
     }
-    parseOHLCVs(ohlcvs, market = undefined, timeframe = '1m', since = undefined, limit = undefined) {
+    parseOHLCVs(ohlcvs, market = undefined, timeframe = '1m', since = undefined, limit = undefined, tail = false) {
         const results = [];
-        const timestamp = this.safeValue(ohlcvs, 't');
-        const high = this.safeValue(ohlcvs, 'h');
-        const open = this.safeValue(ohlcvs, 'o');
-        const low = this.safeValue(ohlcvs, 'l');
-        const close = this.safeValue(ohlcvs, 'c');
-        const volume = this.safeValue(ohlcvs, 'v');
+        const timestamp = this.safeList(ohlcvs, 't', []);
+        const high = this.safeList(ohlcvs, 'h', []);
+        const open = this.safeList(ohlcvs, 'o', []);
+        const low = this.safeList(ohlcvs, 'l', []);
+        const close = this.safeList(ohlcvs, 'c', []);
+        const volume = this.safeList(ohlcvs, 'v', []);
         for (let i = 0; i < timestamp.length; i++) {
             const ohlcv = {
-                'timestamp': this.safeValue(timestamp, i),
-                'high': this.safeValue(high, i),
-                'open': this.safeValue(open, i),
-                'low': this.safeValue(low, i),
-                'close': this.safeValue(close, i),
-                'volume': this.safeValue(volume, i),
+                'timestamp': this.safeInteger(timestamp, i),
+                'high': this.safeNumber(high, i),
+                'open': this.safeNumber(open, i),
+                'low': this.safeNumber(low, i),
+                'close': this.safeNumber(close, i),
+                'volume': this.safeNumber(volume, i),
             };
             results.push(this.parseOHLCV(ohlcv, market));
         }
         const sorted = this.sortBy(results, 0);
-        return this.filterBySinceLimit(sorted, since, limit, 0);
+        return this.filterBySinceLimit(sorted, since, limit, 0, tail);
     }
+    /**
+     * @method
+     * @name btcturk#createOrder
+     * @description create a trade order
+     * @see https://docs.btcturk.com/private-endpoints/submit-order
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async createOrder(symbol, type, side, amount, price = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#createOrder
-         * @description create a trade order
-         * @see https://docs.btcturk.com/private-endpoints/submit-order
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'orderType': side,
@@ -697,20 +850,20 @@ export default class btcturk extends Exchange {
             request['newClientOrderId'] = this.uuid();
         }
         const response = await this.privatePostOrder(this.extend(request, params));
-        const data = this.safeDict(response, 'data');
+        const data = this.safeDict(response, 'data', {});
         return this.parseOrder(data, market);
     }
+    /**
+     * @method
+     * @name btcturk#cancelOrder
+     * @description cancels an open order
+     * @see https://docs.btcturk.com/private-endpoints/cancel-order
+     * @param {string} id order id
+     * @param {string} symbol not used by cancelOrder ()
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async cancelOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#cancelOrder
-         * @description cancels an open order
-         * @see https://docs.btcturk.com/private-endpoints/cancel-order
-         * @param {string} id order id
-         * @param {string} symbol not used by btcturk cancelOrder ()
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const request = {
             'id': id,
         };
@@ -726,19 +879,21 @@ export default class btcturk extends Exchange {
             'info': response,
         });
     }
+    /**
+     * @method
+     * @name btcturk#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://docs.btcturk.com/private-endpoints/open-orders
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOpenOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://docs.btcturk.com/private-endpoints/open-orders
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {};
         let market = undefined;
         if (symbol !== undefined) {
@@ -746,24 +901,26 @@ export default class btcturk extends Exchange {
             request['pairSymbol'] = market['id'];
         }
         const response = await this.privateGetOpenOrders(this.extend(request, params));
-        const data = this.safeValue(response, 'data');
-        const bids = this.safeValue(data, 'bids', []);
+        const data = this.safeDict(response, 'data', {});
+        const bids = this.safeList(data, 'bids', []);
         const asks = this.safeList(data, 'asks', []);
         return this.parseOrders(this.arrayConcat(bids, asks), market, since, limit);
     }
+    /**
+     * @method
+     * @name btcturk#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://docs.btcturk.com/private-endpoints/all-orders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchOrders
-         * @description fetches information on multiple orders made by the user
-         * @see https://docs.btcturk.com/private-endpoints/all-orders
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pairSymbol': market['id'],
@@ -874,19 +1031,21 @@ export default class btcturk extends Exchange {
             'fee': undefined,
         }, market);
     }
+    /**
+     * @method
+     * @name btcturk#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://docs.btcturk.com/private-endpoints/user-transactions
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
     async fetchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name btcturk#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://docs.btcturk.com/private-endpoints/user-transactions
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let market = undefined;
         if (symbol !== undefined) {
             market = this.market(symbol);
@@ -914,45 +1073,64 @@ export default class btcturk extends Exchange {
         //     }
         //
         const data = this.safeList(response, 'data');
-        return this.parseTrades(data, market, since, limit);
+        let dataList = [];
+        if (data !== undefined) {
+            dataList = data;
+        }
+        return this.parseTrades(dataList, market, since, limit);
     }
     nonce() {
         return this.milliseconds();
     }
-    sign(path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
+    sign(path, api = ['public'], method = 'GET', params = {}) {
+        const apiName = api[0];
         if (this.id === 'btctrader') {
             throw new ExchangeError(this.id + ' is an abstract base API for BTCExchange, BTCTurk');
         }
-        let url = this.urls['api'][api] + '/' + path;
-        if ((method === 'GET') || (method === 'DELETE')) {
-            if (Object.keys(params).length) {
-                url += '?' + this.urlencode(params);
+        const apiUrl = this.safeString(this.urls['api'], apiName);
+        if (apiUrl === undefined) {
+            throw new ExchangeError(this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + '/' + path;
+        const isQueryMethod = (method === 'GET') || (method === 'DELETE');
+        if (isQueryMethod) {
+            const query = this.urlencode(params);
+            if (query.length > 0) {
+                url += '?' + query;
             }
         }
-        else {
-            body = this.json(params);
+        let requestBody = undefined;
+        if (isQueryMethod) {
+            requestBody = undefined;
         }
-        if (api === 'private') {
+        else {
+            requestBody = this.json(params);
+        }
+        let privateHeaders = undefined;
+        if (apiName === 'private') {
             this.checkRequiredCredentials();
             const nonce = this.nonce().toString();
             const secret = this.base64ToBinary(this.secret);
             const auth = this.apiKey + nonce;
-            headers = {
+            privateHeaders = {
                 'X-PCK': this.apiKey,
                 'X-Stamp': nonce,
                 'X-Signature': this.hmac(this.encode(auth), secret, sha256, 'base64'),
                 'Content-Type': 'application/json',
             };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        return { 'url': url, 'method': method, 'body': requestBody, 'headers': privateHeaders };
     }
     handleErrors(code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         const errorCode = this.safeString(response, 'code', '0');
         const message = this.safeString(response, 'message');
-        const output = (message === undefined) ? body : message;
-        this.throwExactlyMatchedException(this.exceptions['exact'], message, this.id + ' ' + output);
+        let feedback = this.id + ' ' + body;
+        if (message !== undefined) {
+            feedback = this.id + ' ' + message;
+        }
+        this.throwExactlyMatchedException(this.exceptions['exact'], message, feedback);
         if ((errorCode !== '0') && (errorCode !== 'SUCCESS')) {
-            throw new ExchangeError(this.id + ' ' + output);
+            throw new ExchangeError(feedback);
         }
         return undefined;
     }

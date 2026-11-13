@@ -12,22 +12,29 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.base import test_ticker  # noqa E402
-from ccxt.test.base import test_shared_methods  # noqa E402
+from ccxt.test.exchange.base import test_ticker  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 async def test_watch_ticker(exchange, skipped_properties, symbol):
     method = 'watchTicker'
     now = exchange.milliseconds()
     ends = now + 15000
-    while now < ends:
+    max_idle_time = 5000
+    idle = False
+    while (now < ends) and not idle:
         response = None
+        success = True
+        start_time = exchange.milliseconds()
         try:
             response = await exchange.watch_ticker(symbol)
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
                 raise e
-            now = exchange.milliseconds()
-            continue
-        assert isinstance(response, dict), exchange.id + ' ' + method + ' ' + symbol + ' must return an object. ' + exchange.json(response)
+            success = False
         now = exchange.milliseconds()
-        test_ticker(exchange, skipped_properties, method, response, symbol)
+        if (success) and (response is not None):
+            assert exchange.is_dictionary(response), exchange.id + ' ' + method + ' ' + symbol + ' must return a dictionary. ' + exchange.json(response)
+            test_ticker(exchange, skipped_properties, method, response, symbol)
+            if (now - start_time) > max_idle_time:
+                idle = True
+    return True

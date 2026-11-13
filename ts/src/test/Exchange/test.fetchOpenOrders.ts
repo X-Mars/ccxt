@@ -1,5 +1,4 @@
-import assert from 'assert';
-import { Exchange } from "../../../ccxt";
+import { Exchange } from "../../../ccxt.js";
 import testOrder from './base/test.order.js';
 import testSharedMethods from './base/test.sharedMethods.js';
 
@@ -14,6 +13,7 @@ async function testFetchOpenOrders (exchange: Exchange, skippedProperties: objec
         testSharedMethods.assertInArray (exchange, skippedProperties, method, order, 'status', [ 'open' ]);
     }
     testSharedMethods.assertTimestampOrder (exchange, method, symbol, orders);
+    return true;
 }
 
 export default testFetchOpenOrders;

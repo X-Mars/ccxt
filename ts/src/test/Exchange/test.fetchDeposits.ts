@@ -1,5 +1,4 @@
-import assert from 'assert';
-import { Exchange } from "../../../ccxt";
+import { Exchange } from "../../../ccxt.js";
 import testDepositWithdrawal from './base/test.depositWithdrawal.js';
 import testSharedMethods from './base/test.sharedMethods.js';
 
@@ -12,6 +11,7 @@ async function testFetchDeposits (exchange: Exchange, skippedProperties: object,
         testDepositWithdrawal (exchange, skippedProperties, method, transactions[i], code, now);
     }
     testSharedMethods.assertTimestampOrder (exchange, method, code, transactions);
+    return true;
 }
 
 export default testFetchDeposits;

@@ -1,5 +1,4 @@
-import assert from 'assert';
-import { Exchange } from "../../../ccxt";
+import { Exchange } from "../../../ccxt.js";
 import testLeverageTier from './base/test.leverageTier.js';
 import testSharedMethods from './base/test.sharedMethods.js';
 
@@ -10,6 +9,7 @@ async function testFetchMarketLeverageTiers (exchange: Exchange, skippedProperti
     for (let j = 0; j < tiers.length; j++) {
         testLeverageTier (exchange, skippedProperties, method, tiers[j]);
     }
+    return true;
 }
 
 export default testFetchMarketLeverageTiers;

@@ -1,12 +1,14 @@
 
 //  ---------------------------------------------------------------------------
 
+import { sha512 } from '@noble/hashes/sha2.js';
 import Exchange from './abstract/bit2c.js';
 import { ExchangeError, InvalidNonce, AuthenticationError, PermissionDenied, NotSupported, OrderNotFound, ArgumentsRequired } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
-import { sha512 } from './static_dependencies/noble-hashes/sha512.js';
-import type { Balances, Currency, Dict, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Ticker, Trade, TradingFees, int } from './base/types.js';
+import type { Balances, Currency, Dict, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Ticker, Trade, TradingFees, int, DepositAddress, NullableDict, FeeString, Endpoint, List } from './base/types.js';
+
+;
 
 //  ---------------------------------------------------------------------------
 
@@ -15,7 +17,7 @@ import type { Balances, Currency, Dict, Int, Market, Num, Order, OrderBook, Orde
  * @augments Exchange
  */
 export default class bit2c extends Exchange {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'id': 'bit2c',
             'name': 'Bit2C',
@@ -30,54 +32,93 @@ export default class bit2c extends Exchange {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelAllOrders': false,
                 'cancelOrder': true,
                 'closeAllPositions': false,
                 'closePosition': false,
                 'createOrder': true,
+                'createOrderWithTakeProfitAndStopLoss': false,
+                'createOrderWithTakeProfitAndStopLossWs': false,
                 'createReduceOnlyOrder': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
                 'fetchDepositAddress': true,
+                'fetchDepositAddresses': false,
+                'fetchDepositAddressesByNetwork': false,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
                 'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchPosition': false,
+                'fetchPositionHistory': false,
                 'fetchPositionMode': false,
                 'fetchPositions': false,
+                'fetchPositionsForSymbol': false,
+                'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchTicker': true,
                 'fetchTrades': true,
                 'fetchTradingFee': false,
                 'fetchTradingFees': true,
                 'fetchTransfer': false,
                 'fetchTransfers': false,
+                'fetchUnderlyingAssets': false,
+                'fetchVolatilityHistory': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
+                'repayMargin': false,
                 'setLeverage': false,
+                'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
                 'transfer': false,
                 'ws': false,
             },
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/1294454/27766119-3593220e-5ece-11e7-8b3a-5a041f6bcc3f.jpg',
+                'logo': 'https://github.com/user-attachments/assets/db0bce50-6842-4c09-a1d5-0c87d22118aa',
                 'api': {
                     'rest': 'https://bit2c.co.il',
                 },
@@ -90,37 +131,40 @@ export default class bit2c extends Exchange {
             },
             'api': {
                 'public': {
-                    'get': [
-                        'Exchanges/{pair}/Ticker',
-                        'Exchanges/{pair}/orderbook',
-                        'Exchanges/{pair}/trades',
-                        'Exchanges/{pair}/lasttrades',
-                    ],
+                    'get': {
+                        'Exchanges/{pair}/Ticker': { 'cost': 1 } as Endpoint<Dict>,
+                        'Exchanges/{pair}/orderbook': { 'cost': 1 } as Endpoint<Dict>,
+                        'Exchanges/{pair}/orderbook-top': { 'cost': 1 } as Endpoint<Dict>,
+                        'Exchanges/{pair}/trades': { 'cost': 1 } as Endpoint<List>,
+                        'Exchanges/{pair}/lasttrades': { 'cost': 1 } as Endpoint<List>,
+                    },
                 },
                 'private': {
-                    'post': [
-                        'Merchant/CreateCheckout',
-                        'Funds/AddCoinFundsRequest',
-                        'Order/AddFund',
-                        'Order/AddOrder',
-                        'Order/GetById',
-                        'Order/AddOrderMarketPriceBuy',
-                        'Order/AddOrderMarketPriceSell',
-                        'Order/CancelOrder',
-                        'Order/AddCoinFundsRequest',
-                        'Order/AddStopOrder',
-                        'Payment/GetMyId',
-                        'Payment/Send',
-                        'Payment/Pay',
-                    ],
-                    'get': [
-                        'Account/Balance',
-                        'Account/Balance/v2',
-                        'Order/MyOrders',
-                        'Order/GetById',
-                        'Order/AccountHistory',
-                        'Order/OrderHistory',
-                    ],
+                    'post': {
+                        'Merchant/CreateCheckout': { 'cost': 1 } as Endpoint<Dict>,
+                        'Funds/AddCoinFundsRequest': { 'cost': 1 } as Endpoint<Dict>,
+                        'Funds/WithdrawCoin': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/AddFund': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/AddOrder': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/GetById': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/AddOrderMarketPriceBuy': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/AddOrderMarketPriceSell': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/CancelOrder': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/AddCoinFundsRequest': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/AddStopOrder': { 'cost': 1 } as Endpoint<Dict>,
+                        'Payment/GetMyId': { 'cost': 1 } as Endpoint<Dict>,
+                        'Payment/Send': { 'cost': 1 } as Endpoint<Dict>,
+                        'Payment/Pay': { 'cost': 1 } as Endpoint<string>,
+                    },
+                    'get': {
+                        'Account/Balance': { 'cost': 1 } as Endpoint<Dict>,
+                        'Account/Balance/v2': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/MyOrders': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/GetById': { 'cost': 1 } as Endpoint<Dict>,
+                        'Order/AccountHistory': { 'cost': 1 } as Endpoint<List>,
+                        'Order/OrderHistory': { 'cost': 1 } as Endpoint<List>,
+                        'Order/HistoryByOrderId': { 'cost': 1 } as Endpoint<List>,
+                    },
                 },
             },
             'markets': {
@@ -168,7 +212,68 @@ export default class bit2c extends Exchange {
                 },
             },
             'options': {
-                'fetchTradesMethod': 'public_get_exchanges_pair_trades',
+                'fetchTrades': {
+                    'method': 'publicGetExchangesPairTrades',
+                },
+            },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': false,
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': false,
+                            'FOK': false,
+                            'PO': false,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'trailing': false,
+                        'leverage': false,
+                        'marketBuyRequiresPrice': false,
+                        'marketBuyByCost': false,
+                        'selfTradePrevention': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': 30,
+                        'untilDays': 30,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrders': undefined,
+                    'fetchClosedOrders': undefined, // todo implement
+                    'fetchOHLCV': undefined,
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
             },
             'precisionMode': TICK_SIZE,
             'exceptions': {
@@ -186,7 +291,7 @@ export default class bit2c extends Exchange {
         });
     }
 
-    parseBalance (response): Balances {
+    override parseBalance (response: Dict): Balances {
         const result: Dict = {
             'info': response,
             'timestamp': undefined,
@@ -197,8 +302,9 @@ export default class bit2c extends Exchange {
             const code = codes[i];
             const account = this.account ();
             const currency = this.currency (code);
-            const uppercase = currency['id'].toUpperCase ();
-            if (uppercase in response) {
+            const currencyId = this.safeString (currency, 'id', '');
+            const uppercase = currencyId.toUpperCase ();
+            if (this.safeString (response, uppercase) !== undefined) {
                 account['free'] = this.safeString (response, 'AVAILABLE_' + uppercase);
                 account['total'] = this.safeString (response, uppercase);
             }
@@ -207,16 +313,18 @@ export default class bit2c extends Exchange {
         return this.safeBalance (result);
     }
 
-    async fetchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name bit2c#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://bit2c.co.il/home/api#balance
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bit2c#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://bit2c.co.il/home/api#balance
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async fetchBalance (params: Dict = {}): Promise<Balances> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privateGetAccountBalanceV2 (params);
         //
         //     {
@@ -263,27 +371,55 @@ export default class bit2c extends Exchange {
         return this.parseBalance (response);
     }
 
-    async fetchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name bit2c#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://bit2c.co.il/home/api#orderb
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bit2c#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://bit2c.co.il/home/api#orderb
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async fetchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
         };
         const orderbook = await this.publicGetExchangesPairOrderbook (this.extend (request, params));
-        return this.parseOrderBook (orderbook, symbol);
+        // the full orderbook.json snapshot can contain dead orders - rows
+        // published with a zero amount at their limit price, hours-stable and
+        // sometimes crossing the real market. per the api docs the endpoint
+        // contains open orders only, and the venue's own orderbook-top.json ui
+        // feed filters these rows out, so a non-positive amount is a dead order
+        // their full snapshot failed to purge - it is removed here, which also
+        // uncrosses the book. rows are positional price and amount pairs
+        const rawBids = this.safeList (orderbook, 'bids', []);
+        const rawAsks = this.safeList (orderbook, 'asks', []);
+        const bids = [];
+        const asks = [];
+        for (let i = 0; i < rawBids.length; i++) {
+            const bidRow = rawBids[i];
+            const bidAmount = this.safeString (bidRow, 1);
+            if (Precise.stringGt (bidAmount, '0')) {
+                bids.push (bidRow);
+            }
+        }
+        for (let i = 0; i < rawAsks.length; i++) {
+            const askRow = rawAsks[i];
+            const askAmount = this.safeString (askRow, 1);
+            if (Precise.stringGt (askAmount, '0')) {
+                asks.push (askRow);
+            }
+        }
+        const filtered: Dict = { 'bids': bids, 'asks': asks };
+        return this.parseOrderBook (filtered, symbol);
     }
 
-    parseTicker (ticker: Dict, market: Market = undefined): Ticker {
+    override parseTicker (ticker: Dict, market: Market = undefined): Ticker {
         const symbol = this.safeSymbol (undefined, market);
         const averagePrice = this.safeString (ticker, 'av');
         const baseVolume = this.safeString (ticker, 'a');
@@ -312,17 +448,19 @@ export default class bit2c extends Exchange {
         }, market);
     }
 
-    async fetchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name bit2c#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://bit2c.co.il/home/api#ticker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bit2c#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://bit2c.co.il/home/api#ticker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
@@ -331,22 +469,25 @@ export default class bit2c extends Exchange {
         return this.parseTicker (response, market);
     }
 
-    async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name bit2c#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://bit2c.co.il/home/api#transactions
-         * @see https://bit2c.co.il/home/api#trades
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bit2c#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://bit2c.co.il/home/api#transactions
+     * @see https://bit2c.co.il/home/api#trades
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
-        const method = this.options['fetchTradesMethod']; // public_get_exchanges_pair_trades or public_get_exchanges_pair_lasttrades
+        const optionValue = this.safeString (this.options, 'fetchTradesMethod'); // kept here for backward compatibility #29154
+        const method = this.safeString (this.handleOptionAndParams ({}, 'fetchTrades', 'method', optionValue), 0); // publicGetExchangesPairTrades or publicGetExchangesPairLasttrades
         const request: Dict = {
             'pair': market['id'],
         };
@@ -356,35 +497,42 @@ export default class bit2c extends Exchange {
         if (limit !== undefined) {
             request['limit'] = limit; // max 100000
         }
-        let response = undefined;
-        if (method === 'public_get_exchanges_pair_trades') {
-            response = await this.publicGetExchangesPairTrades (this.extend (request, params));
+        let responseList: Dict[] = [];
+        if ((method === 'publicGetExchangesPairTrades') || (method === 'public_get_exchanges_pair_trades')) {
+            const response = await this.publicGetExchangesPairTrades (this.extend (request, params));
+            //
+            //     [
+            //         {"date":1651785980,"price":127975.68,"amount":0.3750321,"isBid":true,"tid":1261018},
+            //         {"date":1651785980,"price":127987.70,"amount":0.0389527820303982335802581029,"isBid":true,"tid":1261020},
+            //         {"date":1651786701,"price":128084.03,"amount":0.0015614749161156156626239821,"isBid":true,"tid":1261022},
+            //     ]
+            //
+            if (typeof response === 'string') {
+                throw new ExchangeError (response);
+            }
+            responseList = this.toArray (response);
         } else {
-            response = await this.publicGetExchangesPairLasttrades (this.extend (request, params));
+            const response = await this.publicGetExchangesPairLasttrades (this.extend (request, params));
+            if (typeof response === 'string') {
+                throw new ExchangeError (response);
+            }
+            responseList = this.toArray (response);
         }
-        //
-        //     [
-        //         {"date":1651785980,"price":127975.68,"amount":0.3750321,"isBid":true,"tid":1261018},
-        //         {"date":1651785980,"price":127987.70,"amount":0.0389527820303982335802581029,"isBid":true,"tid":1261020},
-        //         {"date":1651786701,"price":128084.03,"amount":0.0015614749161156156626239821,"isBid":true,"tid":1261022},
-        //     ]
-        //
-        if (typeof response === 'string') {
-            throw new ExchangeError (response);
-        }
-        return this.parseTrades (response, market, since, limit);
+        return this.parseTrades (responseList, market, since, limit);
     }
 
-    async fetchTradingFees (params = {}): Promise<TradingFees> {
-        /**
-         * @method
-         * @name bit2c#fetchTradingFees
-         * @description fetch the trading fees for multiple markets
-         * @see https://bit2c.co.il/home/api#balance
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [fee structures]{@link https://docs.ccxt.com/#/?id=fee-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bit2c#fetchTradingFees
+     * @description fetch the trading fees for multiple markets
+     * @see https://bit2c.co.il/home/api#balance
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [fee structures]{@link https://docs.ccxt.com/?id=fee-structure} indexed by market symbols
+     */
+    override async fetchTradingFees (params: Dict = {}): Promise<TradingFees> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privateGetAccountBalance (params);
         //
         //     {
@@ -402,13 +550,13 @@ export default class bit2c extends Exchange {
         //         }
         //     }
         //
-        const fees = this.safeValue (response, 'Fees', {});
+        const fees = this.safeDict (response, 'Fees', {});
         const keys = Object.keys (fees);
         const result: Dict = {};
         for (let i = 0; i < keys.length; i++) {
             const marketId = keys[i];
             const symbol = this.safeSymbol (marketId);
-            const fee = this.safeValue (fees, marketId);
+            const fee = this.safeDict (fees, marketId);
             const makerString = this.safeString (fee, 'FeeMaker');
             const takerString = this.safeString (fee, 'FeeTaker');
             const maker = this.parseNumber (Precise.stringDiv (makerString, '100'));
@@ -425,51 +573,57 @@ export default class bit2c extends Exchange {
         return result;
     }
 
-    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
-        /**
-         * @method
-         * @name bit2c#createOrder
-         * @description create a trade order
-         * @see https://bit2c.co.il/home/api#addo
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
-        let method = 'privatePostOrderAddOrder';
+    /**
+     * @method
+     * @name bit2c#createOrder
+     * @description create a trade order
+     * @see https://bit2c.co.il/home/api#addo
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'Amount': amount,
             'Pair': market['id'],
         };
+        let response = undefined;
         if (type === 'market') {
-            method += 'MarketPrice' + this.capitalize (side);
+            if (side === 'buy') {
+                response = await this.privatePostOrderAddOrderMarketPriceBuy (this.extend (request, params));
+            } else {
+                response = await this.privatePostOrderAddOrderMarketPriceSell (this.extend (request, params));
+            }
         } else {
             request['Price'] = price;
             const amountString = this.numberToString (amount);
             const priceString = this.numberToString (price);
             request['Total'] = this.parseToNumeric (Precise.stringMul (amountString, priceString));
             request['IsBid'] = (side === 'buy');
+            response = await this.privatePostOrderAddOrder (this.extend (request, params));
         }
-        const response = await this[method] (this.extend (request, params));
         return this.parseOrder (response, market);
     }
 
-    async cancelOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name bit2c#cancelOrder
-         * @description cancels an open order
-         * @see https://bit2c.co.il/home/api#cancelo
-         * @param {string} id order id
-         * @param {string} symbol Not used by bit2c cancelOrder ()
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name bit2c#cancelOrder
+     * @description cancels an open order
+     * @see https://bit2c.co.il/home/api#cancelo
+     * @param {string} id order id
+     * @param {string} symbol Not used by bit2c cancelOrder ()
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
         const request: Dict = {
             'id': id,
         };
@@ -477,44 +631,49 @@ export default class bit2c extends Exchange {
         return this.parseOrder (response);
     }
 
-    async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name bit2c#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://bit2c.co.il/home/api#geto
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of open order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name bit2c#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://bit2c.co.il/home/api#geto
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of open order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
         if (symbol === undefined) {
             throw new ArgumentsRequired (this.id + ' fetchOpenOrders() requires a symbol argument');
         }
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
         };
         const response = await this.privateGetOrderMyOrders (this.extend (request, params));
-        const orders = this.safeValue (response, market['id'], {});
-        const asks = this.safeValue (orders, 'ask', []);
+        const orders = this.safeDict (response, market['id'], {});
+        const asks = this.safeList (orders, 'ask', []);
         const bids = this.safeList (orders, 'bid', []);
         return this.parseOrders (this.arrayConcat (asks, bids), market, since, limit);
     }
 
-    async fetchOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name bit2c#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://bit2c.co.il/home/api#getoid
-         * @param {string} symbol unified market symbol
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bit2c#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://bit2c.co.il/home/api#getoid
+     * @param {string} id the order id
+     * @param {string} symbol unified market symbol
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'id': id,
@@ -537,7 +696,7 @@ export default class bit2c extends Exchange {
         return this.parseOrder (response, market);
     }
 
-    parseOrder (order: Dict, market: Market = undefined): Order {
+    override parseOrder (order: Dict, market: Market = undefined): Order {
         //
         //      createOrder
         //      {
@@ -568,10 +727,11 @@ export default class bit2c extends Exchange {
         //          "initialAmount": 2.00000000
         //      }
         //
-        let orderUnified = undefined;
+        let orderUnified: NullableDict = undefined;
         let isNewOrder = false;
-        if ('NewOrder' in order) {
-            orderUnified = order['NewOrder'];
+        const newOrder = this.safeValue (order, 'NewOrder');
+        if (newOrder !== undefined) {
+            orderUnified = newOrder;
             isNewOrder = true;
         } else {
             orderUnified = order;
@@ -584,7 +744,7 @@ export default class bit2c extends Exchange {
         // 0 = New
         // 1 = Open
         // 5 = Completed
-        let status = undefined;
+        let status: Str = undefined;
         if (isNewOrder) {
             const tempStatus = this.safeInteger (orderUnified, 'status_type');
             if (tempStatus === 0 || tempStatus === 1) {
@@ -617,8 +777,8 @@ export default class bit2c extends Exchange {
             side = 'sell';
         }
         const price = this.safeString (orderUnified, 'price');
-        let amount = undefined;
-        let remaining = undefined;
+        let amount: Str = undefined;
+        let remaining: Str = undefined;
         if (isNewOrder) {
             amount = this.safeString (orderUnified, 'amount');  // NOTE:'initialAmount' is currently not set on new order
             remaining = this.safeString (orderUnified, 'amount');
@@ -639,7 +799,6 @@ export default class bit2c extends Exchange {
             'postOnly': undefined,
             'side': side,
             'price': price,
-            'stopPrice': undefined,
             'triggerPrice': undefined,
             'amount': amount,
             'filled': undefined,
@@ -652,20 +811,22 @@ export default class bit2c extends Exchange {
         }, market);
     }
 
-    async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}) {
-        /**
-         * @method
-         * @name bit2c#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://bit2c.co.il/home/api#orderh
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
-        await this.loadMarkets ();
-        let market = undefined;
+    /**
+     * @method
+     * @name bit2c#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://bit2c.co.il/home/api#orderh
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let market: Market = undefined;
         const request: Dict = {};
         if (limit !== undefined) {
             request['take'] = limit;
@@ -718,10 +879,11 @@ export default class bit2c extends Exchange {
         //         }
         //     ]
         //
-        return this.parseTrades (response, market, since, limit);
+        const responseList = this.toArray (response);
+        return this.parseTrades (responseList, market, since, limit);
     }
 
-    removeCommaFromValue (str) {
+    removeCommaFromValue (str: string): string {
         let newString = '';
         const strParts = str.split (',');
         for (let i = 0; i < strParts.length; i++) {
@@ -730,7 +892,7 @@ export default class bit2c extends Exchange {
         return newString;
     }
 
-    parseTrade (trade: Dict, market: Market = undefined): Trade {
+    override parseTrade (trade: Dict, market: Market = undefined): Trade {
         //
         // public fetchTrades
         //
@@ -763,32 +925,35 @@ export default class bit2c extends Exchange {
         //         "isMaker": True,
         //     }
         //
-        let timestamp = undefined;
-        let id = undefined;
-        let price = undefined;
-        let amount = undefined;
-        let orderId = undefined;
-        let fee = undefined;
-        let side = undefined;
-        let makerOrTaker = undefined;
+        let timestamp: Int;
+        let id: Str;
+        let price: Str = undefined;
+        let amount: Str = undefined;
+        let orderId: Str = undefined;
+        let fee: FeeString = undefined;
+        let side: string;
+        let makerOrTaker: Str = undefined;
+        let tradeMarket: Market = undefined;
         const reference = this.safeString (trade, 'reference');
         if (reference !== undefined) {
             id = reference;
             timestamp = this.safeTimestamp (trade, 'ticks');
-            price = this.safeString (trade, 'price');
-            price = this.removeCommaFromValue (price);
+            const rawPrice = this.safeString (trade, 'price');
+            if (rawPrice !== undefined) {
+                price = this.removeCommaFromValue (rawPrice);
+            }
             amount = this.safeString (trade, 'firstAmount');
             const reference_parts = reference.split ('|'); // reference contains 'pair|orderId_by_taker|orderId_by_maker'
             const marketId = this.safeString (trade, 'pair');
-            market = this.safeMarket (marketId, market);
-            market = this.safeMarket (reference_parts[0], market);
-            const isMaker = this.safeValue (trade, 'isMaker');
+            const marketByPair = this.safeMarket (marketId, market);
+            tradeMarket = this.safeMarket (reference_parts[0], marketByPair);
+            const isMaker = this.safeBool (trade, 'isMaker', false);
             makerOrTaker = isMaker ? 'maker' : 'taker';
             orderId = isMaker ? reference_parts[2] : reference_parts[1];
-            side = this.safeInteger (trade, 'action');
-            if (side === 0) {
+            const action = this.safeInteger (trade, 'action');
+            if (action === 0) {
                 side = 'buy';
-            } else if (side === 1) {
+            } else {
                 side = 'sell';
             }
             const feeCost = this.safeString (trade, 'feeAmount');
@@ -803,22 +968,20 @@ export default class bit2c extends Exchange {
             id = this.safeString (trade, 'tid');
             price = this.safeString (trade, 'price');
             amount = this.safeString (trade, 'amount');
+            tradeMarket = this.safeMarket (undefined, market);
             side = this.safeValue (trade, 'isBid');
             if (side !== undefined) {
-                if (side) {
-                    side = 'buy';
-                } else {
-                    side = 'sell';
-                }
+                // safeValue already drops an empty string, so a present isBid is a buy here
+                side = 'buy';
             }
         }
-        market = this.safeMarket (undefined, market);
+        const marketResolved = this.safeMarket (undefined, tradeMarket);
         return this.safeTrade ({
             'info': trade,
             'id': id,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'order': orderId,
             'type': undefined,
             'side': side,
@@ -827,24 +990,26 @@ export default class bit2c extends Exchange {
             'amount': amount,
             'cost': undefined,
             'fee': fee,
-        }, market);
+        }, marketResolved);
     }
 
-    isFiat (code) {
+    isFiat (code: Str): boolean {
         return code === 'NIS';
     }
 
-    async fetchDepositAddress (code: string, params = {}) {
-        /**
-         * @method
-         * @name bit2c#fetchDepositAddress
-         * @description fetch the deposit address for a currency associated with this account
-         * @see https://bit2c.co.il/home/api#addc
-         * @param {string} code unified currency code
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [address structure]{@link https://docs.ccxt.com/#/?id=address-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bit2c#fetchDepositAddress
+     * @description fetch the deposit address for a currency associated with this account
+     * @see https://bit2c.co.il/home/api#addc
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [address structure]{@link https://docs.ccxt.com/?id=address-structure}
+     */
+    override async fetchDepositAddress (code: string, params: Dict = {}): Promise<DepositAddress> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const currency = this.currency (code);
         if (this.isFiat (code)) {
             throw new NotSupported (this.id + ' fetchDepositAddress() does not support fiat currencies');
@@ -862,7 +1027,7 @@ export default class bit2c extends Exchange {
         return this.parseDepositAddress (response, currency);
     }
 
-    parseDepositAddress (depositAddress, currency: Currency = undefined) {
+    override parseDepositAddress (depositAddress: Dict, currency: Currency = undefined): DepositAddress {
         //
         //     {
         //         "address": "0xf14b94518d74aff2b1a6d3429471bcfcd3881d42",
@@ -873,47 +1038,56 @@ export default class bit2c extends Exchange {
         this.checkAddress (address);
         const code = this.safeCurrencyCode (undefined, currency);
         return {
+            'info': depositAddress,
             'currency': code,
             'network': undefined,
             'address': address,
             'tag': undefined,
-            'info': depositAddress,
-        };
+        } as DepositAddress;
     }
 
-    nonce () {
+    override nonce (): int {
         return this.milliseconds ();
     }
 
-    sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let url = this.urls['api']['rest'] + '/' + this.implodeParams (path, params);
-        if (api === 'public') {
+    override sign (path: string, api: string[] = [ 'public' ], method: string = 'GET', params: Dict = {}): Dict {
+        const apiUrl = this.safeString (this.urls['api'], 'rest');
+        if (apiUrl === undefined) {
+            throw new ExchangeError (this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + '/' + this.implodeParams (path, params);
+        let requestBody: Str = undefined;
+        let requestHeaders: NullableDict = undefined;
+        if (api[0] === 'public') {
             url += '.json';
         } else {
             this.checkRequiredCredentials ();
-            const nonce = this.nonce ();
+            // bit2c requires an increasing nonce per key
+            const nonce = this.incrementingNonce ();
             const query = this.extend ({
                 'nonce': nonce,
             }, params);
             const auth = this.urlencode (query);
             if (method === 'GET') {
-                if (Object.keys (query).length) {
+                if (Object.keys (query).length > 0) {
                     url += '?' + auth;
                 }
             } else {
-                body = auth;
+                requestBody = auth;
             }
             const signature = this.hmac (this.encode (auth), this.encode (this.secret), sha512, 'base64');
-            headers = {
+            requestHeaders = {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'key': this.apiKey,
                 'sign': signature,
             };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const bodyResult = requestBody;
+        const headersResult = requestHeaders;
+        return { 'url': url, 'method': method, 'body': bodyResult, 'headers': headersResult };
     }
 
-    handleErrors (httpCode: int, reason: string, url: string, method: string, headers: Dict, body: string, response, requestHeaders, requestBody) {
+    override handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response: any, requestHeaders: NullableDict, requestBody: Str) {
         if (response === undefined) {
             return undefined; // fallback to default error handler
         }
@@ -935,4 +1109,3 @@ export default class bit2c extends Exchange {
         return undefined;
     }
 }
-

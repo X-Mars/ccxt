@@ -9,14 +9,13 @@ namespace ccxt;
 // -----------------------------------------------------------------------------
 use React\Async;
 use React\Promise;
-include_once PATH_TO_CCXT . '/test/base/test_ticker.php';
-include_once PATH_TO_CCXT . '/test/base/test_shared_methods.php';
+include_once PATH_TO_CCXT . '/test/exchange/base/test_ticker.php';
 
 function test_watch_bids_asks($exchange, $skipped_properties, $symbol) {
     return Async\async(function () use ($exchange, $skipped_properties, $symbol) {
         $without_symbol = test_watch_bids_asks_helper($exchange, $skipped_properties, null);
         $with_symbol = test_watch_bids_asks_helper($exchange, $skipped_properties, [$symbol]);
-        Async\await(Promise\all([$with_symbol, $without_symbol]));
+        \React\Async\await(\React\Promise\all([$with_symbol, $without_symbol]));
     }) ();
 }
 
@@ -26,35 +25,49 @@ function test_watch_bids_asks_helper($exchange, $skipped_properties, $arg_symbol
         $method = 'watchBidsAsks';
         $now = $exchange->milliseconds();
         $ends = $now + 15000;
-        while ($now < $ends) {
-            $response = null;
+        $max_idle_time = 5000;
+        $idle = false;
+        while (($now < $ends) && !$idle) {
+            $success = true;
+            $should_return = false;
+            $response = array();
+            $start_time = $exchange->milliseconds();
             try {
-                $response = Async\await($exchange->watch_bids_asks($arg_symbols, $arg_params));
+                $response = \React\Async\await($exchange->watch_bids_asks($arg_symbols, $arg_params));
             } catch(\Throwable $e) {
                 // for some exchanges, multi symbol methods might require symbols array to be present, so
                 // so, if method throws "arguments-required" exception, we don't fail test, but just skip silently,
                 // because tests will make a second call of this method with symbols array
                 if (($e instanceof ArgumentsRequired) && ($arg_symbols === null || count($arg_symbols) === 0)) {
                     // todo: provide random symbols to try
-                    return;
+                    // return false;
+                    $should_return = true;
                 } elseif (!is_temporary_failure($e)) {
                     throw $e;
                 }
-                $now = $exchange->milliseconds();
-                continue;
-            }
-            assert(is_array($response), $exchange->id . ' ' . $method . ' ' . $exchange->json($arg_symbols) . ' must return an object. ' . $exchange->json($response));
-            $values = is_array($response) ? array_values($response) : array();
-            $checked_symbol = null;
-            if ($arg_symbols !== null && count($arg_symbols) === 1) {
-                $checked_symbol = $arg_symbols[0];
-            }
-            assert_non_emtpy_array($exchange, $skipped_properties, $method, $values, $checked_symbol);
-            for ($i = 0; $i < count($values); $i++) {
-                $ticker = $values[$i];
-                test_ticker($exchange, $skipped_properties, $method, $ticker, $checked_symbol);
+                $success = false;
             }
             $now = $exchange->milliseconds();
+            if ($should_return) {
+                return false;
+            }
+            if ($success) {
+                assert($exchange->is_dictionary($response), $exchange->id . ' ' . $method . ' ' . $exchange->json($arg_symbols) . ' must return a dictionary. ' . $exchange->json($response));
+                $values = is_array($response) ? array_values($response) : array();
+                $checked_symbol = null;
+                if ($arg_symbols !== null && count($arg_symbols) === 1) {
+                    $checked_symbol = $arg_symbols[0];
+                }
+                assert_non_emtpy_array($exchange, $skipped_properties, $method, $values, $checked_symbol);
+                for ($i = 0; $i < count($values); $i++) {
+                    $ticker = $values[$i];
+                    test_ticker($exchange, $skipped_properties, $method, $ticker, $checked_symbol);
+                }
+                if (($now - $start_time) > $max_idle_time) {
+                    $idle = true;
+                }
+            }
         }
+        return true;
     }) ();
 }

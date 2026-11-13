@@ -5,12 +5,13 @@ namespace ccxt;
 
 using dict = Dictionary<string, object>;
 
-public partial class Exchange
+public partial class BaseExchange
 {
 
     public static bool isValidJson(string json)
     {
-        if ((json.StartsWith("{") && json.EndsWith("}")) || //For object
+        json = json.Replace("\n", "").Replace("\r", "").Trim();
+        if ((json.StartsWith("{") && json.EndsWith("}")) || // For object
             (json.StartsWith("[") && json.EndsWith("]"))) //For array
         {
             return true;

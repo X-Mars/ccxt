@@ -10,9 +10,8 @@ sys.path.append(root + '/python')
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 # ----------------------------------------------------------------------------
-undefined
 
-# AUTO-TRANSPILE #
+
 # Note, this is just an example and might not yet work on other exchanges, which are being still unified.
 async def example():
     # ########## user inputs ##########

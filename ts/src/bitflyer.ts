@@ -1,11 +1,11 @@
 
 //  ---------------------------------------------------------------------------
 
+import { sha256 } from '@noble/hashes/sha2.js';
 import Exchange from './abstract/bitflyer.js';
 import { ExchangeError, ArgumentsRequired, OrderNotFound, OnMaintenance } from './base/errors.js';
 import { TICK_SIZE } from './base/functions/number.js';
-import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import type { Balances, Currency, Dict, Int, Market, MarketInterface, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Trade, TradingFeeInterface, Transaction, int } from './base/types.js';
+import type { Balances, Currency, Dict, Fee, FundingRate, Int, Market, MarketInterface, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Trade, TradingFeeInterface, Transaction, Position, int, List, NullableDict, Endpoint } from './base/types.js';
 import { Precise } from './base/Precise.js';
 
 //  ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ import { Precise } from './base/Precise.js';
  * @augments Exchange
  */
 export default class bitflyer extends Exchange {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'id': 'bitflyer',
             'name': 'bitFlyer',
@@ -30,16 +30,37 @@ export default class bitflyer extends Exchange {
                 'swap': undefined, // has but not fully implemented
                 'future': undefined, // has but not fully implemented
                 'option': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelAllOrders': undefined,  // https://lightning.bitflyer.com/docs?lang=en#cancel-all-orders
                 'cancelOrder': true,
                 'createOrder': true,
+                'fetchAllGreeks': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
+                'fetchBorrowRateHistories': false,
+                'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchClosedOrders': 'emulated',
+                'fetchCrossBorrowRate': false,
+                'fetchCrossBorrowRates': false,
+                'fetchCurrencies': false,
                 'fetchDeposits': true,
+                'fetchFundingRate': true,
+                'fetchFundingRateHistory': false,
+                'fetchFundingRates': false,
+                'fetchGreeks': false,
+                'fetchIsolatedBorrowRate': false,
+                'fetchIsolatedBorrowRates': false,
                 'fetchMarginMode': false,
                 'fetchMarkets': true,
                 'fetchMyTrades': true,
                 'fetchOpenOrders': 'emulated',
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': 'emulated',
                 'fetchOrderBook': true,
                 'fetchOrders': true,
@@ -51,12 +72,15 @@ export default class bitflyer extends Exchange {
                 'fetchTradingFees': false,
                 'fetchTransfer': false,
                 'fetchTransfers': false,
+                'fetchVolatilityHistory': false,
                 'fetchWithdrawals': true,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
                 'transfer': false,
                 'withdraw': true,
             },
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/1294454/28051642-56154182-660e-11e7-9b0d-6042d1e6edd8.jpg',
+                'logo': 'https://github.com/user-attachments/assets/d0217747-e54d-4533-8416-0d553dca74bb',
                 'api': {
                     'rest': 'https://api.{hostname}',
                 },
@@ -65,48 +89,50 @@ export default class bitflyer extends Exchange {
             },
             'api': {
                 'public': {
-                    'get': [
-                        'getmarkets/usa', // new (wip)
-                        'getmarkets/eu',  // new (wip)
-                        'getmarkets',     // or 'markets'
-                        'getboard',       // ...
-                        'getticker',
-                        'getexecutions',
-                        'gethealth',
-                        'getboardstate',
-                        'getchats',
-                    ],
+                    'get': {
+                        'getmarkets/usa': { 'cost': 1 } as Endpoint<List>,
+                        'getmarkets/eu': { 'cost': 1 } as Endpoint<List>,
+                        'getmarkets': { 'cost': 1 } as Endpoint<List>,
+                        'getboard': { 'cost': 1 } as Endpoint<Dict>,
+                        'getticker': { 'cost': 1 } as Endpoint<Dict>,
+                        'getexecutions': { 'cost': 1 } as Endpoint<List>,
+                        'gethealth': { 'cost': 1 } as Endpoint<Dict>,
+                        'getboardstate': { 'cost': 1 } as Endpoint<Dict>,
+                        'getchats': { 'cost': 1 } as Endpoint<List>,
+                        'getfundingrate': { 'cost': 1 } as Endpoint<Dict>,
+                        'getfundingratehistory': { 'cost': 1 } as Endpoint<List>,
+                    },
                 },
                 'private': {
-                    'get': [
-                        'getpermissions',
-                        'getbalance',
-                        'getbalancehistory',
-                        'getcollateral',
-                        'getcollateralhistory',
-                        'getcollateralaccounts',
-                        'getaddresses',
-                        'getcoinins',
-                        'getcoinouts',
-                        'getbankaccounts',
-                        'getdeposits',
-                        'getwithdrawals',
-                        'getchildorders',
-                        'getparentorders',
-                        'getparentorder',
-                        'getexecutions',
-                        'getpositions',
-                        'gettradingcommission',
-                    ],
-                    'post': [
-                        'sendcoin',
-                        'withdraw',
-                        'sendchildorder',
-                        'cancelchildorder',
-                        'sendparentorder',
-                        'cancelparentorder',
-                        'cancelallchildorders',
-                    ],
+                    'get': {
+                        'getpermissions': { 'cost': 1 } as Endpoint<List>,
+                        'getbalance': { 'cost': 1 } as Endpoint<List>,
+                        'getbalancehistory': { 'cost': 1 } as Endpoint<List>,
+                        'getcollateral': { 'cost': 1 } as Endpoint<Dict>,
+                        'getcollateralhistory': { 'cost': 1 } as Endpoint<List>,
+                        'getcollateralaccounts': { 'cost': 1 } as Endpoint<List>,
+                        'getaddresses': { 'cost': 1 } as Endpoint<List>,
+                        'getcoinins': { 'cost': 1 } as Endpoint<List>,
+                        'getcoinouts': { 'cost': 1 } as Endpoint<List>,
+                        'getbankaccounts': { 'cost': 1 } as Endpoint<List>,
+                        'getdeposits': { 'cost': 1 } as Endpoint<List>,
+                        'getwithdrawals': { 'cost': 1 } as Endpoint<List>,
+                        'getchildorders': { 'cost': 1 } as Endpoint<List>,
+                        'getparentorders': { 'cost': 1 } as Endpoint<List>,
+                        'getparentorder': { 'cost': 1 } as Endpoint<Dict>,
+                        'getexecutions': { 'cost': 1 } as Endpoint<List>,
+                        'getpositions': { 'cost': 1 } as Endpoint<List>,
+                        'gettradingcommission': { 'cost': 1 } as Endpoint<Dict>,
+                    },
+                    'post': {
+                        'sendcoin': { 'cost': 1 } as Endpoint<Dict>,
+                        'withdraw': { 'cost': 1 } as Endpoint<Dict>,
+                        'sendchildorder': { 'cost': 1 } as Endpoint<Dict>,
+                        'cancelchildorder': { 'cost': 1 } as Endpoint<Dict>,
+                        'sendparentorder': { 'cost': 1 } as Endpoint<Dict>,
+                        'cancelparentorder': { 'cost': 1 } as Endpoint<Dict>,
+                        'cancelallchildorders': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
             },
             'fees': {
@@ -116,6 +142,82 @@ export default class bitflyer extends Exchange {
                 },
             },
             'precisionMode': TICK_SIZE,
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': false,
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': true,
+                            'FOK': true,
+                            'PO': true,
+                            'GTD': true, // todo implement
+                        },
+                        'hedged': false,
+                        'trailing': false, // todo recheck
+                        'leverage': false,
+                        'marketBuyRequiresPrice': false,
+                        'marketBuyByCost': false,
+                        'selfTradePrevention': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchClosedOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'daysBackCanceled': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOHLCV': undefined,
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+            },
             'exceptions': {
                 'exact': {
                     '-2': OnMaintenance, // {"status":-2,"error_message":"Under maintenance","data":null}
@@ -124,10 +226,10 @@ export default class bitflyer extends Exchange {
         });
     }
 
-    parseExpiryDate (expiry) {
+    parseExpiryDate (expiry: string): Int {
         const day = expiry.slice (0, 2);
         const monthName = expiry.slice (2, 5);
-        const year = expiry.slice (5, 9);
+        const expiryYear = expiry.slice (5, 9);
         const months: Dict = {
             'JAN': '01',
             'FEB': '02',
@@ -143,25 +245,28 @@ export default class bitflyer extends Exchange {
             'DEC': '12',
         };
         const month = this.safeString (months, monthName);
-        return this.parse8601 (year + '-' + month + '-' + day + 'T00:00:00Z');
+        if (month === undefined) {
+            return undefined;
+        }
+        return this.parse8601 (expiryYear + '-' + month + '-' + day + 'T00:00:00Z');
     }
 
-    safeMarket (marketId: Str = undefined, market: Market = undefined, delimiter: Str = undefined, marketType: Str = undefined): MarketInterface {
+    override safeMarket (marketId: Str = undefined, market: Market = undefined, delimiter: Str = undefined, marketType: Str = undefined): MarketInterface {
         // Bitflyer has a different type of conflict in markets, because
         // some of their ids (ETH/BTC and BTC/JPY) are duplicated in US, EU and JP.
         // Since they're the same we just need to return one
         return super.safeMarket (marketId, market, delimiter, 'spot');
     }
 
-    async fetchMarkets (params = {}): Promise<Market[]> {
-        /**
-         * @method
-         * @name bitflyer#fetchMarkets
-         * @description retrieves data on all markets for bitflyer
-         * @see https://lightning.bitflyer.com/docs?lang=en#market-list
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
+    /**
+     * @method
+     * @name bitflyer#fetchMarkets
+     * @description retrieves data on all markets for bitflyer
+     * @see https://lightning.bitflyer.com/docs?lang=en#market-list
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
+    override async fetchMarkets (params: Dict = {}): Promise<Market[]> {
         const jp_markets = await this.publicGetGetmarkets (params);
         //
         //     [
@@ -170,6 +275,7 @@ export default class bitflyer extends Exchange {
         //         { "product_code": "BCH_BTC", "market_type": "Spot" },
         //         // forex swap
         //         { "product_code": "FX_BTC_JPY", "market_type": "FX" },
+        //
         //         // future
         //         {
         //             "product_code": "BTCJPY11FEB2022",
@@ -192,22 +298,22 @@ export default class bitflyer extends Exchange {
         //         { "product_code": "BTC_JPY", "market_type": "Spot" },
         //     ];
         //
-        let markets = this.arrayConcat (jp_markets, us_markets);
-        markets = this.arrayConcat (markets, eu_markets);
-        const result = [];
+        let markets = this.arrayConcat (this.toArray (jp_markets), this.toArray (us_markets));
+        markets = this.arrayConcat (markets, this.toArray (eu_markets));
+        const result: List = [];
         for (let i = 0; i < markets.length; i++) {
             const market = markets[i];
             const id = this.safeString (market, 'product_code');
-            const currencies = id.split ('_');
+            const currencies = (id as string).split ('_');
             const marketType = this.safeString (market, 'market_type');
             const swap = (marketType === 'FX');
             const future = (marketType === 'Futures');
             const spot = !swap && !future;
             let type = 'spot';
-            let settle = undefined;
-            let baseId = undefined;
-            let quoteId = undefined;
-            let expiry = undefined;
+            let settle: Str = undefined;
+            let baseId: Str = undefined;
+            let quoteId: Str = undefined;
+            let expiry: Int = undefined;
             if (spot) {
                 baseId = this.safeString (currencies, 0);
                 quoteId = this.safeString (currencies, 1);
@@ -221,27 +327,36 @@ export default class bitflyer extends Exchange {
                     // no alias:
                     // { product_code: 'BTCJPY11MAR2022', market_type: 'Futures' }
                     // TODO this will break if there are products with 4 chars
-                    baseId = id.slice (0, 3);
-                    quoteId = id.slice (3, 6);
+                    baseId = (id as string).slice (0, 3);
+                    quoteId = (id as string).slice (3, 6);
                     // last 9 chars are expiry date
-                    const expiryDate = id.slice (-9);
+                    const expiryDate = (id as string).slice (-9);
                     expiry = this.parseExpiryDate (expiryDate);
                 } else {
                     const splitAlias = alias.split ('_');
                     const currencyIds = this.safeString (splitAlias, 0);
-                    baseId = currencyIds.slice (0, -3);
-                    quoteId = currencyIds.slice (-3);
-                    const splitId = id.split (currencyIds);
+                    baseId = (currencyIds as string).slice (0, -3);
+                    quoteId = (currencyIds as string).slice (-3);
+                    const splitId = (id as string).split (currencyIds as string);
                     const expiryDate = this.safeString (splitId, 1);
+                    if (expiryDate === undefined) {
+                        continue;
+                    }
                     expiry = this.parseExpiryDate (expiryDate);
+                }
+                if (expiry === undefined) {
+                    continue;
                 }
                 type = 'future';
             }
             const base = this.safeCurrencyCode (baseId);
             const quote = this.safeCurrencyCode (quoteId);
+            if ((base === undefined) || (quote === undefined)) {
+                continue;
+            }
             let symbol = base + '/' + quote;
-            let taker = this.fees['trading']['taker'];
-            let maker = this.fees['trading']['maker'];
+            let taker = this.safeNumber (this.fees['trading'], 'taker');
+            let maker = this.safeNumber (this.fees['trading'], 'maker');
             const contract = swap || future;
             if (contract) {
                 maker = 0.0;
@@ -307,30 +422,34 @@ export default class bitflyer extends Exchange {
         return result;
     }
 
-    parseBalance (response): Balances {
+    parseBalanceList (response: Dict[]): Balances {
         const result: Dict = { 'info': response };
         for (let i = 0; i < response.length; i++) {
-            const balance = response[i];
+            const balance = this.safeDict (response, i);
             const currencyId = this.safeString (balance, 'currency_code');
             const code = this.safeCurrencyCode (currencyId);
             const account = this.account ();
             account['total'] = this.safeString (balance, 'amount');
             account['free'] = this.safeString (balance, 'available');
-            result[code] = account;
+            if (code !== undefined) {
+                result[code] = account;
+            }
         }
         return this.safeBalance (result);
     }
 
-    async fetchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name bitflyer#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-account-asset-balance
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitflyer#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-account-asset-balance
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async fetchBalance (params: Dict = {}): Promise<Balances> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privateGetGetbalance (params);
         //
         //     [
@@ -351,21 +470,23 @@ export default class bitflyer extends Exchange {
         //         }
         //     ]
         //
-        return this.parseBalance (response);
+        return this.parseBalanceList (response);
     }
 
-    async fetchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name bitflyer#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://lightning.bitflyer.com/docs?lang=en#order-book
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitflyer#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://lightning.bitflyer.com/docs?lang=en#order-book
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async fetchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'product_code': market['id'],
@@ -374,7 +495,7 @@ export default class bitflyer extends Exchange {
         return this.parseOrderBook (orderbook, market['symbol'], undefined, 'bids', 'asks', 'price', 'size');
     }
 
-    parseTicker (ticker: Dict, market: Market = undefined): Ticker {
+    override parseTicker (ticker: Dict, market: Market = undefined): Ticker {
         const symbol = this.safeSymbol (undefined, market);
         const timestamp = this.parse8601 (this.safeString (ticker, 'timestamp'));
         const last = this.safeString (ticker, 'ltp');
@@ -402,17 +523,19 @@ export default class bitflyer extends Exchange {
         }, market);
     }
 
-    async fetchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name bitflyer#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://lightning.bitflyer.com/docs?lang=en#ticker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitflyer#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://lightning.bitflyer.com/docs?lang=en#ticker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'product_code': market['id'],
@@ -421,7 +544,7 @@ export default class bitflyer extends Exchange {
         return this.parseTicker (response, market);
     }
 
-    parseTrade (trade: Dict, market: Market = undefined): Trade {
+    override parseTrade (trade: Dict, market: Market = undefined): Trade {
         //
         // fetchTrades (public) v1
         //
@@ -454,12 +577,9 @@ export default class bitflyer extends Exchange {
                 side = undefined;
             }
         }
-        let order = undefined;
+        let order: Str = undefined;
         if (side !== undefined) {
-            const idInner = side + '_child_order_acceptance_id';
-            if (idInner in trade) {
-                order = trade[idInner];
-            }
+            order = this.safeString (trade, side + '_child_order_acceptance_id');
         }
         if (order === undefined) {
             order = this.safeString (trade, 'child_order_acceptance_id');
@@ -468,13 +588,13 @@ export default class bitflyer extends Exchange {
         const priceString = this.safeString (trade, 'price');
         const amountString = this.safeString (trade, 'size');
         const id = this.safeString (trade, 'id');
-        market = this.safeMarket (undefined, market);
+        const marketResolved: Market = this.safeMarket (undefined, market);
         return this.safeTrade ({
             'id': id,
             'info': trade,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'order': order,
             'type': undefined,
             'side': side,
@@ -483,22 +603,24 @@ export default class bitflyer extends Exchange {
             'amount': amountString,
             'cost': undefined,
             'fee': undefined,
-        }, market);
+        }, marketResolved);
     }
 
-    async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name bitflyer#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitflyer#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'product_code': market['id'],
@@ -523,17 +645,19 @@ export default class bitflyer extends Exchange {
         return this.parseTrades (response, market, since, limit);
     }
 
-    async fetchTradingFee (symbol: string, params = {}): Promise<TradingFeeInterface> {
-        /**
-         * @method
-         * @name bitflyer#fetchTradingFee
-         * @description fetch the trading fees for a market
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-trading-commission
-         * @param {string} symbol unified market symbol
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [fee structure]{@link https://docs.ccxt.com/#/?id=fee-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitflyer#fetchTradingFee
+     * @description fetch the trading fees for a market
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-trading-commission
+     * @param {string} symbol unified market symbol
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [fee structure]{@link https://docs.ccxt.com/?id=fee-structure}
+     */
+    override async fetchTradingFee (symbol: string, params: Dict = {}): Promise<TradingFeeInterface> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'product_code': market['id'],
@@ -555,25 +679,27 @@ export default class bitflyer extends Exchange {
         };
     }
 
-    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#createOrder
-         * @description create a trade order
-         * @see https://lightning.bitflyer.com/docs?lang=en#send-a-new-order
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitflyer#createOrder
+     * @description create a trade order
+     * @see https://lightning.bitflyer.com/docs?lang=en#send-a-new-order
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             'product_code': this.marketId (symbol),
             'child_order_type': type.toUpperCase (),
-            'side': side.toUpperCase (),
+            'side': (side as string).toUpperCase (),
             'price': price,
             'size': amount,
         };
@@ -586,29 +712,37 @@ export default class bitflyer extends Exchange {
         });
     }
 
-    async cancelOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#cancelOrder
-         * @description cancels an open order
-         * @see https://lightning.bitflyer.com/docs?lang=en#cancel-order
-         * @param {string} id order id
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#cancelOrder
+     * @description cancels an open order
+     * @see https://lightning.bitflyer.com/docs?lang=en#cancel-order
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
         if (symbol === undefined) {
             throw new ArgumentsRequired (this.id + ' cancelOrder() requires a symbol argument');
         }
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             'product_code': this.marketId (symbol),
             'child_order_acceptance_id': id,
         };
-        return await this.privatePostCancelchildorder (this.extend (request, params));
+        const response = await this.privatePostCancelchildorder (this.extend (request, params));
+        //
+        //    200 OK.
+        //
+        return this.safeOrder ({
+            'info': response,
+        });
     }
 
-    parseOrderStatus (status: Str) {
+    parseOrderStatus (status: Str): Str {
         const statuses: Dict = {
             'ACTIVE': 'open',
             'COMPLETED': 'closed',
@@ -616,10 +750,10 @@ export default class bitflyer extends Exchange {
             'EXPIRED': 'canceled',
             'REJECTED': 'canceled',
         };
-        return this.safeString (statuses, status, status);
+        return this.safeString (statuses, status as string, status);
     }
 
-    parseOrder (order: Dict, market: Market = undefined): Order {
+    override parseOrder (order: Dict, market: Market = undefined): Order {
         const timestamp = this.parse8601 (this.safeString (order, 'child_order_date'));
         const price = this.safeString (order, 'price');
         const amount = this.safeString (order, 'size');
@@ -630,7 +764,7 @@ export default class bitflyer extends Exchange {
         const side = this.safeStringLower (order, 'side');
         const marketId = this.safeString (order, 'product_code');
         const symbol = this.safeSymbol (marketId, market);
-        let fee = undefined;
+        let fee: Fee = undefined;
         const feeCost = this.safeNumber (order, 'total_commission');
         if (feeCost !== undefined) {
             fee = {
@@ -654,7 +788,6 @@ export default class bitflyer extends Exchange {
             'postOnly': undefined,
             'side': side,
             'price': price,
-            'stopPrice': undefined,
             'triggerPrice': undefined,
             'cost': undefined,
             'amount': amount,
@@ -666,108 +799,113 @@ export default class bitflyer extends Exchange {
         }, market);
     }
 
-    async fetchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = 100, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name bitflyer#fetchOrders
-         * @description fetches information on multiple orders made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = 100, params: Dict = {}): Promise<Order[]> {
         if (symbol === undefined) {
             throw new ArgumentsRequired (this.id + ' fetchOrders() requires a symbol argument');
         }
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'product_code': market['id'],
             'count': limit,
         };
         const response = await this.privateGetGetchildorders (this.extend (request, params));
-        let orders = this.parseOrders (response, market, since, limit);
         if (symbol !== undefined) {
-            orders = this.filterBy (orders, 'symbol', symbol) as Order[];
+            return this.filterBy (this.parseOrders (response, market, since, limit), 'symbol', symbol) as Order[];
         }
-        return orders;
+        return this.parseOrders (response, market, since, limit);
     }
 
-    async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = 100, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name bitflyer#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = 100, params: Dict = {}): Promise<Order[]> {
         const request: Dict = {
             'child_order_state': 'ACTIVE',
         };
         return await this.fetchOrders (symbol, since, limit, this.extend (request, params));
     }
 
-    async fetchClosedOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = 100, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name bitflyer#fetchClosedOrders
-         * @description fetches information on multiple closed orders made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#fetchClosedOrders
+     * @description fetches information on multiple closed orders made by the user
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchClosedOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = 100, params: Dict = {}): Promise<Order[]> {
         const request: Dict = {
             'child_order_state': 'COMPLETED',
         };
         return await this.fetchOrders (symbol, since, limit, this.extend (request, params));
     }
 
-    async fetchOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+     * @param {string} id the order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
         if (symbol === undefined) {
             throw new ArgumentsRequired (this.id + ' fetchOrder() requires a symbol argument');
         }
         const orders = await this.fetchOrders (symbol);
         const ordersById = this.indexBy (orders, 'id');
-        if (id in ordersById) {
-            return ordersById[id] as Order;
+        const found = this.safeDict (ordersById, id);
+        if (found !== undefined) {
+            return found as Order;
         }
         throw new OrderNotFound (this.id + ' No order found with id ' + id);
     }
 
-    async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
         if (symbol === undefined) {
             throw new ArgumentsRequired (this.id + ' fetchMyTrades() requires a symbol argument');
         }
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'product_code': market['id'],
@@ -793,20 +931,22 @@ export default class bitflyer extends Exchange {
         return this.parseTrades (response, market, since, limit);
     }
 
-    async fetchPositions (symbols: Strings = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchPositions
-         * @description fetch all open positions
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-open-interest-summary
-         * @param {string[]} symbols list of unified market symbols
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/#/?id=position-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#fetchPositions
+     * @description fetch all open positions
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-open-interest-summary
+     * @param {string[]} symbols list of unified market symbols
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/?id=position-structure}
+     */
+    override async fetchPositions (symbols: Strings = undefined, params: Dict = {}): Promise<Position[]> {
         if (symbols === undefined) {
             throw new ArgumentsRequired (this.id + ' fetchPositions() requires a `symbols` argument, exactly one symbol in an array');
         }
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             'product_code': this.marketIds (symbols),
         };
@@ -829,24 +969,26 @@ export default class bitflyer extends Exchange {
         //     ]
         //
         // todo unify parsePosition/parsePositions
-        return response;
+        return response as Position[];
     }
 
-    async withdraw (code: string, amount: number, address: string, tag = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#withdraw
-         * @description make a withdrawal
-         * @see https://lightning.bitflyer.com/docs?lang=en#withdrawing-funds
-         * @param {string} code unified currency code
-         * @param {float} amount the amount to withdraw
-         * @param {string} address the address to withdraw to
-         * @param {string} tag
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#withdraw
+     * @description make a withdrawal
+     * @see https://lightning.bitflyer.com/docs?lang=en#withdrawing-funds
+     * @param {string} code unified currency code
+     * @param {float} amount the amount to withdraw
+     * @param {string} address the address to withdraw to
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.tag] memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    override async withdraw (code: string, amount: number, address: string, params: Dict = {}): Promise<Transaction> {
         this.checkAddress (address);
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         if (code !== 'JPY' && code !== 'USD' && code !== 'EUR') {
             throw new ExchangeError (this.id + ' allows withdrawing JPY, USD, EUR only, ' + code + ' is not supported');
         }
@@ -865,20 +1007,22 @@ export default class bitflyer extends Exchange {
         return this.parseTransaction (response, currency);
     }
 
-    async fetchDeposits (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Transaction[]> {
-        /**
-         * @method
-         * @name bitflyer#fetchDeposits
-         * @description fetch all deposits made to an account
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-deposit-history
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch deposits for
-         * @param {int} [limit] the maximum number of deposits structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets ();
-        let currency = undefined;
+    /**
+     * @method
+     * @name bitflyer#fetchDeposits
+     * @description fetch all deposits made to an account
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-deposit-history
+     * @param {string} code unified currency code
+     * @param {int} [since] the earliest time in ms to fetch deposits for
+     * @param {int} [limit] the maximum number of deposits structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    override async fetchDeposits (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Transaction[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let currency: Currency = undefined;
         const request: Dict = {};
         if (code !== undefined) {
             currency = this.currency (code);
@@ -904,20 +1048,22 @@ export default class bitflyer extends Exchange {
         return this.parseTransactions (response, currency, since, limit);
     }
 
-    async fetchWithdrawals (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Transaction[]> {
-        /**
-         * @method
-         * @name bitflyer#fetchWithdrawals
-         * @description fetch all withdrawals made from an account
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-transaction-history
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch withdrawals for
-         * @param {int} [limit] the maximum number of withdrawals structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets ();
-        let currency = undefined;
+    /**
+     * @method
+     * @name bitflyer#fetchWithdrawals
+     * @description fetch all withdrawals made from an account
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-transaction-history
+     * @param {string} code unified currency code
+     * @param {int} [since] the earliest time in ms to fetch withdrawals for
+     * @param {int} [limit] the maximum number of withdrawals structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    override async fetchWithdrawals (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Transaction[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let currency: Currency = undefined;
         const request: Dict = {};
         if (code !== undefined) {
             currency = this.currency (code);
@@ -945,7 +1091,7 @@ export default class bitflyer extends Exchange {
         return this.parseTransactions (response, currency, since, limit);
     }
 
-    parseDepositStatus (status) {
+    parseDepositStatus (status: Str): Str {
         const statuses: Dict = {
             'PENDING': 'pending',
             'COMPLETED': 'ok',
@@ -953,7 +1099,7 @@ export default class bitflyer extends Exchange {
         return this.safeString (statuses, status, status);
     }
 
-    parseWithdrawalStatus (status) {
+    parseWithdrawalStatus (status: Str): Str {
         const statuses: Dict = {
             'PENDING': 'pending',
             'COMPLETED': 'ok',
@@ -961,7 +1107,7 @@ export default class bitflyer extends Exchange {
         return this.safeString (statuses, status, status);
     }
 
-    parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
+    override parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
         //
         // fetchDeposits
         //
@@ -1005,9 +1151,9 @@ export default class bitflyer extends Exchange {
         const amount = this.safeNumber (transaction, 'amount');
         const txId = this.safeString (transaction, 'tx_hash');
         const rawStatus = this.safeString (transaction, 'status');
-        let type = undefined;
-        let status = undefined;
-        let fee = undefined;
+        let type: Str = undefined;
+        let status: Str = undefined;
+        let fee: Fee = undefined;
         if ('fee' in transaction) {
             type = 'withdrawal';
             status = this.parseWithdrawalStatus (rawStatus);
@@ -1039,53 +1185,121 @@ export default class bitflyer extends Exchange {
             'comment': undefined,
             'internal': undefined,
             'fee': fee,
-        };
+        } as Transaction;
     }
 
-    sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
+    /**
+     * @method
+     * @name bitflyer#fetchFundingRate
+     * @description fetch the current funding rate
+     * @see https://lightning.bitflyer.com/docs#funding-rate
+     * @param {string} symbol unified market symbol
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [funding rate structure]{@link https://docs.ccxt.com/?id=funding-rate-structure}
+     */
+    override async fetchFundingRate (symbol: string, params: Dict = {}): Promise<FundingRate> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const market = this.market (symbol);
+        const request: Dict = {
+            'product_code': market['id'],
+        };
+        const response = await this.publicGetGetfundingrate (this.extend (request, params));
+        //
+        //    {
+        //        "current_funding_rate": -0.003750000000
+        //        "next_funding_rate_settledate": "2024-04-15T13:00:00"
+        //    }
+        //
+        return this.parseFundingRate (response, market);
+    }
+
+    override parseFundingRate (contract: any, market: Market = undefined): FundingRate {
+        //
+        //    {
+        //        "current_funding_rate": -0.003750000000
+        //        "next_funding_rate_settledate": "2024-04-15T13:00:00"
+        //    }
+        //
+        const nextFundingDatetime = this.safeString (contract, 'next_funding_rate_settledate');
+        const nextFundingTimestamp = this.parse8601 (nextFundingDatetime);
+        return {
+            'info': contract,
+            'symbol': this.safeString (market, 'symbol'),
+            'markPrice': undefined,
+            'indexPrice': undefined,
+            'interestRate': undefined,
+            'estimatedSettlePrice': undefined,
+            'timestamp': undefined,
+            'datetime': undefined,
+            'fundingRate': undefined,
+            'fundingTimestamp': undefined,
+            'fundingDatetime': undefined,
+            'nextFundingRate': this.safeNumber (contract, 'current_funding_rate'),
+            'nextFundingTimestamp': nextFundingTimestamp,
+            'nextFundingDatetime': this.iso8601 (nextFundingTimestamp),
+            'previousFundingRate': undefined,
+            'previousFundingTimestamp': undefined,
+            'previousFundingDatetime': undefined,
+            'interval': undefined,
+        } as FundingRate;
+    }
+
+    override sign (path: string, api: string[] = [ 'public' ], method: string = 'GET', params: Dict = {}): Dict {
+        const apiName = api[0];
+        let bodySigned: Str = undefined;
+        let headersSigned: NullableDict = undefined;
         let request = '/' + this.version + '/';
-        if (api === 'private') {
+        if (apiName === 'private') {
             request += 'me/';
         }
         request += path;
         if (method === 'GET') {
-            if (Object.keys (params).length) {
-                request += '?' + this.urlencode (params);
+            const query = this.urlencode (params);
+            if (query !== '') {
+                request += '?' + query;
             }
         }
-        const baseUrl = this.implodeHostname (this.urls['api']['rest']);
-        const url = baseUrl + request;
-        if (api === 'private') {
+        const apiUrl = this.safeString (this.urls['api'], 'rest');
+        if (apiUrl === undefined) {
+            throw new ExchangeError (this.id + ' sign() has no API URL for this endpoint');
+        }
+        const url = this.implodeHostname (apiUrl) + request;
+        if (apiName === 'private') {
             this.checkRequiredCredentials ();
             const nonce = this.nonce ().toString ();
-            let auth = [ nonce, method, request ].join ('');
-            if (Object.keys (params).length) {
+            let auth: string = nonce + method + request;
+            if (Object.keys (params).length > 0) {
                 if (method !== 'GET') {
-                    body = this.json (params);
+                    const body = this.json (params);
+                    bodySigned = body;
                     auth += body;
                 }
             }
-            headers = {
+            headersSigned = {
                 'ACCESS-KEY': this.apiKey,
                 'ACCESS-TIMESTAMP': nonce,
                 'ACCESS-SIGN': this.hmac (this.encode (auth), this.encode (this.secret), sha256),
                 'Content-Type': 'application/json',
             };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const headersResolved: NullableDict = headersSigned;
+        const bodyResolved: Str = bodySigned;
+        return { 'url': url, 'method': method, 'body': bodyResolved, 'headers': headersResolved };
     }
 
-    handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response, requestHeaders, requestBody) {
+    override handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response: any, requestHeaders: NullableDict, requestBody: Str) {
         if (response === undefined) {
             return undefined; // fallback to the default error handler
         }
         const feedback = this.id + ' ' + body;
         // i.e. {"status":-2,"error_message":"Under maintenance","data":null}
         const errorMessage = this.safeString (response, 'error_message');
-        const statusCode = this.safeNumber (response, 'status');
+        const statusCode = this.safeString (response, 'status');
         if (errorMessage !== undefined) {
             this.throwExactlyMatchedException (this.exceptions['exact'], statusCode, feedback);
-            this.throwBroadlyMatchedException (this.exceptions['broad'], errorMessage, feedback);
+            throw new ExchangeError (feedback);
         }
         return undefined;
     }

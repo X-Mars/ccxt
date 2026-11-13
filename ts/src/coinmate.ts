@@ -1,12 +1,12 @@
 
 //  ---------------------------------------------------------------------------
 
+import { sha256 } from '@noble/hashes/sha2.js';
 import Exchange from './abstract/coinmate.js';
 import { ExchangeError, InvalidOrder, OrderNotFound, RateLimitExceeded, InsufficientFunds, AuthenticationError, ArgumentsRequired } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
-import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import type { Balances, Currency, Dict, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade, TradingFeeInterface, Transaction, int } from './base/types.js';
+import type { Balances, Currency, Dict, List, Int, Market, NullableDict, FeeString, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade, TradingFeeInterface, Transaction, int, Endpoint } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -15,12 +15,12 @@ import type { Balances, Currency, Dict, Int, Market, Num, Order, OrderBook, Orde
  * @augments Exchange
  */
 export default class coinmate extends Exchange {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'id': 'coinmate',
             'name': 'CoinMate',
             'countries': [ 'GB', 'CZ', 'EU' ], // UK, Czech Republic
-            'rateLimit': 1000,
+            'rateLimit': 600,
             'has': {
                 'CORS': true,
                 'spot': true,
@@ -29,32 +29,60 @@ export default class coinmate extends Exchange {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelOrder': true,
                 'closeAllPositions': false,
                 'closePosition': false,
                 'createOrder': true,
+                'createOrderWithTakeProfitAndStopLoss': false,
+                'createOrderWithTakeProfitAndStopLossWs': false,
+                'createPostOnlyOrder': false,
                 'createReduceOnlyOrder': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
                 'fetchDepositsWithdrawals': true,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
                 'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
                 'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchOrders': true,
@@ -66,14 +94,21 @@ export default class coinmate extends Exchange {
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchTicker': true,
                 'fetchTickers': true,
+                'fetchTime': true,
                 'fetchTrades': true,
                 'fetchTradingFee': true,
                 'fetchTradingFees': false,
                 'fetchTransactions': 'emulated',
+                'fetchVolatilityHistory': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
+                'repayMargin': false,
                 'setLeverage': false,
+                'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
                 'transfer': false,
@@ -99,98 +134,106 @@ export default class coinmate extends Exchange {
             },
             'api': {
                 'public': {
-                    'get': [
-                        'orderBook',
-                        'ticker',
-                        'tickerAll',
-                        'products',
-                        'transactions',
-                        'tradingPairs',
-                    ],
+                    'get': {
+                        'orderBook': { 'cost': 1 } as Endpoint<Dict>,
+                        'ticker': { 'cost': 1 } as Endpoint<Dict>,
+                        'tickerAll': { 'cost': 1 } as Endpoint<Dict>,
+                        'products': { 'cost': 1 } as Endpoint<Dict>,
+                        'transactions': { 'cost': 1 } as Endpoint<Dict>,
+                        'tradingPairs': { 'cost': 1 } as Endpoint<Dict>,
+                        'system/time': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
                 'private': {
-                    'post': [
-                        'balances',
-                        'bitcoinCashWithdrawal',
-                        'bitcoinCashDepositAddresses',
-                        'bitcoinDepositAddresses',
-                        'bitcoinWithdrawal',
-                        'bitcoinWithdrawalFees',
-                        'buyInstant',
-                        'buyLimit',
-                        'cancelOrder',
-                        'cancelOrderWithInfo',
-                        'createVoucher',
-                        'dashDepositAddresses',
-                        'dashWithdrawal',
-                        'ethereumWithdrawal',
-                        'ethereumDepositAddresses',
-                        'litecoinWithdrawal',
-                        'litecoinDepositAddresses',
-                        'openOrders',
-                        'order',
-                        'orderHistory',
-                        'orderById',
-                        'pusherAuth',
-                        'redeemVoucher',
-                        'replaceByBuyLimit',
-                        'replaceByBuyInstant',
-                        'replaceBySellLimit',
-                        'replaceBySellInstant',
-                        'rippleDepositAddresses',
-                        'rippleWithdrawal',
-                        'sellInstant',
-                        'sellLimit',
-                        'transactionHistory',
-                        'traderFees',
-                        'tradeHistory',
-                        'transfer',
-                        'transferHistory',
-                        'unconfirmedBitcoinDeposits',
-                        'unconfirmedBitcoinCashDeposits',
-                        'unconfirmedDashDeposits',
-                        'unconfirmedEthereumDeposits',
-                        'unconfirmedLitecoinDeposits',
-                        'unconfirmedRippleDeposits',
-                        'cancelAllOpenOrders',
-                        'withdrawVirtualCurrency',
-                        'virtualCurrencyDepositAddresses',
-                        'unconfirmedVirtualCurrencyDeposits',
-                        'adaWithdrawal',
-                        'adaDepositAddresses',
-                        'unconfirmedAdaDeposits',
-                        'solWithdrawal',
-                        'solDepositAddresses',
-                        'unconfirmedSolDeposits',
-                    ],
+                    'post': {
+                        'currencies': { 'cost': 1 } as Endpoint<Dict>,
+                        'balances': { 'cost': 1 } as Endpoint<Dict>,
+                        'bitcoinCashWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'bitcoinCashDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'bitcoinDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'bitcoinWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'bitcoinWithdrawalFees': { 'cost': 1 } as Endpoint<Dict>,
+                        'buyInstant': { 'cost': 1 } as Endpoint<Dict>,
+                        'buyLimit': { 'cost': 1 } as Endpoint<Dict>,
+                        'cancelOrder': { 'cost': 1 } as Endpoint<Dict>,
+                        'cancelOrderWithInfo': { 'cost': 1 } as Endpoint<Dict>,
+                        'createVoucher': { 'cost': 1 } as Endpoint<Dict>,
+                        'dashDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'dashWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'ethereumWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'ethereumDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'litecoinWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'litecoinDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'openOrders': { 'cost': 1 } as Endpoint<Dict>,
+                        'order': { 'cost': 1 } as Endpoint<Dict>,
+                        'orderHistory': { 'cost': 1 } as Endpoint<Dict>,
+                        'orderById': { 'cost': 1 } as Endpoint<Dict>,
+                        'pusherAuth': { 'cost': 1 } as Endpoint<Dict>,
+                        'redeemVoucher': { 'cost': 1 } as Endpoint<Dict>,
+                        'replaceByBuyLimit': { 'cost': 1 } as Endpoint<Dict>,
+                        'replaceByBuyInstant': { 'cost': 1 } as Endpoint<Dict>,
+                        'replaceBySellLimit': { 'cost': 1 } as Endpoint<Dict>,
+                        'replaceBySellInstant': { 'cost': 1 } as Endpoint<Dict>,
+                        'rippleDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'rippleWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'sellInstant': { 'cost': 1 } as Endpoint<Dict>,
+                        'sellLimit': { 'cost': 1 } as Endpoint<Dict>,
+                        'transactionHistory': { 'cost': 1 } as Endpoint<Dict>,
+                        'traderFees': { 'cost': 1 } as Endpoint<Dict>,
+                        'tradeHistory': { 'cost': 1 } as Endpoint<Dict>,
+                        'transfer': { 'cost': 1 } as Endpoint<Dict>,
+                        'transferHistory': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedBitcoinDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedBitcoinCashDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedDashDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedEthereumDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedLitecoinDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedRippleDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'cancelAllOpenOrders': { 'cost': 1 } as Endpoint<Dict>,
+                        'withdrawVirtualCurrency': { 'cost': 1 } as Endpoint<Dict>,
+                        'virtualCurrencyDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedVirtualCurrencyDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'adaWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'adaDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedAdaDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'daiWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'daiDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedDaiDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'solWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'solDepositAddresses': { 'cost': 1 } as Endpoint<Dict>,
+                        'unconfirmedSolDeposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'bankWireWithdrawal': { 'cost': 1 } as Endpoint<Dict>,
+                        'lightningDeposit': { 'cost': 1 } as Endpoint<Dict>,
+                        'lightningWithdraw': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
             },
             'fees': {
                 'trading': {
                     'tierBased': true,
                     'percentage': true,
-                    'maker': this.parseNumber ('0.0012'),
-                    'taker': this.parseNumber ('0.0025'),
+                    'taker': this.parseNumber ('0.006'),
+                    'maker': this.parseNumber ('0.004'),
                     'tiers': {
                         'taker': [
-                            [ this.parseNumber ('0'), this.parseNumber ('0.0035') ],
-                            [ this.parseNumber ('10000'), this.parseNumber ('0.0023') ],
-                            [ this.parseNumber ('100000'), this.parseNumber ('0.0021') ],
-                            [ this.parseNumber ('250000'), this.parseNumber ('0.0020') ],
-                            [ this.parseNumber ('500000'), this.parseNumber ('0.0015') ],
-                            [ this.parseNumber ('1000000'), this.parseNumber ('0.0013') ],
-                            [ this.parseNumber ('3000000'), this.parseNumber ('0.0010') ],
-                            [ this.parseNumber ('15000000'), this.parseNumber ('0.0005') ],
+                            [ this.parseNumber ('0'), this.parseNumber ('0.006') ],
+                            [ this.parseNumber ('10000'), this.parseNumber ('0.003') ],
+                            [ this.parseNumber ('100000'), this.parseNumber ('0.0023') ],
+                            [ this.parseNumber ('250000'), this.parseNumber ('0.0021') ],
+                            [ this.parseNumber ('500000'), this.parseNumber ('0.0018') ],
+                            [ this.parseNumber ('1000000'), this.parseNumber ('0.0015') ],
+                            [ this.parseNumber ('3000000'), this.parseNumber ('0.0012') ],
+                            [ this.parseNumber ('15000000'), this.parseNumber ('0.001') ],
                         ],
                         'maker': [
-                            [ this.parseNumber ('0'), this.parseNumber ('0.003') ],
-                            [ this.parseNumber ('10000'), this.parseNumber ('0.0011') ],
-                            [ this.parseNumber ('100000'), this.parseNumber ('0.0010') ],
-                            [ this.parseNumber ('250000'), this.parseNumber ('0.0008') ],
+                            [ this.parseNumber ('0'), this.parseNumber ('0.004') ],
+                            [ this.parseNumber ('10000'), this.parseNumber ('0.002') ],
+                            [ this.parseNumber ('100000'), this.parseNumber ('0.0012') ],
+                            [ this.parseNumber ('250000'), this.parseNumber ('0.0009') ],
                             [ this.parseNumber ('500000'), this.parseNumber ('0.0005') ],
                             [ this.parseNumber ('1000000'), this.parseNumber ('0.0003') ],
                             [ this.parseNumber ('3000000'), this.parseNumber ('0.0002') ],
-                            [ this.parseNumber ('15000000'), this.parseNumber ('0') ],
+                            [ this.parseNumber ('15000000'), this.parseNumber ('-0.0004') ],
                         ],
                     },
                 },
@@ -211,6 +254,73 @@ export default class coinmate extends Exchange {
                     },
                 },
             },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': true, // todo implement
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false, // todo
+                        'takeProfitPrice': false, // todo
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': true,
+                            'FOK': false,
+                            'PO': true,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'trailing': true, // todo implement
+                        'leverage': false,
+                        'marketBuyByCost': false,
+                        'marketBuyRequiresPrice': false,
+                        'selfTradePrevention': false,
+                        'iceberg': true, // todo
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'daysBack': 100000,
+                        'untilDays': 100000, // todo implement
+                        'symbolRequired': false,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchClosedOrders': undefined,
+                    'fetchOHLCV': undefined,
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+            },
             'exceptions': {
                 'exact': {
                     'No order with given ID': OrderNotFound,
@@ -228,15 +338,33 @@ export default class coinmate extends Exchange {
         });
     }
 
-    async fetchMarkets (params = {}): Promise<Market[]> {
-        /**
-         * @method
-         * @name coinmate#fetchMarkets
-         * @description retrieves data on all markets for coinmate
-         * @see https://coinmate.docs.apiary.io/#reference/trading-pairs/get-trading-pairs/get
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
+    /**
+     * @method
+     * @name coinmate#fetchTime
+     * @description fetches the current integer timestamp in milliseconds from the exchange server
+     * @see https://coinmate.docs.apiary.io/#reference/system/get-server-time/get
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int} the current integer timestamp in milliseconds from the exchange server
+     */
+    override async fetchTime (params: Dict = {}): Promise<Int> {
+        const response = await this.publicGetSystemTime (params);
+        //
+        //     {
+        //         "serverTime": 1765250628745
+        //     }
+        //
+        return this.safeInteger (response, 'serverTime');
+    }
+
+    /**
+     * @method
+     * @name coinmate#fetchMarkets
+     * @description retrieves data on all markets for coinmate
+     * @see https://coinmate.docs.apiary.io/#reference/trading-pairs/get-trading-pairs/get
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
+    override async fetchMarkets (params: Dict = {}): Promise<Market[]> {
         const response = await this.publicGetTradingPairs (params);
         //
         //     {
@@ -257,8 +385,8 @@ export default class coinmate extends Exchange {
         //         ]
         //     }
         //
-        const data = this.safeValue (response, 'data', []);
-        const result = [];
+        const data: Dict[] = this.safeList (response, 'data', []);
+        const result: List = [];
         for (let i = 0; i < data.length; i++) {
             const market = data[i];
             const id = this.safeString (market, 'name');
@@ -266,6 +394,9 @@ export default class coinmate extends Exchange {
             const quoteId = this.safeString (market, 'secondCurrency');
             const base = this.safeCurrencyCode (baseId);
             const quote = this.safeCurrencyCode (quoteId);
+            if ((base === undefined) || (quote === undefined)) {
+                continue;
+            }
             const symbol = base + '/' + quote;
             result.push ({
                 'id': id,
@@ -320,71 +451,77 @@ export default class coinmate extends Exchange {
         return result;
     }
 
-    parseBalance (response): Balances {
-        const balances = this.safeValue (response, 'data', {});
+    override parseBalance (response: Dict): Balances {
+        const balances = this.safeDict (response, 'data', {});
         const result: Dict = { 'info': response };
         const currencyIds = Object.keys (balances);
         for (let i = 0; i < currencyIds.length; i++) {
             const currencyId = currencyIds[i];
             const code = this.safeCurrencyCode (currencyId);
-            const balance = this.safeValue (balances, currencyId);
+            const balance = this.safeDict (balances, currencyId);
             const account = this.account ();
             account['free'] = this.safeString (balance, 'available');
             account['used'] = this.safeString (balance, 'reserved');
             account['total'] = this.safeString (balance, 'balance');
-            result[code] = account;
+            result[code as string] = account;
         }
         return this.safeBalance (result);
     }
 
-    async fetchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name coinmate#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://coinmate.docs.apiary.io/#reference/balance/get-balances/post
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://coinmate.docs.apiary.io/#reference/balance/get-balances/post
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async fetchBalance (params: Dict = {}): Promise<Balances> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privatePostBalances (params);
         return this.parseBalance (response);
     }
 
-    async fetchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name coinmate#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://coinmate.docs.apiary.io/#reference/order-book/get-order-book/get
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://coinmate.docs.apiary.io/#reference/order-book/get-order-book/get
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async fetchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'currencyPair': market['id'],
             'groupByPriceLimit': 'False',
         };
         const response = await this.publicGetOrderBook (this.extend (request, params));
-        const orderbook = response['data'];
+        const orderbook = this.safeDict (response, 'data', {});
         const timestamp = this.safeTimestamp (orderbook, 'timestamp');
         return this.parseOrderBook (orderbook, market['symbol'], timestamp, 'bids', 'asks', 'price', 'amount');
     }
 
-    async fetchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name coinmate#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://coinmate.docs.apiary.io/#reference/ticker/get-ticker/get
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://coinmate.docs.apiary.io/#reference/ticker/get-ticker/get
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'currencyPair': market['id'],
@@ -407,22 +544,24 @@ export default class coinmate extends Exchange {
         //         }
         //     }
         //
-        const data = this.safeDict (response, 'data');
+        const data = this.safeDict (response, 'data') as Dict;
         return this.parseTicker (data, market);
     }
 
-    async fetchTickers (symbols: Strings = undefined, params = {}): Promise<Tickers> {
-        /**
-         * @method
-         * @name coinmate#fetchTickers
-         * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-         * @see https://coinmate.docs.apiary.io/#reference/ticker/get-ticker-all/get
-         * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
-        symbols = this.marketSymbols (symbols);
+    /**
+     * @method
+     * @name coinmate#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
+     * @see https://coinmate.docs.apiary.io/#reference/ticker/get-ticker-all/get
+     * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTickers (symbols: Strings = undefined, params: Dict = {}): Promise<Tickers> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: Strings = this.marketSymbols (symbols);
         const response = await this.publicGetTickerAll (params);
         //
         //     {
@@ -443,7 +582,7 @@ export default class coinmate extends Exchange {
         //         }
         //     }
         //
-        const data = this.safeValue (response, 'data', {});
+        const data = this.safeDict (response, 'data', {});
         const keys = Object.keys (data);
         const result: Dict = {};
         for (let i = 0; i < keys.length; i++) {
@@ -451,10 +590,10 @@ export default class coinmate extends Exchange {
             const ticker = this.parseTicker (this.safeValue (data, keys[i]), market);
             result[market['symbol']] = ticker;
         }
-        return this.filterByArrayTickers (result, 'symbol', symbols);
+        return this.filterByArrayTickers (result, 'symbol', symbolsNormalized);
     }
 
-    parseTicker (ticker: Dict, market: Market = undefined): Ticker {
+    override parseTicker (ticker: Dict, market: Market = undefined): Ticker {
         //
         //     {
         //         "last": "0.001337",
@@ -471,7 +610,7 @@ export default class coinmate extends Exchange {
         const timestamp = this.safeTimestamp (ticker, 'timestamp');
         const last = this.safeNumber (ticker, 'last');
         return this.safeTicker ({
-            'symbol': market['symbol'],
+            'symbol': this.safeString (market, 'symbol'),
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
             'high': this.safeNumber (ticker, 'high'),
@@ -481,12 +620,12 @@ export default class coinmate extends Exchange {
             'ask': this.safeNumber (ticker, 'ask'),
             'vwap': undefined,
             'askVolume': undefined,
-            'open': undefined,
+            'open': this.safeNumber (ticker, 'open'),
             'close': last,
             'last': last,
             'previousClose': undefined,
             'change': undefined,
-            'percentage': undefined,
+            'percentage': this.safeNumber (ticker, 'change'),
             'average': undefined,
             'baseVolume': this.safeNumber (ticker, 'amount'),
             'quoteVolume': undefined,
@@ -494,19 +633,21 @@ export default class coinmate extends Exchange {
         }, market);
     }
 
-    async fetchDepositsWithdrawals (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Transaction[]> {
-        /**
-         * @method
-         * @name coinmate#fetchDepositsWithdrawals
-         * @description fetch history of deposits and withdrawals
-         * @see https://coinmate.docs.apiary.io/#reference/transfers/get-transfer-history/post
-         * @param {string} [code] unified currency code for the currency of the deposit/withdrawals, default is undefined
-         * @param {int} [since] timestamp in ms of the earliest deposit/withdrawal, default is undefined
-         * @param {int} [limit] max number of deposit/withdrawals to return, default is undefined
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a list of [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#fetchDepositsWithdrawals
+     * @description fetch history of deposits and withdrawals
+     * @see https://coinmate.docs.apiary.io/#reference/transfers/get-transfer-history/post
+     * @param {string} [code] unified currency code for the currency of the deposit/withdrawals, default is undefined
+     * @param {int} [since] timestamp in ms of the earliest deposit/withdrawal, default is undefined
+     * @param {int} [limit] max number of deposit/withdrawals to return, default is undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a list of [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    override async fetchDepositsWithdrawals (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Transaction[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             'limit': 1000,
         };
@@ -521,11 +662,11 @@ export default class coinmate extends Exchange {
             request['currency'] = currency['id'];
         }
         const response = await this.privatePostTransferHistory (this.extend (request, params));
-        const items = response['data'];
+        const items: Dict[] = this.safeList (response, 'data', []);
         return this.parseTransactions (items, undefined, since, limit);
     }
 
-    parseTransactionStatus (status: Str) {
+    parseTransactionStatus (status: Str): Str {
         const statuses: Dict = {
             'COMPLETED': 'ok',
             'WAITING': 'pending',
@@ -535,10 +676,10 @@ export default class coinmate extends Exchange {
             'NEW': 'pending',
             'CANCELED': 'canceled',
         };
-        return this.safeString (statuses, status, status);
+        return this.safeString (statuses, status as string, status);
     }
 
-    parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
+    override parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
         //
         // deposits
         //
@@ -588,7 +729,7 @@ export default class coinmate extends Exchange {
             'txid': this.safeString (transaction, 'txid'),
             'type': this.safeStringLower (transaction, 'transferType'),
             'currency': code,
-            'network': this.safeString (transaction, 'walletType'),
+            'network': this.networkIdToCode (this.safeString (transaction, 'walletType'), code),
             'amount': this.safeNumber (transaction, 'amount'),
             'status': this.parseTransactionStatus (this.safeString (transaction, 'transferStatus')),
             'timestamp': timestamp,
@@ -607,33 +748,35 @@ export default class coinmate extends Exchange {
                 'currency': code,
                 'rate': undefined,
             },
-        };
+        } as Transaction;
     }
 
-    async withdraw (code: string, amount: number, address: string, tag = undefined, params = {}) {
-        /**
-         * @method
-         * @name coinmate#withdraw
-         * @description make a withdrawal
-         * @see https://coinmate.docs.apiary.io/#reference/bitcoin-withdrawal-and-deposit/withdraw-bitcoins/post
-         * @see https://coinmate.docs.apiary.io/#reference/litecoin-withdrawal-and-deposit/withdraw-litecoins/post
-         * @see https://coinmate.docs.apiary.io/#reference/ethereum-withdrawal-and-deposit/withdraw-ethereum/post
-         * @see https://coinmate.docs.apiary.io/#reference/ripple-withdrawal-and-deposit/withdraw-ripple/post
-         * @see https://coinmate.docs.apiary.io/#reference/cardano-withdrawal-and-deposit/withdraw-cardano/post
-         * @see https://coinmate.docs.apiary.io/#reference/solana-withdrawal-and-deposit/withdraw-solana/post
-         * @param {string} code unified currency code
-         * @param {float} amount the amount to withdraw
-         * @param {string} address the address to withdraw to
-         * @param {string} tag
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        [ tag, params ] = this.handleWithdrawTagAndParams (tag, params);
-        this.checkAddress (address);
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#withdraw
+     * @description make a withdrawal
+     * @see https://coinmate.docs.apiary.io/#reference/bitcoin-withdrawal-and-deposit/withdraw-bitcoins/post
+     * @see https://coinmate.docs.apiary.io/#reference/litecoin-withdrawal-and-deposit/withdraw-litecoins/post
+     * @see https://coinmate.docs.apiary.io/#reference/ethereum-withdrawal-and-deposit/withdraw-ethereum/post
+     * @see https://coinmate.docs.apiary.io/#reference/ripple-withdrawal-and-deposit/withdraw-ripple/post
+     * @see https://coinmate.docs.apiary.io/#reference/cardano-withdrawal-and-deposit/withdraw-cardano/post
+     * @see https://coinmate.docs.apiary.io/#reference/solana-withdrawal-and-deposit/withdraw-solana/post
+     * @param {string} code unified currency code
+     * @param {float} amount the amount to withdraw
+     * @param {string} address the address to withdraw to
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.tag] memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    override async withdraw (code: string, amount: number, address: string, params: Dict = {}): Promise<Transaction> {
+        const [ tagWithdrawTag, paramsWithdrawTag ] = this.handleParamString (params, 'tag');
+        this.checkAddress (address, code, tagWithdrawTag);
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const currency = this.currency (code);
-        const withdrawOptions = this.safeValue (this.options, 'withdraw', {});
-        const methods = this.safeValue (withdrawOptions, 'methods', {});
+        const withdrawOptions = this.safeDict (this.options, 'withdraw', {});
+        const methods = this.safeDict (withdrawOptions, 'methods', {});
         const method = this.safeString (methods, code);
         if (method === undefined) {
             const allowedCurrencies = Object.keys (methods);
@@ -643,10 +786,32 @@ export default class coinmate extends Exchange {
             'amount': this.currencyToPrecision (code, amount),
             'address': address,
         };
-        if (tag !== undefined) {
-            request['destinationTag'] = tag;
+        if (tagWithdrawTag !== undefined) {
+            request['destinationTag'] = tagWithdrawTag;
         }
-        const response = await this[method] (this.extend (request, params));
+        const requestParams = this.extend (request, paramsWithdrawTag);
+        let response = undefined;
+        if (method === 'privatePostBitcoinWithdrawal') {
+            response = await this.privatePostBitcoinWithdrawal (requestParams);
+        } else if (method === 'privatePostLitecoinWithdrawal') {
+            response = await this.privatePostLitecoinWithdrawal (requestParams);
+        } else if (method === 'privatePostBitcoinCashWithdrawal') {
+            response = await this.privatePostBitcoinCashWithdrawal (requestParams);
+        } else if (method === 'privatePostEthereumWithdrawal') {
+            response = await this.privatePostEthereumWithdrawal (requestParams);
+        } else if (method === 'privatePostRippleWithdrawal') {
+            response = await this.privatePostRippleWithdrawal (requestParams);
+        } else if (method === 'privatePostDashWithdrawal') {
+            response = await this.privatePostDashWithdrawal (requestParams);
+        } else if (method === 'privatePostDaiWithdrawal') {
+            response = await this.privatePostDaiWithdrawal (requestParams);
+        } else if (method === 'privatePostAdaWithdrawal') {
+            response = await this.privatePostAdaWithdrawal (requestParams);
+        } else if (method === 'privatePostSolWithdrawal') {
+            response = await this.privatePostSolWithdrawal (requestParams);
+        } else {
+            throw new ExchangeError (this.id + ' withdraw() does not support the ' + method + ' method');
+        }
         //
         //     {
         //         "error": false,
@@ -656,38 +821,38 @@ export default class coinmate extends Exchange {
         //         }
         //     }
         //
-        const data = this.safeValue (response, 'data');
+        const data = this.safeDict (response, 'data', {});
         const transaction = this.parseTransaction (data, currency);
         const fillResponseFromRequest = this.safeBool (withdrawOptions, 'fillResponseFromRequest', true);
         if (fillResponseFromRequest) {
             transaction['amount'] = amount;
             transaction['currency'] = code;
             transaction['address'] = address;
-            transaction['tag'] = tag;
+            transaction['tag'] = tagWithdrawTag;
             transaction['type'] = 'withdrawal';
             transaction['status'] = 'pending';
         }
         return transaction;
     }
 
-    async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}) {
-        /**
-         * @method
-         * @name coinmate#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://coinmate.docs.apiary.io/#reference/trade-history/get-trade-history/post
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
-        await this.loadMarkets ();
-        if (limit === undefined) {
-            limit = 1000;
+    /**
+     * @method
+     * @name coinmate#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://coinmate.docs.apiary.io/#reference/trade-history/get-trade-history/post
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
         }
+        const limitResolved: Int = (limit === undefined) ? 1000 : limit;
         const request: Dict = {
-            'limit': limit,
+            'limit': limitResolved,
         };
         if (symbol !== undefined) {
             const market = this.market (symbol);
@@ -697,11 +862,11 @@ export default class coinmate extends Exchange {
             request['timestampFrom'] = since;
         }
         const response = await this.privatePostTradeHistory (this.extend (request, params));
-        const data = this.safeList (response, 'data', []);
-        return this.parseTrades (data, undefined, since, limit);
+        const data = this.safeList (response, 'data', []) as List;
+        return this.parseTrades (data, undefined, since, limitResolved);
     }
 
-    parseTrade (trade: Dict, market: Market = undefined): Trade {
+    override parseTrade (trade: Dict, market: Market = undefined): Trade {
         //
         // fetchMyTrades (private)
         //
@@ -730,7 +895,7 @@ export default class coinmate extends Exchange {
         //     }
         //
         const marketId = this.safeString (trade, 'currencyPair');
-        market = this.safeMarket (marketId, market, '_');
+        const marketResolved: Market = this.safeMarket (marketId, market, '_');
         const priceString = this.safeString (trade, 'price');
         const amountString = this.safeString (trade, 'amount');
         const side = this.safeStringLower2 (trade, 'type', 'tradeType');
@@ -738,12 +903,12 @@ export default class coinmate extends Exchange {
         const orderId = this.safeString (trade, 'orderId');
         const id = this.safeString (trade, 'transactionId');
         const timestamp = this.safeInteger2 (trade, 'timestamp', 'createdTimestamp');
-        let fee = undefined;
+        let fee: FeeString = undefined;
         const feeCostString = this.safeString (trade, 'fee');
         if (feeCostString !== undefined) {
             fee = {
                 'cost': feeCostString,
-                'currency': market['quote'],
+                'currency': marketResolved['quote'],
             };
         }
         let takerOrMaker = this.safeString (trade, 'feeType');
@@ -753,7 +918,7 @@ export default class coinmate extends Exchange {
             'info': trade,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'type': type,
             'side': side,
             'order': orderId,
@@ -762,22 +927,24 @@ export default class coinmate extends Exchange {
             'amount': amountString,
             'cost': undefined,
             'fee': fee,
-        }, market);
+        }, marketResolved);
     }
 
-    async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name coinmate#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://coinmate.docs.apiary.io/#reference/transactions/transactions/get
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://coinmate.docs.apiary.io/#reference/transactions/transactions/get
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'currencyPair': market['id'],
@@ -800,21 +967,23 @@ export default class coinmate extends Exchange {
         //         ]
         //     }
         //
-        const data = this.safeList (response, 'data', []);
+        const data = this.safeList (response, 'data', []) as List;
         return this.parseTrades (data, market, since, limit);
     }
 
-    async fetchTradingFee (symbol: string, params = {}): Promise<TradingFeeInterface> {
-        /**
-         * @method
-         * @name coinmate#fetchTradingFee
-         * @description fetch the trading fees for a market
-         * @see https://coinmate.docs.apiary.io/#reference/trader-fees/get-trading-fees/post
-         * @param {string} symbol unified market symbol
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [fee structure]{@link https://docs.ccxt.com/#/?id=fee-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#fetchTradingFee
+     * @description fetch the trading fees for a market
+     * @see https://coinmate.docs.apiary.io/#reference/trader-fees/get-trading-fees/post
+     * @param {string} symbol unified market symbol
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [fee structure]{@link https://docs.ccxt.com/?id=fee-structure}
+     */
+    override async fetchTradingFee (symbol: string, params: Dict = {}): Promise<TradingFeeInterface> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'currencyPair': market['id'],
@@ -827,7 +996,7 @@ export default class coinmate extends Exchange {
         //         "data": { maker: '0.3', taker: "0.35", timestamp: "1646253217815" }
         //     }
         //
-        const data = this.safeValue (response, 'data', {});
+        const data = this.safeDict (response, 'data', {});
         const makerString = this.safeString (data, 'maker');
         const takerString = this.safeString (data, 'taker');
         const maker = this.parseNumber (Precise.stringDiv (makerString, '100'));
@@ -842,39 +1011,42 @@ export default class coinmate extends Exchange {
         };
     }
 
-    async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name coinmate#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://coinmate.docs.apiary.io/#reference/order/get-open-orders/post
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name coinmate#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://coinmate.docs.apiary.io/#reference/order/get-open-orders/post
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
         const response = await this.privatePostOpenOrders (this.extend ({}, params));
         const extension: Dict = { 'status': 'open' };
-        return this.parseOrders (response['data'], undefined, since, limit, extension);
+        const data: Dict[] = this.safeList (response, 'data', []);
+        return this.parseOrders (data, undefined, since, limit, extension);
     }
 
-    async fetchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name coinmate#fetchOrders
-         * @description fetches information on multiple orders made by the user
-         * @see https://coinmate.docs.apiary.io/#reference/order/order-history/post
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name coinmate#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://coinmate.docs.apiary.io/#reference/order/order-history/post
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
         if (symbol === undefined) {
             throw new ArgumentsRequired (this.id + ' fetchOrders() requires a symbol argument');
         }
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'currencyPair': market['id'],
@@ -884,28 +1056,29 @@ export default class coinmate extends Exchange {
             request['limit'] = limit;
         }
         const response = await this.privatePostOrderHistory (this.extend (request, params));
-        return this.parseOrders (response['data'], market, since, limit);
+        const data: Dict[] = this.safeList (response, 'data', []);
+        return this.parseOrders (data, market, since, limit);
     }
 
-    parseOrderStatus (status: Str) {
+    parseOrderStatus (status: Str): Str {
         const statuses: Dict = {
             'FILLED': 'closed',
             'CANCELLED': 'canceled',
             'PARTIALLY_FILLED': 'open',
             'OPEN': 'open',
         };
-        return this.safeString (statuses, status, status);
+        return this.safeString (statuses, status as string, status);
     }
 
-    parseOrderType (type: Str) {
+    parseOrderType (type: Str): Str {
         const types: Dict = {
             'LIMIT': 'limit',
             'MARKET': 'market',
         };
-        return this.safeString (types, type, type);
+        return this.safeString (types, type as string, type);
     }
 
-    parseOrder (order: Dict, market: Market = undefined): Order {
+    override parseOrder (order: Dict, market: Market = undefined): Order {
         //
         // limit sell
         //
@@ -967,7 +1140,6 @@ export default class coinmate extends Exchange {
         const marketId = this.safeString (order, 'currencyPair');
         const symbol = this.safeSymbol (marketId, market, '_');
         const clientOrderId = this.safeString (order, 'clientOrderId');
-        const stopPrice = this.safeNumber (order, 'stopPrice');
         return this.safeOrder ({
             'id': id,
             'clientOrderId': clientOrderId,
@@ -980,8 +1152,7 @@ export default class coinmate extends Exchange {
             'postOnly': undefined,
             'side': side,
             'price': priceString,
-            'stopPrice': stopPrice,
-            'triggerPrice': stopPrice,
+            'triggerPrice': this.safeNumber (order, 'stopPrice'),
             'amount': amountString,
             'cost': undefined,
             'average': averageString,
@@ -994,24 +1165,26 @@ export default class coinmate extends Exchange {
         }, market);
     }
 
-    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
-        /**
-         * @method
-         * @name coinmate#createOrder
-         * @description create a trade order
-         * @see https://coinmate.docs.apiary.io/#reference/order/buy-limit-order/post
-         * @see https://coinmate.docs.apiary.io/#reference/order/sell-limit-order/post
-         * @see https://coinmate.docs.apiary.io/#reference/order/buy-instant-order/post
-         * @see https://coinmate.docs.apiary.io/#reference/order/sell-instant-order/post
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#createOrder
+     * @description create a trade order
+     * @see https://coinmate.docs.apiary.io/#reference/order/buy-limit-order/post
+     * @see https://coinmate.docs.apiary.io/#reference/order/sell-limit-order/post
+     * @see https://coinmate.docs.apiary.io/#reference/order/buy-instant-order/post
+     * @see https://coinmate.docs.apiary.io/#reference/order/sell-instant-order/post
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         let method = 'privatePost' + this.capitalize (side);
         const market = this.market (symbol);
         const request: Dict = {
@@ -1029,7 +1202,19 @@ export default class coinmate extends Exchange {
             request['price'] = this.priceToPrecision (symbol, price);
             method += this.capitalize (type);
         }
-        const response = await this[method] (this.extend (request, params));
+        const requestParams = this.extend (request, params);
+        let response = undefined;
+        if (method === 'privatePostBuyInstant') {
+            response = await this.privatePostBuyInstant (requestParams);
+        } else if (method === 'privatePostSellInstant') {
+            response = await this.privatePostSellInstant (requestParams);
+        } else if (method === 'privatePostBuyLimit') {
+            response = await this.privatePostBuyLimit (requestParams);
+        } else if (method === 'privatePostSellLimit') {
+            response = await this.privatePostSellLimit (requestParams);
+        } else {
+            throw new InvalidOrder (this.id + ' createOrder() does not support order type ' + type);
+        }
         const id = this.safeString (response, 'data');
         return this.safeOrder ({
             'info': response,
@@ -1037,41 +1222,44 @@ export default class coinmate extends Exchange {
         }, market);
     }
 
-    async fetchOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name coinmate#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://coinmate.docs.apiary.io/#reference/order/get-order-by-orderid/post
-         * @see https://coinmate.docs.apiary.io/#reference/order/get-order-by-clientorderid/post
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name coinmate#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://coinmate.docs.apiary.io/#reference/order/get-order-by-orderid/post
+     * @see https://coinmate.docs.apiary.io/#reference/order/get-order-by-clientorderid/post
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             'orderId': id,
         };
-        let market = undefined;
-        if (symbol) {
+        let market: Market = undefined;
+        if ((symbol !== undefined) && (symbol !== '')) {
             market = this.market (symbol);
         }
         const response = await this.privatePostOrderById (this.extend (request, params));
-        const data = this.safeDict (response, 'data');
+        const data = this.safeDict (response, 'data') as Dict;
         return this.parseOrder (data, market);
     }
 
-    async cancelOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name coinmate#cancelOrder
-         * @description cancels an open order
-         * @see https://coinmate.docs.apiary.io/#reference/order/cancel-order/post
-         * @param {string} id order id
-         * @param {string} symbol not used by coinmate cancelOrder ()
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name coinmate#cancelOrder
+     * @description cancels an open order
+     * @see https://coinmate.docs.apiary.io/#reference/order/cancel-order/post
+     * @param {string} id order id
+     * @param {string} symbol not used by cancelOrder ()
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
         //   {"error":false,"errorMessage":null,"data":{"success":true,"remainingAmount":0.01}}
         const request: Dict = { 'orderId': id };
         const response = await this.privatePostCancelOrderWithInfo (this.extend (request, params));
@@ -1085,59 +1273,63 @@ export default class coinmate extends Exchange {
         //        }
         //    }
         //
-        const data = this.safeDict (response, 'data');
+        const data = this.safeDict (response, 'data') as Dict;
         return this.parseOrder (data);
     }
 
-    nonce () {
+    override nonce (): int {
         return this.milliseconds ();
     }
 
-    sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let url = this.urls['api']['rest'] + '/' + path;
-        if (api === 'public') {
-            if (Object.keys (params).length) {
-                url += '?' + this.urlencode (params);
+    override sign (path: string, api: string[] = [ 'public' ], method: string = 'GET', params: Dict = {}): Dict {
+        const apiName = api[0];
+        let bodySigned: Str = undefined;
+        let headersSigned: NullableDict = undefined;
+        const apiUrl = this.safeString (this.urls['api'], 'rest');
+        if (apiUrl === undefined) {
+            throw new ExchangeError (this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + '/' + path;
+        if (apiName === 'public') {
+            const publicQuery = this.extend ({}, params);
+            if (Object.keys (publicQuery).length > 0) {
+                url += '?' + this.urlencode (publicQuery);
             }
         } else {
             this.checkRequiredCredentials ();
-            const nonce = this.nonce ().toString ();
+            // coinmate requires each nonce to be greater than the previous one for the key
+            const nonce = this.incrementingNonce ().toString ();
             const auth = nonce + this.uid + this.apiKey;
             const signature = this.hmac (this.encode (auth), this.encode (this.secret), sha256);
-            body = this.urlencode (this.extend ({
+            bodySigned = this.urlencode (this.extend ({
                 'clientId': this.uid,
                 'nonce': nonce,
                 'publicKey': this.apiKey,
                 'signature': signature.toUpperCase (),
             }, params));
-            headers = {
+            headersSigned = {
                 'Content-Type': 'application/x-www-form-urlencoded',
             };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const headersResolved: NullableDict = headersSigned;
+        const bodyResolved: Str = bodySigned;
+        return { 'url': url, 'method': method, 'body': bodyResolved, 'headers': headersResolved };
     }
 
-    handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response, requestHeaders, requestBody) {
-        if (response !== undefined) {
-            if ('error' in response) {
-                // {"error":true,"errorMessage":"Minimum Order Size 0.01 ETH","data":null}
-                if (response['error']) {
-                    const message = this.safeString (response, 'errorMessage');
-                    const feedback = this.id + ' ' + message;
-                    this.throwExactlyMatchedException (this.exceptions['exact'], message, feedback);
-                    this.throwBroadlyMatchedException (this.exceptions['broad'], message, feedback);
-                    throw new ExchangeError (this.id + ' ' + this.json (response));
-                }
-            }
+    override handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response: any, requestHeaders: NullableDict, requestBody: Str) {
+        if (response === undefined) {
+            return undefined; // fallback to default error handler
         }
-        if (code > 400) {
-            if (body) {
-                const feedback = this.id + ' ' + body;
-                this.throwExactlyMatchedException (this.exceptions['exact'], body, feedback);
-                this.throwBroadlyMatchedException (this.exceptions['broad'], body, feedback);
-                throw new ExchangeError (feedback); // unknown message
-            }
-            throw new ExchangeError (this.id + ' ' + body);
+        //
+        //     {"error":true,"errorMessage":"Api internal error","data":null}
+        //     {"error":true,"errorMessage":"Access denied.","data":null}
+        //
+        const errorMessage = this.safeString (response, 'errorMessage');
+        if (errorMessage !== undefined) {
+            const feedback = this.id + ' ' + body;
+            this.throwExactlyMatchedException (this.exceptions['exact'], errorMessage, feedback);
+            this.throwBroadlyMatchedException (this.exceptions['broad'], errorMessage, feedback);
+            throw new ExchangeError (feedback); // unknown message
         }
         return undefined;
     }

@@ -8,6 +8,10 @@ import json
 import platform
 from pprint import pprint
 import asyncio
+from importlib import import_module
+from importlib.util import find_spec
+
+run = import_module(next(filter(find_spec, ('uvloop', 'winloop', 'asyncio')))).run
 
 # ------------------------------------------------------------------------------
 
@@ -17,11 +21,7 @@ sys.path.append(root + '/python')
 # ------------------------------------------------------------------------------
 import ccxt.pro as ccxtpro
 import ccxt.async_support as ccxt  # noqa: E402
-
-# ------------------------------------------------------------------------------
-
-print('Python v' + platform.python_version())
-print('CCXT v' + ccxt.__version__)
+import ccxt.prediction as ccxtprediction  # noqa: E402
 
 # ------------------------------------------------------------------------------
 
@@ -31,6 +31,7 @@ class Argv(object):
     table = False
     verbose = False
     sandbox = False
+    demo = False
     testnet = False
     test = False
     nonce = None
@@ -44,6 +45,9 @@ class Argv(object):
     future = False
     signIn = False
     args = []
+    no_keys = False
+    raw = False
+    no_load_markets = False
 
 
 argv = Argv()
@@ -55,6 +59,7 @@ parser.add_argument('--cors', action='store_true', help='enable CORS proxy')
 parser.add_argument('--verbose', action='store_true', help='enable verbose output')
 parser.add_argument('--debug', action='store_true', help='enable debug output')
 parser.add_argument('--sandbox', action='store_true', help='enable sandbox/testnet')
+parser.add_argument('--demo', action='store_true', help='enable demo mode')
 parser.add_argument('--testnet', action='store_true', help='enable sandbox/testnet')
 parser.add_argument('--test', action='store_true', help='enable sandbox/testnet')
 parser.add_argument('--spot', action='store_true', help='enable spot markets')
@@ -62,6 +67,10 @@ parser.add_argument('--swap', action='store_true', help='enable swap markets')
 parser.add_argument('--future', action='store_true', help='enable future markets')
 parser.add_argument('--option', action='store_true', help='enable option markets')
 parser.add_argument('--signIn', action='store_true', help='sign in')
+parser.add_argument('--no-keys', action='store_true', help='don t load keys')
+parser.add_argument('--raw', action='store_true', help='raw output')
+parser.add_argument('--no-load-markets', action='store_true', help='no load markets')
+parser.add_argument('-p', '--prediction', action='store_true', help='use the prediction-markets namespace (ccxt.prediction)')
 parser.add_argument('exchange_id', type=str, help='exchange id in lowercase', nargs='?')
 parser.add_argument('method', type=str, help='method or property', nargs='?')
 parser.add_argument('args', type=str, help='arguments', nargs='*')
@@ -102,6 +111,10 @@ def print_usage():
 # ------------------------------------------------------------------------------
 
 async def main():
+    if not argv.raw:
+        print('Python v' + platform.python_version())
+        print('CCXT v' + ccxt.__version__)
+
     # prefer local testing keys to global keys
     keys_global = root + '/keys.json'
     keys_local = root + '/keys.local.json'
@@ -131,7 +144,12 @@ async def main():
 
     # ------------------------------------------------------------------------------
 
-    if argv.exchange_id not in ccxt.exchanges:
+    # regular ids win for ids present in both namespaces (e.g. hyperliquid);
+    # -p/--prediction forces the prediction namespace, and prediction is the
+    # fallback for prediction-only ids
+    is_prediction = argv.exchange_id in ccxtprediction.exchanges and (argv.prediction or argv.exchange_id not in ccxt.exchanges)
+
+    if argv.exchange_id not in ccxt.exchanges and not is_prediction:
         print_usage()
         raise Exception('Exchange "' + argv.exchange_id + '" not found.')
 
@@ -139,7 +157,9 @@ async def main():
         config.update(keys[argv.exchange_id])
 
     exchange = None
-    if (argv.exchange_id in ccxtpro.exchanges):
+    if is_prediction:
+        exchange = getattr(ccxtprediction, argv.exchange_id)(config)
+    elif (argv.exchange_id in ccxtpro.exchanges):
         exchange = getattr(ccxtpro, argv.exchange_id)(config)
     else:
         exchange = getattr(ccxt, argv.exchange_id)(config)
@@ -153,17 +173,18 @@ async def main():
     elif argv.option:
         exchange.options['defaultType'] = 'option'
 
-    # check auth keys in env var
-    requiredCredentials = exchange.requiredCredentials
-    for credential, isRequired in requiredCredentials.items():
-        if isRequired and credential and not getattr(exchange, credential, None):
-            credentialEnvName = (argv.exchange_id + '_' + credential).upper()  # example: KRAKEN_APIKEY
-            if credentialEnvName in os.environ:
-                credentialValue = os.environ[credentialEnvName]
-                if credentialValue.startswith('-----BEGIN'):
-                    credentialValue = credentialValue.replace('\\n', '\n')
+    if not argv.no_keys:
+        # check auth keys in env var
+        requiredCredentials = exchange.requiredCredentials
+        for credential, isRequired in requiredCredentials.items():
+            if isRequired and credential and not getattr(exchange, credential, None):
+                credentialEnvName = (argv.exchange_id + '_' + credential).upper()  # example: KRAKEN_APIKEY
+                if credentialEnvName in os.environ:
+                    credentialValue = os.environ[credentialEnvName]
+                    if credentialValue.startswith('-----BEGIN'):
+                        credentialValue = credentialValue.replace('\\n', '\n')
 
-                setattr(exchange, credential, credentialValue)
+                    setattr(exchange, credential, credentialValue)
 
     if argv.cors:
         exchange.proxy = 'https://cors-anywhere.herokuapp.com/'
@@ -197,16 +218,19 @@ async def main():
 
     if argv.testnet or argv.sandbox or argv.test:
         exchange.set_sandbox_mode(True)
+    elif argv.demo:
+        exchange.enable_demo_trading(True)
 
     if argv.verbose and argv.debug:
         exchange.verbose = argv.verbose
 
-    markets_path = '.cache/' + exchange.id + '-markets.json'
-    if os.path.exists(markets_path):
-        with open(markets_path, 'r') as f:
-            exchange.markets = json.load(f)
-    else:
-        await exchange.load_markets()
+    if not argv.no_load_markets:
+        markets_path = '.cache/' + exchange.id + '-markets.json'
+        if os.path.exists(markets_path):
+            with open(markets_path, 'r') as f:
+                exchange.markets = json.load(f)
+        else:
+            await exchange.load_markets()
 
     exchange.verbose = argv.verbose  # now set verbose mode
 
@@ -221,7 +245,9 @@ async def main():
         if callable(method):
             if argv.method.startswith('watch'):
                 is_ws_method = True # handle ws methods
-            print(f"{argv.exchange_id}.{argv.method}({','.join(map(str, args))})")
+            if not argv.raw:
+                print(f"{argv.exchange_id}.{argv.method}({','.join(map(str, args))})")
+
             while True:
                 result = method(*args)
                 if asyncio.iscoroutine(result):
@@ -229,6 +255,8 @@ async def main():
                 if argv.table:
                     result = list(result.values()) if isinstance(result, dict) else result
                     print(table([exchange.omit(v, 'info') for v in result]))
+                elif argv.raw:
+                    print(exchange.json(result))
                 else:
                     pprint(result)
                 if not is_ws_method:
@@ -239,11 +267,14 @@ async def main():
         if argv.table:
             result = list(result.values()) if isinstance(result, dict) else result
             print(table([exchange.omit(v, 'info') for v in result]))
+        elif argv.raw:
+            print(exchange.json(result))
         else:
             pprint(result)
+        await exchange.close()
     else:
         pprint(dir(exchange))
 
 
 if __name__ ==  '__main__':
-    asyncio.run(main())
+    run(main())

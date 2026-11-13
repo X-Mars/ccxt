@@ -5,19 +5,21 @@
 
 from ccxt.binance import binance
 from ccxt.abstract.binancecoinm import ImplicitAPI
+from ccxt.base.types import TransferEntry
 
 
 class binancecoinm(binance, ImplicitAPI):
 
-    def describe(self):
+    def describe(self) -> dict:
         return self.deep_extend(super(binancecoinm, self).describe(), {
             'id': 'binancecoinm',
             'name': 'Binance COIN-M',
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/1294454/117738721-668c8d80-b205-11eb-8c49-3fad84c4a07f.jpg',
+                'logo': 'https://github.com/user-attachments/assets/387cfc4e-5f33-48cd-8f5c-cd4854dabf0c',
                 'doc': [
                     'https://binance-docs.github.io/apidocs/delivery/en/',
                     'https://binance-docs.github.io/apidocs/spot/en',
+                    'https://developers.binance.com/en',
                 ],
             },
             'has': {
@@ -30,16 +32,20 @@ class binancecoinm(binance, ImplicitAPI):
                 'createStopMarketOrder': True,
             },
             'options': {
-                'fetchMarkets': ['inverse'],
+                'fetchMarkets': {
+                    'types': [
+                        'inverse',
+                    ],
+                },
                 'defaultSubType': 'inverse',
                 'leverageBrackets': None,
             },
         })
 
-    def transfer_in(self, code: str, amount, params={}):
+    def transfer_in(self, code: str, amount: float, params: dict = {}) -> TransferEntry:
         # transfer from spot wallet to coinm futures wallet
         return self.futuresTransfer(code, amount, 3, params)
 
-    def transfer_out(self, code: str, amount, params={}):
+    def transfer_out(self, code: str, amount: float, params: dict = {}) -> TransferEntry:
         # transfer from coinm futures wallet to spot wallet
         return self.futuresTransfer(code, amount, 4, params)

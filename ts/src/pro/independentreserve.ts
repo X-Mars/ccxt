@@ -1,15 +1,17 @@
 //  ---------------------------------------------------------------------------
 
 import independentreserveRest from '../independentreserve.js';
-import { NotSupported, InvalidNonce } from '../base/errors.js';
+import { NotSupported, ChecksumError, ExchangeError } from '../base/errors.js';
+import { ROUND, DECIMAL_PLACES, PAD_WITH_ZERO } from '../base/functions/number.js';
 import { ArrayCache } from '../base/ws/Cache.js';
-import type { Int, OrderBook, Trade, Dict } from '../base/types.js';
+import type { Int, OrderBook, Trade, Dict , Market, Num } from '../base/types.js';
 import Client from '../base/ws/Client.js';
+import type { WsOrderBook } from '../base/ws/OrderBook.js';
 
 //  ---------------------------------------------------------------------------
 
 export default class independentreserve extends independentreserveRest {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'has': {
                 'ws': true,
@@ -17,6 +19,7 @@ export default class independentreserve extends independentreserveRest {
                 'watchTicker': false,
                 'watchTickers': false,
                 'watchTrades': true,
+                'watchTradesForSymbols': false,
                 'watchMyTrades': false,
                 'watchOrders': false,
                 'watchOrderBook': true,
@@ -28,7 +31,9 @@ export default class independentreserve extends independentreserveRest {
                 },
             },
             'options': {
-                'checksum': false, // TODO: currently only working for snapshot
+                'watchOrderBook': {
+                    'checksum': true, // TODO: currently only working for snapshot
+                },
             },
             'streaming': {
             },
@@ -37,27 +42,35 @@ export default class independentreserve extends independentreserveRest {
         });
     }
 
-    async watchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name independentreserve#watchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name independentreserve#watchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async watchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
-        symbol = market['symbol'];
-        const url = this.urls['api']['ws'] + '?subscribe=ticker-' + market['base'] + '-' + market['quote'];
-        const messageHash = 'trades:' + symbol;
+        const symbolValue: string = this.safeString (market, 'symbol', '');
+        const wsUrl = this.safeString (this.urls['api'], 'ws');
+        if (wsUrl === undefined) {
+            throw new ExchangeError (this.id + ' watchTrades() has no websocket url');
+        }
+        const baseId = this.safeString (market, 'base', '');
+        const quoteId = this.safeString (market, 'quote', '');
+        const url = wsUrl + '?subscribe=ticker-' + baseId + '-' + quoteId;
+        const messageHash = 'trades:' + symbolValue;
         const trades = await this.watch (url, messageHash, undefined, messageHash);
         return this.filterBySinceLimit (trades, since, limit, 'timestamp', true);
     }
 
-    handleTrades (client: Client, message) {
+    handleTrades (client: Client, message: Dict) {
         //
         //    {
         //        "Channel": "ticker-btc-usd",
@@ -76,7 +89,7 @@ export default class independentreserve extends independentreserveRest {
         //        "Event": "Trade"
         //    }
         //
-        const data = this.safeValue (message, 'Data', {});
+        const data = this.safeDict (message, 'Data', {});
         const marketId = this.safeString (data, 'Pair');
         const symbol = this.safeSymbol (marketId, undefined, '-');
         const messageHash = 'trades:' + symbol;
@@ -89,10 +102,10 @@ export default class independentreserve extends independentreserveRest {
         const trade = this.parseWsTrade (data);
         stored.append (trade);
         this.trades[symbol] = stored;
-        client.resolve (this.trades[symbol], messageHash);
+        client.resolve (stored, messageHash);
     }
 
-    parseWsTrade (trade, market = undefined) {
+    override parseWsTrade (trade: Dict, market: Market = undefined): Trade {
         //
         //    {
         //        "TradeGuid": "2f316718-0d0b-4e33-a30c-c2c06f3cfb34",
@@ -124,33 +137,39 @@ export default class independentreserve extends independentreserveRest {
         }, market);
     }
 
-    async watchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name independentreserve#watchOrderBook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
-        const market = this.market (symbol);
-        symbol = market['symbol'];
-        if (limit === undefined) {
-            limit = 100;
+    /**
+     * @method
+     * @name independentreserve#watchOrderBook
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async watchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
         }
-        const limitString = this.numberToString (limit);
-        const url = this.urls['api']['ws'] + '/orderbook/' + limitString + '?subscribe=' + market['base'] + '-' + market['quote'];
-        const messageHash = 'orderbook:' + symbol + ':' + limitString;
+        const market = this.market (symbol);
+        const symbolValue: string = this.safeString (market, 'symbol', '');
+        const limitResolved: Int = (limit === undefined) ? 100 : limit;
+        const limitString = this.numberToString (limitResolved);
+        const wsUrl = this.safeString (this.urls['api'], 'ws');
+        if (wsUrl === undefined) {
+            throw new ExchangeError (this.id + ' watchOrderBook() has no websocket url');
+        }
+        const baseId = this.safeString (market, 'base', '');
+        const quoteId = this.safeString (market, 'quote', '');
+        const url = wsUrl + '/orderbook/' + limitString + '?subscribe=' + baseId + '-' + quoteId;
+        const messageHash = 'orderbook:' + symbolValue + ':' + limitString;
         const subscription: Dict = {
             'receivedSnapshot': false,
         };
-        const orderbook = await this.watch (url, messageHash, undefined, messageHash, subscription);
+        const orderbook: WsOrderBook = await this.watch (url, messageHash, undefined, messageHash, subscription);
         return orderbook.limit ();
     }
 
-    handleOrderBook (client: Client, message) {
+    handleOrderBook (client: Client, message: Dict) {
         //
         //    {
         //        "Channel": "orderbook/1/eth/aud",
@@ -175,37 +194,47 @@ export default class independentreserve extends independentreserveRest {
         //
         const event = this.safeString (message, 'Event');
         const channel = this.safeString (message, 'Channel');
+        if (channel === undefined) {
+            return;
+        }
         const parts = channel.split ('/');
-        const depth = this.safeString (parts, 1);
+        const depth = this.safeString (parts, 1, '');
         const baseId = this.safeString (parts, 2);
         const quoteId = this.safeString (parts, 3);
         const base = this.safeCurrencyCode (baseId);
         const quote = this.safeCurrencyCode (quoteId);
+        if ((base === undefined) || (quote === undefined)) {
+            return;
+        }
         const symbol = base + '/' + quote;
-        const orderBook = this.safeValue (message, 'Data', {});
+        const orderBook = this.safeDict (message, 'Data', {});
         const messageHash = 'orderbook:' + symbol + ':' + depth;
-        const subscription = this.safeValue (client.subscriptions, messageHash, {});
+        const subscription = this.safeDict (client.subscriptions, messageHash, {});
         const receivedSnapshot = this.safeBool (subscription, 'receivedSnapshot', false);
         const timestamp = this.safeInteger (message, 'Time');
-        let orderbook = this.safeValue (this.orderbooks, symbol);
-        if (orderbook === undefined) {
-            orderbook = this.orderBook ({});
-            this.orderbooks[symbol] = orderbook;
+        // let orderbook = this.safeValue (this.orderbooks, symbol);
+        if (!(symbol in this.orderbooks)) {
+            this.orderbooks[symbol] = this.orderBook ({});
         }
+        const orderbook = this.orderbooks[symbol];
         if (event === 'OrderBookSnapshot') {
             const snapshot = this.parseOrderBook (orderBook, symbol, timestamp, 'Bids', 'Offers', 'Price', 'Volume');
             orderbook.reset (snapshot);
-            subscription['receivedSnapshot'] = true;
+            // write through the parent index: php copies arrays by value, so
+            // mutating the local bind would not persist the flag
+            client.subscriptions[messageHash] = this.extend (subscription, {
+                'receivedSnapshot': true,
+            });
         } else {
-            const asks = this.safeValue (orderBook, 'Offers', []);
-            const bids = this.safeValue (orderBook, 'Bids', []);
+            const asks = this.safeList (orderBook, 'Offers', []);
+            const bids = this.safeList (orderBook, 'Bids', []);
             this.handleDeltas (orderbook['asks'], asks);
             this.handleDeltas (orderbook['bids'], bids);
             orderbook['timestamp'] = timestamp;
             orderbook['datetime'] = this.iso8601 (timestamp);
         }
-        const checksum = this.safeBool (this.options, 'checksum', true);
-        if (checksum && receivedSnapshot) {
+        const checksum: boolean = this.handleOption ('watchOrderBook', 'checksum', true);
+        if ((checksum) && (receivedSnapshot)) {
             const storedAsks = orderbook['asks'];
             const storedBids = orderbook['bids'];
             const asksLength = storedAsks.length;
@@ -213,21 +242,22 @@ export default class independentreserve extends independentreserveRest {
             let payload = '';
             for (let i = 0; i < 10; i++) {
                 if (i < bidsLength) {
-                    payload = payload + this.valueToChecksum (storedBids[i][0]) + this.valueToChecksum (storedBids[i][1]);
+                    payload = payload + this.valueToChecksum (this.safeNumber (storedBids[i], 0)) + this.valueToChecksum (this.safeNumber (storedBids[i], 1));
                 }
             }
             for (let i = 0; i < 10; i++) {
                 if (i < asksLength) {
-                    payload = payload + this.valueToChecksum (storedAsks[i][0]) + this.valueToChecksum (storedAsks[i][1]);
+                    payload = payload + this.valueToChecksum (this.safeNumber (storedAsks[i], 0)) + this.valueToChecksum (this.safeNumber (storedAsks[i], 1));
                 }
             }
-            const calculatedChecksum = this.crc32 (payload, true);
+            const calculatedChecksum = this.crc32 (payload, false);
             const responseChecksum = this.safeInteger (orderBook, 'Crc32');
             if (calculatedChecksum !== responseChecksum) {
-                const error = new InvalidNonce (this.id + ' invalid checksum');
+                const error = new ChecksumError (this.id + ' ' + this.orderbookChecksumMessage (symbol));
                 delete client.subscriptions[messageHash];
                 delete this.orderbooks[symbol];
                 client.reject (error, messageHash);
+                return;
             }
         }
         if (receivedSnapshot) {
@@ -235,8 +265,11 @@ export default class independentreserve extends independentreserveRest {
         }
     }
 
-    valueToChecksum (value) {
-        let result = value.toFixed (8);
+    valueToChecksum (value: Num): string {
+        // toFixed returns a zero-padded *string* in js but a *number* in
+        // go/c#/java, dropping trailing zeros. decimalToPrecision with
+        // PAD_WITH_ZERO is string-typed everywhere and emits the same digits.
+        let result: any = this.decimalToPrecision (value, ROUND, 8, DECIMAL_PLACES, PAD_WITH_ZERO);
         result = result.replace ('.', '');
         // remove leading zeros
         result = this.parseNumber (result);
@@ -244,18 +277,18 @@ export default class independentreserve extends independentreserveRest {
         return result;
     }
 
-    handleDelta (bookside, delta) {
-        const bidAsk = this.parseBidAsk (delta, 'Price', 'Volume');
+    override handleDelta (bookside: any, delta: any) {
+        const bidAsk = this.parseOrderBookBidAsk (delta, 'Price', 'Volume');
         bookside.storeArray (bidAsk);
     }
 
-    handleDeltas (bookside, deltas) {
+    override handleDeltas (bookside: any, deltas: any[]) {
         for (let i = 0; i < deltas.length; i++) {
             this.handleDelta (bookside, deltas[i]);
         }
     }
 
-    handleHeartbeat (client: Client, message) {
+    handleHeartbeat (client: Client, message: Dict): Dict {
         //
         //    {
         //        "Time": 1676156208182,
@@ -265,7 +298,7 @@ export default class independentreserve extends independentreserveRest {
         return message;
     }
 
-    handleSubscriptions (client: Client, message) {
+    handleSubscriptions (client: Client, message: Dict): Dict {
         //
         //    {
         //        "Data": [ "ticker-btc-sgd" ],
@@ -276,7 +309,7 @@ export default class independentreserve extends independentreserveRest {
         return message;
     }
 
-    handleMessage (client: Client, message) {
+    override handleMessage (client: Client, message: Dict) {
         const event = this.safeString (message, 'Event');
         const handlers: Dict = {
             'Subscriptions': this.handleSubscriptions,

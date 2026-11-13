@@ -1,24 +1,26 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var sha2_js = require('@noble/hashes/sha2.js');
 var ndax$1 = require('./abstract/ndax.js');
 var errors = require('./base/errors.js');
 var number = require('./base/functions/number.js');
 var Precise = require('./base/Precise.js');
-var sha256 = require('./static_dependencies/noble-hashes/sha256.js');
 var totp = require('./base/functions/totp.js');
 
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 /**
  * @class ndax
  * @augments Exchange
  */
-class ndax extends ndax$1 {
+class ndax extends ndax$1["default"] {
     describe() {
         return this.deepExtend(super.describe(), {
             'id': 'ndax',
             'name': 'NDAX',
-            'countries': ['CA'],
+            'countries': ['CA'], // Canada
             'rateLimit': 1000,
             'pro': true,
             'has': {
@@ -29,6 +31,9 @@ class ndax extends ndax$1 {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelAllOrders': true,
                 'cancelOrder': true,
                 'closeAllPositions': false,
@@ -41,30 +46,57 @@ class ndax extends ndax$1 {
                 'createStopOrder': true,
                 'editOrder': true,
                 'fetchAccounts': true,
+                'fetchAllGreeks': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
                 'fetchCurrencies': true,
                 'fetchDepositAddress': true,
+                'fetchDepositAddresses': false,
+                'fetchDepositAddressesByNetwork': false,
                 'fetchDeposits': true,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLedger': true,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
                 'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
+                'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
                 'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrice': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
                 'fetchOHLCV': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchOrders': true,
@@ -77,16 +109,23 @@ class ndax extends ndax$1 {
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
+                'fetchStatus': true,
                 'fetchTicker': true,
-                'fetchTickers': false,
+                'fetchTickers': true,
                 'fetchTime': false,
                 'fetchTrades': true,
                 'fetchTradingFee': false,
                 'fetchTradingFees': false,
+                'fetchUnderlyingAssets': false,
+                'fetchVolatilityHistory': false,
                 'fetchWithdrawals': true,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
                 'sandbox': true,
                 'setLeverage': false,
+                'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
                 'signIn': true,
@@ -128,106 +167,192 @@ class ndax extends ndax$1 {
             'api': {
                 'public': {
                     'get': {
-                        'Activate2FA': 1,
-                        'Authenticate2FA': 1,
-                        'AuthenticateUser': 1,
-                        'GetL2Snapshot': 1,
-                        'GetLevel1': 1,
-                        'GetValidate2FARequiredEndpoints': 1,
-                        'LogOut': 1,
-                        'GetTickerHistory': 1,
-                        'GetProduct': 1,
-                        'GetProducts': 1,
-                        'GetInstrument': 1,
-                        'GetInstruments': 1,
-                        'Ping': 1,
-                        'trades': 1,
-                        'GetLastTrades': 1,
-                        'SubscribeLevel1': 1,
-                        'SubscribeLevel2': 1,
-                        'SubscribeTicker': 1,
-                        'SubscribeTrades': 1,
-                        'SubscribeBlockTrades': 1,
-                        'UnsubscribeBlockTrades': 1,
-                        'UnsubscribeLevel1': 1,
-                        'UnsubscribeLevel2': 1,
-                        'UnsubscribeTicker': 1,
-                        'UnsubscribeTrades': 1,
-                        'Authenticate': 1, // undocumented
+                        'Activate2FA': { 'cost': 1 },
+                        'Authenticate2FA': { 'cost': 1 },
+                        'AuthenticateUser': { 'cost': 1 },
+                        'EnableXP2FA': { 'cost': 1 },
+                        'GetL2Snapshot': { 'cost': 1 },
+                        'GetLevel1': { 'cost': 1 },
+                        'GetValidate2FARequiredEndpoints': { 'cost': 1 },
+                        'LogOut': { 'cost': 1 },
+                        'GetTickerHistory': { 'cost': 1 },
+                        'GetProduct': { 'cost': 1 },
+                        'GetProducts': { 'cost': 1 },
+                        'GetInstrument': { 'cost': 1 },
+                        'GetInstruments': { 'cost': 1 },
+                        'GetEarliestTickTime': { 'cost': 1 },
+                        'Ping': { 'cost': 1 },
+                        'assets': { 'cost': 1 },
+                        'orderbook': { 'cost': 1 },
+                        'ticker': { 'cost': 1 },
+                        'summary': { 'cost': 1 },
+                        'trades': { 'cost': 1 }, // undocumented
+                        'GetLastTrades': { 'cost': 1 }, // undocumented
+                        'ConfirmWithdraw': { 'cost': 1 },
+                        'SubscribeLevel1': { 'cost': 1 },
+                        'SubscribeLevel2': { 'cost': 1 },
+                        'SubscribeTicker': { 'cost': 1 },
+                        'SubscribeTrades': { 'cost': 1 },
+                        'SubscribeBlockTrades': { 'cost': 1 },
+                        'UnsubscribeBlockTrades': { 'cost': 1 },
+                        'UnsubscribeLevel1': { 'cost': 1 },
+                        'UnsubscribeLevel2': { 'cost': 1 },
+                        'UnsubscribeTicker': { 'cost': 1 },
+                        'UnsubscribeTrades': { 'cost': 1 },
+                        'Authenticate': { 'cost': 1 }, // undocumented
                     },
                 },
                 'private': {
                     'get': {
-                        'GetUserAccountInfos': 1,
-                        'GetUserAccounts': 1,
-                        'GetUserAffiliateCount': 1,
-                        'GetUserAffiliateTag': 1,
-                        'GetUserConfig': 1,
-                        'GetAllUnredactedUserConfigsForUser': 1,
-                        'GetUnredactedUserConfigByKey': 1,
-                        'GetUserDevices': 1,
-                        'GetUserReportTickets': 1,
-                        'GetUserReportWriterResultRecords': 1,
-                        'GetAccountInfo': 1,
-                        'GetAccountPositions': 1,
-                        'GetAllAccountConfigs': 1,
-                        'GetTreasuryProductsForAccount': 1,
-                        'GetAccountTrades': 1,
-                        'GetAccountTransactions': 1,
-                        'GetOpenTradeReports': 1,
-                        'GetAllOpenTradeReports': 1,
-                        'GetTradesHistory': 1,
-                        'GetOpenOrders': 1,
-                        'GetOpenQuotes': 1,
-                        'GetOrderFee': 1,
-                        'GetOrderHistory': 1,
-                        'GetOrdersHistory': 1,
-                        'GetOrderStatus': 1,
-                        'GetOmsFeeTiers': 1,
-                        'GetAccountDepositTransactions': 1,
-                        'GetAccountWithdrawTransactions': 1,
-                        'GetAllDepositRequestInfoTemplates': 1,
-                        'GetDepositInfo': 1,
-                        'GetDepositRequestInfoTemplate': 1,
-                        'GetDeposits': 1,
-                        'GetDepositTicket': 1,
-                        'GetDepositTickets': 1,
-                        'GetOMSWithdrawFees': 1,
-                        'GetWithdrawFee': 1,
-                        'GetWithdraws': 1,
-                        'GetWithdrawTemplate': 1,
-                        'GetWithdrawTemplateTypes': 1,
-                        'GetWithdrawTicket': 1,
-                        'GetWithdrawTickets': 1,
+                        'GetUserAccountInfos': { 'cost': 1 },
+                        'GetUserAccounts': { 'cost': 1 },
+                        'GetUserAffiliateCount': { 'cost': 1 },
+                        'GetUserAffiliateTag': { 'cost': 1 },
+                        'GetUserConfig': { 'cost': 1 },
+                        'GetAllUnredactedUserConfigsForUser': { 'cost': 1 },
+                        'GetUnredactedUserConfigByKey': { 'cost': 1 },
+                        'GetUserDevices': { 'cost': 1 },
+                        'GetUserReportTickets': { 'cost': 1 },
+                        'GetUserReportWriterResultRecords': { 'cost': 1 },
+                        'GetAccountInfo': { 'cost': 1 },
+                        'GetAccountPositions': { 'cost': 1 },
+                        'GetAllAccountConfigs': { 'cost': 1 },
+                        'GetTreasuryProductsForAccount': { 'cost': 1 },
+                        'GetAccountTrades': { 'cost': 1 },
+                        'GetAccountTransactions': { 'cost': 1 },
+                        'GetOpenTradeReports': { 'cost': 1 },
+                        'GetAllOpenTradeReports': { 'cost': 1 },
+                        'GetTradesHistory': { 'cost': 1 },
+                        'GetOpenOrders': { 'cost': 1 },
+                        'GetOpenQuotes': { 'cost': 1 },
+                        'GetOrderFee': { 'cost': 1 },
+                        'GetOrderHistory': { 'cost': 1 },
+                        'GetOrdersHistory': { 'cost': 1 },
+                        'GetOrderStatus': { 'cost': 1 },
+                        'GetOmsFeeTiers': { 'cost': 1 },
+                        'GetAccountDepositTransactions': { 'cost': 1 },
+                        'GetAccountWithdrawTransactions': { 'cost': 1 },
+                        'GetAllDepositRequestInfoTemplates': { 'cost': 1 },
+                        'GetDepositInfo': { 'cost': 1 },
+                        'GetDepositRequestInfoTemplate': { 'cost': 1 },
+                        'GetDeposits': { 'cost': 1 },
+                        'GetDepositTicket': { 'cost': 1 },
+                        'GetDepositTickets': { 'cost': 1 },
+                        'GetOMSWithdrawFees': { 'cost': 1 },
+                        'GetWithdrawFee': { 'cost': 1 },
+                        'GetWithdraws': { 'cost': 1 },
+                        'GetWithdrawTemplate': { 'cost': 1 },
+                        'GetWithdrawTemplateTypes': { 'cost': 1 },
+                        'GetWithdrawTicket': { 'cost': 1 },
+                        'GetWithdrawTicketAttachment': { 'cost': 1 },
+                        'GetWithdrawTickets': { 'cost': 1 },
+                        'GetDepositTicketAttachment': { 'cost': 1 },
                     },
                     'post': {
-                        'AddUserAffiliateTag': 1,
-                        'CancelUserReport': 1,
-                        'RegisterNewDevice': 1,
-                        'SubscribeAccountEvents': 1,
-                        'UpdateUserAffiliateTag': 1,
-                        'GenerateTradeActivityReport': 1,
-                        'GenerateTransactionActivityReport': 1,
-                        'GenerateTreasuryActivityReport': 1,
-                        'ScheduleTradeActivityReport': 1,
-                        'ScheduleTransactionActivityReport': 1,
-                        'ScheduleTreasuryActivityReport': 1,
-                        'CancelAllOrders': 1,
-                        'CancelOrder': 1,
-                        'CancelQuote': 1,
-                        'CancelReplaceOrder': 1,
-                        'CreateQuote': 1,
-                        'ModifyOrder': 1,
-                        'SendOrder': 1,
-                        'SubmitBlockTrade': 1,
-                        'UpdateQuote': 1,
-                        'CancelWithdraw': 1,
-                        'CreateDepositTicket': 1,
-                        'CreateWithdrawTicket': 1,
-                        'SubmitDepositTicketComment': 1,
-                        'SubmitWithdrawTicketComment': 1,
-                        'GetOrderHistoryByOrderId': 1,
+                        'AddUserAffiliateTag': { 'cost': 1 },
+                        'AddDepositTicketAttachment': { 'cost': 1 },
+                        'AddWithdrawTicketAttachment': { 'cost': 1 },
+                        'CancelUserReport': { 'cost': 1 },
+                        'RegisterNewDevice': { 'cost': 1 },
+                        'SubscribeAccountEvents': { 'cost': 1 },
+                        'UpdateUserAffiliateTag': { 'cost': 1 },
+                        'GenerateTradeActivityReport': { 'cost': 1 },
+                        'GenerateTransactionActivityReport': { 'cost': 1 },
+                        'GenerateTreasuryActivityReport': { 'cost': 1 },
+                        'ScheduleTradeActivityReport': { 'cost': 1 },
+                        'ScheduleTransactionActivityReport': { 'cost': 1 },
+                        'ScheduleTreasuryActivityReport': { 'cost': 1 },
+                        'CancelAllOrders': { 'cost': 1 },
+                        'CancelOrder': { 'cost': 1 },
+                        'CancelQuote': { 'cost': 1 },
+                        'CancelReplaceOrder': { 'cost': 1 },
+                        'CreateQuote': { 'cost': 1 },
+                        'ModifyOrder': { 'cost': 1 },
+                        'SendOrder': { 'cost': 1 },
+                        'SubmitBlockTrade': { 'cost': 1 },
+                        'UpdateQuote': { 'cost': 1 },
+                        'CancelWithdraw': { 'cost': 1 },
+                        'CreateDepositTicket': { 'cost': 1 },
+                        'CreateWithdrawTicket': { 'cost': 1 },
+                        'SubmitDepositTicketComment': { 'cost': 1 },
+                        'SubmitWithdrawTicketComment': { 'cost': 1 },
+                        'GetOrderHistoryByOrderId': { 'cost': 1 },
                     },
+                },
+            },
+            'features': {
+                'spot': {
+                    'sandbox': true,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': true,
+                        'triggerDirection': false,
+                        'triggerPriceType': {
+                            'last': true,
+                            'mark': false,
+                            'index': false,
+                            // bid & ask
+                        },
+                        'stopLossPrice': false, // todo
+                        'takeProfitPrice': false, // todo
+                        'attachedStopLossTakeProfit': undefined,
+                        // todo
+                        'timeInForce': {
+                            'IOC': true,
+                            'FOK': true,
+                            'PO': true,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'trailing': false,
+                        'leverage': false,
+                        'marketBuyByCost': false,
+                        'marketBuyRequiresPrice': false,
+                        'selfTradePrevention': false,
+                        'iceberg': true, // todo
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 100, // todo
+                        'daysBack': 100000, // todo
+                        'untilDays': 100000, // todo
+                        'symbolRequired': false,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrders': {
+                        'marginMode': false,
+                        'limit': undefined,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchClosedOrders': undefined,
+                    'fetchOHLCV': {
+                        'limit': undefined,
+                    },
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
                 },
             },
             'fees': {
@@ -250,12 +375,12 @@ class ndax extends ndax$1 {
             'precisionMode': number.TICK_SIZE,
             'exceptions': {
                 'exact': {
-                    'Not_Enough_Funds': errors.InsufficientFunds,
-                    'Server Error': errors.ExchangeError,
+                    'Not_Enough_Funds': errors.InsufficientFunds, // {"status":"Rejected","errormsg":"Not_Enough_Funds","errorcode":101}
+                    'Server Error': errors.ExchangeError, // {"result":false,"errormsg":"Server Error","errorcode":102,"detail":null}
                     'Resource Not Found': errors.OrderNotFound, // {"result":false,"errormsg":"Resource Not Found","errorcode":104,"detail":null}
                 },
                 'broad': {
-                    'Invalid InstrumentId': errors.BadSymbol,
+                    'Invalid InstrumentId': errors.BadSymbol, // {"result":false,"errormsg":"Invalid InstrumentId: 10000","errorcode":100,"detail":null}
                     'This endpoint requires 2FACode along with the payload': errors.AuthenticationError,
                 },
             },
@@ -280,15 +405,39 @@ class ndax extends ndax$1 {
             },
         });
     }
+    /**
+     * @method
+     * @name ndax#fetchStatus
+     * @description the latest known information on the availability of the exchange API
+     * @see https://apidoc.ndax.io/#ping
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [status structure]{@link https://docs.ccxt.com/?id=exchange-status-structure}
+     */
+    async fetchStatus(params = {}) {
+        const response = await this.publicGetPing(params);
+        //
+        //     {
+        //         "msg":"PONG"
+        //     }
+        //
+        const message = this.safeString(response, 'msg');
+        return {
+            'status': (message === 'PONG') ? 'ok' : 'error',
+            'updated': undefined,
+            'eta': undefined,
+            'url': undefined,
+            'info': response,
+        };
+    }
+    /**
+     * @method
+     * @name ndax#signIn
+     * @description sign in, must be called prior to using other authenticated methods
+     * @see https://apidoc.ndax.io/#authenticate2fa
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns response from exchange
+     */
     async signIn(params = {}) {
-        /**
-         * @method
-         * @name ndax#signIn
-         * @description sign in, must be called prior to using other authenticated methods
-         * @see https://apidoc.ndax.io/#authenticate2fa
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns response from exchange
-         */
         this.checkRequiredCredentials();
         if (this.login === undefined || this.password === undefined) {
             throw new errors.AuthenticationError(this.id + ' signIn() requires exchange.login, exchange.password');
@@ -324,7 +473,7 @@ class ndax extends ndax$1 {
             //
             //     {
             //         "Authenticated": true,
-            //         "UserId":57765,
+            //         "UserId":57764,
             //         "SessionToken":"4a2a5857-c4e5-4fac-b09e-2c4c30b591a0"
             //     }
             //
@@ -334,85 +483,87 @@ class ndax extends ndax$1 {
         }
         return response;
     }
+    /**
+     * @method
+     * @name ndax#fetchCurrencies
+     * @description fetches all available currencies on an exchange
+     * @see https://apidoc.ndax.io/#getproducts
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an associative dictionary of currencies
+     */
     async fetchCurrencies(params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchCurrencies
-         * @description fetches all available currencies on an exchange
-         * @see https://apidoc.ndax.io/#getproduct
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an associative dictionary of currencies
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
         const request = {
             'omsId': omsId,
         };
         const response = await this.publicGetGetProducts(this.extend(request, params));
         //
-        //     [
-        //         {
-        //             "OMSId":1,
-        //             "ProductId":1,
-        //             "Product":"BTC",
-        //             "ProductFullName":"Bitcoin",
-        //             "ProductType":"CryptoCurrency",
-        //             "DecimalPlaces":8,
-        //             "TickSize":0.0000000100000000000000000000,
-        //             "NoFees":false,
-        //             "IsDisabled":false,
-        //             "MarginEnabled":false
-        //         },
-        //     ]
+        //    [
+        //        {
+        //            "OMSId": "1",
+        //            "ProductId": "1",
+        //            "Product": "BTC",
+        //            "ProductFullName": "Bitcoin",
+        //            "MasterDataUniqueProductSymbol": "",
+        //            "ProductType": "CryptoCurrency",
+        //            "DecimalPlaces": "8",
+        //            "TickSize": "0.0000000100000000000000000000",
+        //            "DepositEnabled": true,
+        //            "WithdrawEnabled": true,
+        //            "NoFees": false,
+        //            "IsDisabled": false,
+        //            "MarginEnabled": false
+        //        },
+        //        ...
         //
-        const result = {};
-        for (let i = 0; i < response.length; i++) {
-            const currency = response[i];
-            const id = this.safeString(currency, 'ProductId');
-            const name = this.safeString(currency, 'ProductFullName');
-            const ProductType = this.safeString(currency, 'ProductType');
-            let type = (ProductType === 'NationalCurrency') ? 'fiat' : 'crypto';
-            if (ProductType === 'Unknown') {
-                // such currency is just a blanket entry
-                type = 'other';
-            }
-            const code = this.safeCurrencyCode(this.safeString(currency, 'Product'));
-            const isDisabled = this.safeValue(currency, 'IsDisabled');
-            const active = !isDisabled;
-            result[code] = {
-                'id': id,
-                'name': name,
-                'code': code,
-                'type': type,
-                'precision': this.safeNumber(currency, 'TickSize'),
-                'info': currency,
-                'active': active,
-                'deposit': undefined,
-                'withdraw': undefined,
-                'fee': undefined,
-                'limits': {
-                    'amount': {
-                        'min': undefined,
-                        'max': undefined,
-                    },
-                    'withdraw': {
-                        'min': undefined,
-                        'max': undefined,
-                    },
-                },
-                'networks': {},
-            };
-        }
-        return result;
+        return this.parseCurrencies(response);
     }
+    parseCurrency(rawCurrency) {
+        const id = this.safeString(rawCurrency, 'ProductId');
+        const code = this.safeCurrencyCode(this.safeString(rawCurrency, 'Product'));
+        const ProductType = this.safeString(rawCurrency, 'ProductType');
+        let type = 'crypto';
+        if (ProductType === 'NationalCurrency') {
+            type = 'fiat';
+        }
+        if (ProductType === 'Unknown') {
+            // such currency is just a blanket entry
+            type = 'other';
+        }
+        return this.safeCurrencyStructure({
+            'id': id,
+            'name': this.safeString(rawCurrency, 'ProductFullName'),
+            'code': code,
+            'type': type,
+            'precision': this.safeNumber(rawCurrency, 'TickSize'),
+            'info': rawCurrency,
+            'active': (!this.safeBool(rawCurrency, 'IsDisabled', false)),
+            'deposit': this.safeBool(rawCurrency, 'DepositEnabled'),
+            'withdraw': this.safeBool(rawCurrency, 'WithdrawEnabled'),
+            'fee': undefined,
+            'limits': {
+                'amount': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+                'withdraw': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+            },
+            'networks': {},
+            'margin': this.safeBool(rawCurrency, 'MarginEnabled'),
+        });
+    }
+    /**
+     * @method
+     * @name ndax#fetchMarkets
+     * @description retrieves data on all markets for ndax
+     * @see https://apidoc.ndax.io/#getinstruments
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
     async fetchMarkets(params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchMarkets
-         * @description retrieves data on all markets for ndax
-         * @see https://apidoc.ndax.io/#getinstruments
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
         const request = {
             'omsId': omsId,
@@ -473,10 +624,13 @@ class ndax extends ndax$1 {
         const quoteId = this.safeString(market, 'Product2');
         const base = this.safeCurrencyCode(this.safeString(market, 'Product1Symbol'));
         const quote = this.safeCurrencyCode(this.safeString(market, 'Product2Symbol'));
+        if ((base === undefined) || (quote === undefined)) {
+            return undefined;
+        }
         const sessionStatus = this.safeString(market, 'SessionStatus');
-        const isDisable = this.safeValue(market, 'IsDisable');
+        const isDisable = this.safeBool(market, 'IsDisable', false);
         const sessionRunning = (sessionStatus === 'Running');
-        return {
+        return this.safeMarketStructure({
             'id': id,
             'symbol': base + '/' + quote,
             'base': base,
@@ -491,7 +645,7 @@ class ndax extends ndax$1 {
             'swap': false,
             'future': false,
             'option': false,
-            'active': (sessionRunning && !isDisable),
+            'active': (sessionRunning && (isDisable !== true)),
             'contract': false,
             'linear': undefined,
             'inverse': undefined,
@@ -524,10 +678,11 @@ class ndax extends ndax$1 {
             },
             'created': undefined,
             'info': market,
-        };
+        });
     }
     parseOrderBook(orderbook, symbol, timestamp = undefined, bidsKey = 'bids', asksKey = 'asks', priceKey = 6, amountKey = 8, countOrIdKey = 2) {
-        let nonce = undefined;
+        let nonce = this.safeInteger(this.safeList(orderbook, 0), 0);
+        let latestTimestamp = this.safeInteger([timestamp], 0);
         const result = {
             'symbol': symbol,
             'bids': [],
@@ -536,53 +691,55 @@ class ndax extends ndax$1 {
             'datetime': undefined,
             'nonce': undefined,
         };
+        const bids = [];
+        const asks = [];
         for (let i = 0; i < orderbook.length; i++) {
-            const level = orderbook[i];
-            if (timestamp === undefined) {
-                timestamp = this.safeInteger(level, 2);
+            const level = this.safeValue(orderbook, i);
+            const newTimestamp = this.safeInteger(level, 2);
+            if ((newTimestamp !== undefined) && ((latestTimestamp === undefined) || (newTimestamp > latestTimestamp))) {
+                latestTimestamp = newTimestamp;
             }
-            else {
-                const newTimestamp = this.safeInteger(level, 2);
-                timestamp = Math.max(timestamp, newTimestamp);
+            const newNonce = this.safeInteger(level, 0);
+            if ((newNonce !== undefined) && ((nonce === undefined) || (newNonce > nonce))) {
+                nonce = newNonce;
             }
-            if (nonce === undefined) {
-                nonce = this.safeInteger(level, 0);
-            }
-            else {
-                const newNonce = this.safeInteger(level, 0);
-                nonce = Math.max(nonce, newNonce);
-            }
-            const bidask = this.parseBidAsk(level, priceKey, amountKey);
+            const bidask = this.parseOrderBookBidAsk(level, priceKey, amountKey);
             const levelSide = this.safeInteger(level, 9);
-            const side = levelSide ? asksKey : bidsKey;
-            result[side].push(bidask);
+            if (levelSide !== undefined && levelSide !== 0) {
+                asks.push(bidask);
+            }
+            else {
+                bids.push(bidask);
+            }
         }
-        result['bids'] = this.sortBy(result['bids'], 0, true);
-        result['asks'] = this.sortBy(result['asks'], 0);
-        result['timestamp'] = timestamp;
-        result['datetime'] = this.iso8601(timestamp);
+        result['bids'] = this.sortBy(bids, 0, true);
+        result['asks'] = this.sortBy(asks, 0);
+        result['timestamp'] = latestTimestamp;
+        result['datetime'] = this.iso8601(latestTimestamp);
         result['nonce'] = nonce;
         return result;
     }
+    /**
+     * @method
+     * @name ndax#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://apidoc.ndax.io/#getl2snapshot
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async fetchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://apidoc.ndax.io/#getl2snapshot
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        limit = (limit === undefined) ? 100 : limit; // default 100
+        const limitValue = (limit === undefined) ? 100 : limit; // default 100
         const request = {
             'omsId': omsId,
             'InstrumentId': market['id'],
-            'Depth': limit, // default 100
+            'Depth': limitValue, // default 100
         };
         const response = await this.publicGetGetL2Snapshot(this.extend(request, params));
         //
@@ -642,26 +799,43 @@ class ndax extends ndax$1 {
         //         "Rolling24HrPxChangePercent":0,
         //     }
         //
+        // fetchTickers
+        //
+        //     {
+        //         "trading_pairs":"BTC_CAD",
+        //         "last_price":75925.37,
+        //         "lowest_ask":75926.63,
+        //         "highest_bid":66.435340000000000000000000000,
+        //         "base_volume":75774.93,
+        //         "quote_volume":5112197.7830825000000000000000,
+        //         "price_change_percent_24h":-5.3894893561980828521107542600,
+        //         "highest_price_24h":79813.51,
+        //         "lowest_price_24h":73700.01
+        //     }
+        //
         const timestamp = this.safeInteger(ticker, 'TimeStamp');
-        const marketId = this.safeString(ticker, 'InstrumentId');
-        market = this.safeMarket(marketId, market);
-        const symbol = this.safeSymbol(marketId, market);
-        const last = this.safeString(ticker, 'LastTradedPx');
-        const percentage = this.safeString(ticker, 'Rolling24HrPxChangePercent');
+        let marketId = this.safeString(ticker, 'InstrumentId');
+        if (marketId === undefined) {
+            marketId = this.safeString(ticker, 'trading_pairs');
+        }
+        const marketResolved = this.safeMarket(marketId, market, '_');
+        const symbol = this.safeSymbol(marketId, marketResolved);
+        const last = this.safeString2(ticker, 'LastTradedPx', 'last_price');
+        const percentage = this.safeString2(ticker, 'Rolling24HrPxChangePercent', 'price_change_percent_24h');
         const change = this.safeString(ticker, 'Rolling24HrPxChange');
         const open = this.safeString(ticker, 'SessionOpen');
-        const baseVolume = this.safeString(ticker, 'Rolling24HrVolume');
-        const quoteVolume = this.safeString(ticker, 'Rolling24HrNotional');
+        const baseVolume = this.safeString2(ticker, 'Rolling24HrVolume', 'base_volume');
+        const quoteVolume = this.safeString2(ticker, 'Rolling24HrNotional', 'quote_volume');
         return this.safeTicker({
             'symbol': symbol,
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
-            'high': this.safeString(ticker, 'SessionHigh'),
-            'low': this.safeString(ticker, 'SessionLow'),
-            'bid': this.safeString(ticker, 'BestBid'),
-            'bidVolume': undefined,
-            'ask': this.safeString(ticker, 'BestOffer'),
-            'askVolume': undefined,
+            'high': this.safeString2(ticker, 'SessionHigh', 'highest_price_24h'),
+            'low': this.safeString2(ticker, 'SessionLow', 'lowest_price_24h'),
+            'bid': this.safeString2(ticker, 'BestBid', 'highest_bid'),
+            'bidVolume': undefined, // this.safeNumber (ticker, 'BidQty'), always shows 0
+            'ask': this.safeString2(ticker, 'BestOffer', 'lowest_ask'),
+            'askVolume': undefined, // this.safeNumber (ticker, 'AskQty'), always shows 0
             'vwap': undefined,
             'open': open,
             'close': last,
@@ -673,20 +847,55 @@ class ndax extends ndax$1 {
             'baseVolume': baseVolume,
             'quoteVolume': quoteVolume,
             'info': ticker,
-        }, market);
+        }, marketResolved);
     }
+    /**
+     * @method
+     * @name ndax#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
+     * @see https://apidoc.ndax.io/#cmc-summary
+     * @param {string[]} [symbols] unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    async fetchTickers(symbols = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols);
+        const response = await this.publicGetSummary(params);
+        //
+        //     [
+        //         {
+        //             "trading_pairs":"BTC_CAD",
+        //             "last_price":75925.37,
+        //             "lowest_ask":75926.63,
+        //             "highest_bid":66.435340000000000000000000000,
+        //             "base_volume":75774.93,
+        //             "quote_volume":5112197.7830825000000000000000,
+        //             "price_change_percent_24h":-5.3894893561980828521107542600,
+        //             "highest_price_24h":79813.51,
+        //             "lowest_price_24h":73700.01
+        //         }
+        //     ]
+        //
+        const tickers = this.parseTickers(response);
+        return this.filterByArrayTickers(tickers, 'symbol', symbolsNormalized);
+    }
+    /**
+     * @method
+     * @name ndax#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://apidoc.ndax.io/#getlevel1
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async fetchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://apidoc.ndax.io/#getlevel1
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'omsId': omsId,
@@ -748,21 +957,23 @@ class ndax extends ndax$1 {
             this.safeNumber(ohlcv, 5),
         ];
     }
+    /**
+     * @method
+     * @name ndax#fetchOHLCV
+     * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://apidoc.ndax.io/#gettickerhistory
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async fetchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchOHLCV
-         * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @see https://apidoc.ndax.io/#gettickerhistory
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'omsId': omsId,
@@ -794,7 +1005,11 @@ class ndax extends ndax$1 {
         //         [1607299380000,19069.32,19069.32,19069.32,19069.32,0,19069.31,19069.32,8,1607299320000],
         //     ]
         //
-        return this.parseOHLCVs(response, market, timeframe, since, limit);
+        let candles = [];
+        if (Array.isArray(response)) {
+            candles = response;
+        }
+        return this.parseOHLCVs(candles, market, timeframe, since, limit);
     }
     parseTrade(trade, market = undefined) {
         //
@@ -914,7 +1129,7 @@ class ndax extends ndax$1 {
         let side = undefined;
         let orderId = undefined;
         let takerOrMaker = undefined;
-        let fee = undefined;
+        let fee = {};
         let type = undefined;
         if (Array.isArray(trade)) {
             priceString = this.safeString(trade, 3);
@@ -922,8 +1137,13 @@ class ndax extends ndax$1 {
             timestamp = this.safeInteger(trade, 6);
             id = this.safeString(trade, 0);
             marketId = this.safeString(trade, 1);
-            const takerSide = this.safeValue(trade, 8);
-            side = takerSide ? 'sell' : 'buy';
+            const takerSide = this.safeInteger(trade, 8);
+            if (takerSide === 0) {
+                side = 'buy';
+            }
+            else if (takerSide === 1) {
+                side = 'sell';
+            }
             orderId = this.safeString(trade, 4);
         }
         else {
@@ -964,19 +1184,21 @@ class ndax extends ndax$1 {
             'fee': fee,
         }, market);
     }
+    /**
+     * @method
+     * @name ndax#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
     async fetchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'omsId': omsId,
@@ -995,16 +1217,16 @@ class ndax extends ndax$1 {
         //
         return this.parseTrades(response, market, since, limit);
     }
+    /**
+     * @method
+     * @name ndax#fetchAccounts
+     * @description fetch all the accounts associated with a profile
+     * @see https://apidoc.ndax.io/#getuseraccounts
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [account structures]{@link https://docs.ccxt.com/?id=account-structure} indexed by the account type
+     */
     async fetchAccounts(params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchAccounts
-         * @description fetch all the accounts associated with a profile
-         * @see https://apidoc.ndax.io/#getuseraccounts
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [account structures]{@link https://docs.ccxt.com/#/?id=account-structure} indexed by the account type
-         */
-        if (!this.login) {
+        if ((this.login === undefined) || (this.login === '')) {
             throw new errors.AuthenticationError(this.id + ' fetchAccounts() requires exchange.login email credential');
         }
         const omsId = this.safeInteger(this.options, 'omsId', 1);
@@ -1030,45 +1252,49 @@ class ndax extends ndax$1 {
         }
         return result;
     }
-    parseBalance(response) {
+    parseBalanceList(response) {
         const result = {
             'info': response,
             'timestamp': undefined,
             'datetime': undefined,
         };
         for (let i = 0; i < response.length; i++) {
-            const balance = response[i];
+            const balance = this.safeDict(response, i);
             const currencyId = this.safeString(balance, 'ProductId');
-            if (currencyId in this.currencies_by_id) {
+            if ((currencyId !== undefined) && (this.currencies_by_id !== undefined) && (currencyId in this.currencies_by_id)) {
                 const code = this.safeCurrencyCode(currencyId);
                 const account = this.account();
                 account['total'] = this.safeString(balance, 'Amount');
                 account['used'] = this.safeString(balance, 'Hold');
-                result[code] = account;
+                if (code !== undefined) {
+                    result[code] = account;
+                }
             }
         }
         return this.safeBalance(result);
     }
+    /**
+     * @method
+     * @name ndax#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://apidoc.ndax.io/#getaccountpositions
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
     async fetchBalance(params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://apidoc.ndax.io/#getaccountpositions
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         const request = {
             'omsId': omsId,
             'AccountId': accountId,
         };
-        const response = await this.privateGetGetAccountPositions(this.extend(request, params));
+        const response = await this.privateGetGetAccountPositions(this.extend(request, paramsOmitted));
         //
         //     [
         //         {
@@ -1100,7 +1326,7 @@ class ndax extends ndax$1 {
         //         },
         //     ]
         //
-        return this.parseBalance(response);
+        return this.parseBalanceList(response);
     }
     parseLedgerEntryType(type) {
         const types = {
@@ -1138,6 +1364,7 @@ class ndax extends ndax$1 {
         //     }
         //
         const currencyId = this.safeString(item, 'ProductId');
+        const currencyResolved = this.safeCurrency(currencyId, currency);
         const credit = this.safeString(item, 'CR');
         const debit = this.safeString(item, 'DR');
         let amount = undefined;
@@ -1159,7 +1386,7 @@ class ndax extends ndax$1 {
             before = Precise["default"].stringMax('0', Precise["default"].stringSub(after, amount));
         }
         const timestamp = this.safeInteger(item, 'TimeStamp');
-        return {
+        return this.safeLedgerEntry({
             'info': item,
             'id': this.safeString(item, 'TransactionId'),
             'direction': direction,
@@ -1167,7 +1394,7 @@ class ndax extends ndax$1 {
             'referenceId': this.safeString(item, 'ReferenceId'),
             'referenceAccount': this.safeString(item, 'Counterparty'),
             'type': this.parseLedgerEntryType(this.safeString(item, 'ReferenceType')),
-            'currency': this.safeCurrencyCode(currencyId, currency),
+            'currency': this.safeCurrencyCode(currencyId, currencyResolved),
             'amount': this.parseNumber(amount),
             'before': this.parseNumber(before),
             'after': this.parseNumber(after),
@@ -1175,26 +1402,28 @@ class ndax extends ndax$1 {
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
             'fee': undefined,
-        };
+        }, currencyResolved);
     }
+    /**
+     * @method
+     * @name ndax#fetchLedger
+     * @description fetch the history of changes, actions done by the user or operations that altered the balance of the user
+     * @see https://apidoc.ndax.io/#getaccounttransactions
+     * @param {string} [code] unified currency code, default is undefined
+     * @param {int} [since] timestamp in ms of the earliest ledger entry, default is undefined
+     * @param {int} [limit] max number of ledger entries to return, default is undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ledger structure]{@link https://docs.ccxt.com/?id=ledger-entry-structure}
+     */
     async fetchLedger(code = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchLedger
-         * @description fetch the history of changes, actions done by the user or operations that altered balance of the user
-         * @see https://apidoc.ndax.io/#getaccounttransactions
-         * @param {string} code unified currency code, default is undefined
-         * @param {int} [since] timestamp in ms of the earliest ledger entry, default is undefined
-         * @param {int} [limit] max number of ledger entrys to return, default is undefined
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ledger structure]{@link https://docs.ccxt.com/#/?id=ledger-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         const request = {
             'omsId': omsId,
             'AccountId': accountId,
@@ -1202,7 +1431,7 @@ class ndax extends ndax$1 {
         if (limit !== undefined) {
             request['Depth'] = limit;
         }
-        const response = await this.privateGetGetAccountTransactions(this.extend(request, params));
+        const response = await this.privateGetGetAccountTransactions(this.extend(request, paramsOmitted));
         //
         //     [
         //         {
@@ -1236,6 +1465,9 @@ class ndax extends ndax$1 {
             'Expired': 'expired',
             'FullyExecuted': 'closed',
         };
+        if (status === undefined) {
+            return undefined;
+        }
         return this.safeString(statuses, status, status);
     }
     parseOrder(order, market = undefined) {
@@ -1322,7 +1554,7 @@ class ndax extends ndax$1 {
             'postOnly': undefined,
             'side': this.safeStringLower(order, 'Side'),
             'price': this.safeString(order, 'Price'),
-            'stopPrice': this.parseNumber(this.omitZero(this.safeString(order, 'StopPrice'))),
+            'triggerPrice': this.parseNumber(this.omitZero(this.safeString(order, 'StopPrice'))),
             'cost': this.safeString(order, 'GrossValueExecuted'),
             'amount': this.safeString(order, 'OrigQuantity'),
             'filled': this.safeString(order, 'QuantityExecuted'),
@@ -1332,28 +1564,31 @@ class ndax extends ndax$1 {
             'trades': undefined,
         }, market);
     }
+    /**
+     * @method
+     * @name ndax#createOrder
+     * @description create a trade order
+     * @see https://apidoc.ndax.io/#sendorder
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {float} [params.triggerPrice] the price at which a trigger order would be triggered
+     * @param {string} [params.clientOrderId] a unique id for the order
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async createOrder(symbol, type, side, amount, price = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#createOrder
-         * @description create a trade order
-         * @see https://apidoc.ndax.io/#sendorder
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {float} [params.triggerPrice] the price at which a trigger order would be triggered
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
         const clientOrderId = this.safeInteger2(params, 'ClientOrderId', 'clientOrderId');
-        let orderType = this.safeInteger(this.options['orderTypes'], this.capitalize(type));
+        let orderType = this.safeInteger(this.safeDict(this.options, 'orderTypes', {}), this.capitalize(type));
         const triggerPrice = this.safeString(params, 'triggerPrice');
         if (triggerPrice !== undefined) {
             if (type === 'market') {
@@ -1363,14 +1598,15 @@ class ndax extends ndax$1 {
                 orderType = 4;
             }
         }
-        params = this.omit(params, ['accountId', 'AccountId', 'clientOrderId', 'ClientOrderId', 'triggerPrice']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId', 'clientOrderId', 'ClientOrderId', 'triggerPrice']);
         const market = this.market(symbol);
         const orderSide = (side === 'buy') ? 0 : 1;
+        const amountString = this.amountToPrecision(symbol, amount);
         const request = {
-            'InstrumentId': parseInt(market['id']),
+            'InstrumentId': this.parseToInt(market['id']),
             'omsId': omsId,
             'AccountId': accountId,
-            'TimeInForce': 1,
+            'TimeInForce': 1, // 0 Unknown, 1 GTC by default, 2 OPG execute as close to opening price as possible, 3 IOC immediate or canceled,  4 FOK fill-or-kill, 5 GTX good 'til executed, 6 GTD good 'til date
             // 'ClientOrderId': clientOrderId, // defaults to 0
             // If this order is order A, OrderIdOCO refers to the order ID of an order B (which is not the order being created by this call).
             // If order B executes, then order A created by this call is canceled.
@@ -1378,15 +1614,15 @@ class ndax extends ndax$1 {
             // See CancelReplaceOrder and ModifyOrder.
             // 'OrderIdOCO': 0, // The order ID if One Cancels the Other.
             // 'UseDisplayQuantity': false, // If you enter a Limit order with a reserve, you must set UseDisplayQuantity to true
-            'Side': orderSide,
-            'Quantity': parseFloat(this.amountToPrecision(symbol, amount)),
+            'Side': orderSide, // 0 Buy, 1 Sell, 2 Short, 3 unknown an error condition
+            'Quantity': (amountString === undefined) ? undefined : this.parseNumber(amountString),
             'OrderType': orderType, // 0 Unknown, 1 Market, 2 Limit, 3 StopMarket, 4 StopLimit, 5 TrailingStopMarket, 6 TrailingStopLimit, 7 BlockTrade
             // 'PegPriceType': 3, // 1 Last, 2 Bid, 3 Ask, 4 Midpoint
             // 'LimitPrice': parseFloat (this.priceToPrecision (symbol, price)),
         };
         // If OrderType=1 (Market), Side=0 (Buy), and LimitPrice is supplied, the Market order will execute up to the value specified
         if (price !== undefined) {
-            request['LimitPrice'] = parseFloat(this.priceToPrecision(symbol, price));
+            request['LimitPrice'] = this.parseNumber(this.priceToPrecision(symbol, price));
         }
         if (clientOrderId !== undefined) {
             request['ClientOrderId'] = clientOrderId;
@@ -1394,7 +1630,7 @@ class ndax extends ndax$1 {
         if (triggerPrice !== undefined) {
             request['StopPrice'] = triggerPrice;
         }
-        const response = await this.privatePostSendOrder(this.extend(request, params));
+        const response = await this.privatePostSendOrder(this.extend(request, paramsOmitted));
         //
         //     {
         //         "status":"Accepted",
@@ -1404,22 +1640,39 @@ class ndax extends ndax$1 {
         //
         return this.parseOrder(response, market);
     }
+    /**
+     * @method
+     * @name ndax#editOrder
+     * @description cancels an open order and places a new order
+     * @see https://apidoc.ndax.io/#cancelreplaceorder
+     * @param {string} id order id
+     * @param {string} symbol unified market symbol
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} [amount] how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async editOrder(id, symbol, type, side, amount = undefined, price = undefined, params = {}) {
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
         const clientOrderId = this.safeInteger2(params, 'ClientOrderId', 'clientOrderId');
-        params = this.omit(params, ['accountId', 'AccountId', 'clientOrderId', 'ClientOrderId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId', 'clientOrderId', 'ClientOrderId']);
         const market = this.market(symbol);
         const orderSide = (side === 'buy') ? 0 : 1;
+        const amountString = this.amountToPrecision(symbol, amount);
         const request = {
-            'OrderIdToReplace': parseInt(id),
-            'InstrumentId': parseInt(market['id']),
+            'OrderIdToReplace': this.parseToInt(id),
+            'InstrumentId': this.parseToInt(market['id']),
             'omsId': omsId,
             'AccountId': accountId,
-            'TimeInForce': 1,
+            'TimeInForce': 1, // 0 Unknown, 1 GTC by default, 2 OPG execute as close to opening price as possible, 3 IOC immediate or canceled,  4 FOK fill-or-kill, 5 GTX good 'til executed, 6 GTD good 'til date
             // 'ClientOrderId': clientOrderId, // defaults to 0
             // If this order is order A, OrderIdOCO refers to the order ID of an order B (which is not the order being created by this call).
             // If order B executes, then order A created by this call is canceled.
@@ -1427,20 +1680,20 @@ class ndax extends ndax$1 {
             // See CancelReplaceOrder and ModifyOrder.
             // 'OrderIdOCO': 0, // The order ID if One Cancels the Other.
             // 'UseDisplayQuantity': false, // If you enter a Limit order with a reserve, you must set UseDisplayQuantity to true
-            'Side': orderSide,
-            'Quantity': parseFloat(this.amountToPrecision(symbol, amount)),
-            'OrderType': this.safeInteger(this.options['orderTypes'], this.capitalize(type)), // 0 Unknown, 1 Market, 2 Limit, 3 StopMarket, 4 StopLimit, 5 TrailingStopMarket, 6 TrailingStopLimit, 7 BlockTrade
+            'Side': orderSide, // 0 Buy, 1 Sell, 2 Short, 3 unknown an error condition
+            'Quantity': (amountString === undefined) ? undefined : this.parseNumber(amountString),
+            'OrderType': this.safeInteger(this.safeDict(this.options, 'orderTypes', {}), this.capitalize(type)), // 0 Unknown, 1 Market, 2 Limit, 3 StopMarket, 4 StopLimit, 5 TrailingStopMarket, 6 TrailingStopLimit, 7 BlockTrade
             // 'PegPriceType': 3, // 1 Last, 2 Bid, 3 Ask, 4 Midpoint
             // 'LimitPrice': parseFloat (this.priceToPrecision (symbol, price)),
         };
         // If OrderType=1 (Market), Side=0 (Buy), and LimitPrice is supplied, the Market order will execute up to the value specified
         if (price !== undefined) {
-            request['LimitPrice'] = parseFloat(this.priceToPrecision(symbol, price));
+            request['LimitPrice'] = this.parseNumber(this.priceToPrecision(symbol, price));
         }
         if (clientOrderId !== undefined) {
             request['ClientOrderId'] = clientOrderId;
         }
-        const response = await this.privatePostCancelReplaceOrder(this.extend(request, params));
+        const response = await this.privatePostCancelReplaceOrder(this.extend(request, paramsOmitted));
         //
         //     {
         //         "replacementOrderId": 1234,
@@ -1451,24 +1704,26 @@ class ndax extends ndax$1 {
         //
         return this.parseOrder(response, market);
     }
+    /**
+     * @method
+     * @name ndax#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://apidoc.ndax.io/#gettradeshistory
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
     async fetchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://apidoc.ndax.io/#gettradeshistory
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         const request = {
             'omsId': omsId,
             'AccountId': accountId,
@@ -1493,7 +1748,7 @@ class ndax extends ndax$1 {
         if (limit !== undefined) {
             request['Depth'] = limit;
         }
-        const response = await this.privateGetGetTradesHistory(this.extend(request, params));
+        const response = await this.privateGetGetTradesHistory(this.extend(request, paramsOmitted));
         //
         //     [
         //         {
@@ -1539,22 +1794,24 @@ class ndax extends ndax$1 {
         //
         return this.parseTrades(response, market, since, limit);
     }
+    /**
+     * @method
+     * @name ndax#cancelAllOrders
+     * @description cancel all open orders
+     * @see https://apidoc.ndax.io/#cancelallorders
+     * @param {string} [symbol] unified market symbol, only orders in the market of this symbol are cancelled when symbol is not undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async cancelAllOrders(symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#cancelAllOrders
-         * @description cancel all open orders
-         * @see https://apidoc.ndax.io/#cancelallorders
-         * @param {string} symbol unified market symbol, only orders in the market of this symbol are cancelled when symbol is not undefined
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         const request = {
             'omsId': omsId,
             'AccountId': accountId,
@@ -1563,7 +1820,7 @@ class ndax extends ndax$1 {
             const market = this.market(symbol);
             request['IntrumentId'] = market['id'];
         }
-        const response = await this.privatePostCancelAllOrders(this.extend(request, params));
+        const response = await this.privatePostCancelAllOrders(this.extend(request, paramsOmitted));
         //
         //     {
         //         "result":true,
@@ -1572,23 +1829,30 @@ class ndax extends ndax$1 {
         //         "detail":null
         //     }
         //
-        return response;
+        return [
+            this.safeOrder({
+                'info': response,
+            }),
+        ];
     }
+    /**
+     * @method
+     * @name ndax#cancelOrder
+     * @description cancels an open order
+     * @see https://apidoc.ndax.io/#cancelorder
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.clientOrderId] a unique id for the order
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async cancelOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#cancelOrder
-         * @description cancels an open order
-         * @see https://apidoc.ndax.io/#cancelorder
-         * @param {string} id order id
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        // const defaultAccountId = this.safeInteger2 (this.options, 'accountId', 'AccountId', parseInt (this.accounts[0]['id']));
+        // const defaultAccountId = this.safeInteger2 (this.options, 'accountId', 'AccountId', this.parseToInt (this.safeString (this.safeDict (this.accounts, 0), 'id')));
         // const accountId = this.safeInteger2 (params, 'accountId', 'AccountId', defaultAccountId);
         // params = this.omit (params, [ 'accountId', 'AccountId' ]);
         let market = undefined;
@@ -1604,34 +1868,36 @@ class ndax extends ndax$1 {
             request['ClOrderId'] = clientOrderId;
         }
         else {
-            request['OrderId'] = parseInt(id);
+            request['OrderId'] = this.parseToInt(id);
         }
-        params = this.omit(params, ['clientOrderId', 'ClOrderId']);
-        const response = await this.privatePostCancelOrder(this.extend(request, params));
+        const paramsOmitted = this.omit(params, ['clientOrderId', 'ClOrderId']);
+        const response = await this.privatePostCancelOrder(this.extend(request, paramsOmitted));
         const order = this.parseOrder(response, market);
         return this.extend(order, {
             'id': id,
             'clientOrderId': clientOrderId,
         });
     }
+    /**
+     * @method
+     * @name ndax#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://apidoc.ndax.io/#getopenorders
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOpenOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://apidoc.ndax.io/#getopenorders
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         let market = undefined;
         if (symbol !== undefined) {
             market = this.market(symbol);
@@ -1640,7 +1906,7 @@ class ndax extends ndax$1 {
             'omsId': omsId,
             'AccountId': accountId,
         };
-        const response = await this.privateGetGetOpenOrders(this.extend(request, params));
+        const response = await this.privateGetGetOpenOrders(this.extend(request, paramsOmitted));
         //
         //     [
         //         {
@@ -1693,24 +1959,26 @@ class ndax extends ndax$1 {
         //
         return this.parseOrders(response, market, since, limit);
     }
+    /**
+     * @method
+     * @name ndax#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://apidoc.ndax.io/#getorderhistory
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchOrders
-         * @description fetches information on multiple orders made by the user
-         * @see https://apidoc.ndax.io/#getorderhistory
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         const request = {
             'omsId': omsId,
             'AccountId': accountId,
@@ -1735,7 +2003,7 @@ class ndax extends ndax$1 {
         if (limit !== undefined) {
             request['Depth'] = limit;
         }
-        const response = await this.privateGetGetOrdersHistory(this.extend(request, params));
+        const response = await this.privateGetGetOrdersHistory(this.extend(request, paramsOmitted));
         //
         //     [
         //         {
@@ -1788,22 +2056,25 @@ class ndax extends ndax$1 {
         //
         return this.parseOrders(response, market, since, limit);
     }
+    /**
+     * @method
+     * @name ndax#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://apidoc.ndax.io/#getorderstatus
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://apidoc.ndax.io/#getorderstatus
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         let market = undefined;
         if (symbol !== undefined) {
             market = this.market(symbol);
@@ -1811,9 +2082,9 @@ class ndax extends ndax$1 {
         const request = {
             'omsId': omsId,
             'AccountId': accountId,
-            'OrderId': parseInt(id),
+            'OrderId': this.parseToInt(id),
         };
-        const response = await this.privateGetGetOrderStatus(this.extend(request, params));
+        const response = await this.privateGetGetOrderStatus(this.extend(request, paramsOmitted));
         //
         //     {
         //         "Side":"Sell",
@@ -1864,23 +2135,25 @@ class ndax extends ndax$1 {
         //
         return this.parseOrder(response, market);
     }
+    /**
+     * @method
+     * @name ndax#fetchOrderTrades
+     * @description fetch all the trades made from a single order
+     * @see https://apidoc.ndax.io/#getorderhistorybyorderid
+     * @param {string} id order id
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
     async fetchOrderTrades(id, symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchOrderTrades
-         * @description fetch all the trades made from a single order
-         * @see https://apidoc.ndax.io/#getorderhistorybyorderid
-         * @param {string} id order id
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        // const defaultAccountId = this.safeInteger2 (this.options, 'accountId', 'AccountId', parseInt (this.accounts[0]['id']));
+        // const defaultAccountId = this.safeInteger2 (this.options, 'accountId', 'AccountId', this.parseToInt (this.safeString (this.safeDict (this.accounts, 0), 'id')));
         // const accountId = this.safeInteger2 (params, 'accountId', 'AccountId', defaultAccountId);
         // params = this.omit (params, [ 'accountId', 'AccountId' ]);
         let market = undefined;
@@ -1890,7 +2163,7 @@ class ndax extends ndax$1 {
         const request = {
             'OMSId': this.parseToInt(omsId),
             // 'AccountId': accountId,
-            'OrderId': parseInt(id),
+            'OrderId': this.parseToInt(id),
         };
         const response = await this.privatePostGetOrderHistoryByOrderId(this.extend(request, params));
         //
@@ -1947,21 +2220,23 @@ class ndax extends ndax$1 {
         const trades = this.safeList(grouped, 'Trade', []);
         return this.parseTrades(trades, market, since, limit);
     }
+    /**
+     * @method
+     * @name ndax#fetchDepositAddress
+     * @description fetch the deposit address for a currency associated with this account
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [address structure]{@link https://docs.ccxt.com/?id=address-structure}
+     */
     async fetchDepositAddress(code, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchDepositAddress
-         * @description fetch the deposit address for a currency associated with this account
-         * @param {string} code unified currency code
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [address structure]{@link https://docs.ccxt.com/#/?id=address-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         const currency = this.currency(code);
         const request = {
             'omsId': omsId,
@@ -1969,7 +2244,7 @@ class ndax extends ndax$1 {
             'ProductId': currency['id'],
             'GenerateNewKey': false,
         };
-        const response = await this.privateGetGetDepositInfo(this.extend(request, params));
+        const response = await this.privateGetGetDepositInfo(this.extend(request, paramsOmitted));
         //
         //     {
         //         "result":true,
@@ -1999,58 +2274,60 @@ class ndax extends ndax$1 {
         //         "DepositInfo":"[\"r3e95RwVsLH7yCbnMfyh7SA8FdwUJCB4S2?memo=241452010\"]"
         //     }
         //
-        const depositInfoString = this.safeString(depositAddress, 'DepositInfo');
+        const depositInfoString = this.safeString(depositAddress, 'DepositInfo', '[]');
         const depositInfo = JSON.parse(depositInfoString);
         const depositInfoLength = depositInfo.length;
-        const lastString = this.safeString(depositInfo, depositInfoLength - 1);
+        const lastString = this.safeString(depositInfo, depositInfoLength - 1, '');
         const parts = lastString.split('?memo=');
         const address = this.safeString(parts, 0);
         const tag = this.safeString(parts, 1);
         let code = undefined;
         if (currency !== undefined) {
-            code = currency['code'];
+            code = this.safeString(currency, 'code');
         }
         this.checkAddress(address);
         return {
+            'info': depositAddress,
             'currency': code,
+            'network': undefined,
             'address': address,
             'tag': tag,
-            'network': undefined,
-            'info': depositAddress,
         };
     }
+    /**
+     * @method
+     * @name ndax#createDepositAddress
+     * @description create a currency deposit address
+     * @param {string} code unified currency code of the currency for the deposit address
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [address structure]{@link https://docs.ccxt.com/?id=address-structure}
+     */
     async createDepositAddress(code, params = {}) {
-        /**
-         * @method
-         * @name ndax#createDepositAddress
-         * @description create a currency deposit address
-         * @param {string} code unified currency code of the currency for the deposit address
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [address structure]{@link https://docs.ccxt.com/#/?id=address-structure}
-         */
         const request = {
             'GenerateNewKey': true,
         };
         return await this.fetchDepositAddress(code, this.extend(request, params));
     }
+    /**
+     * @method
+     * @name ndax#fetchDeposits
+     * @description fetch all deposits made to an account
+     * @see https://apidoc.ndax.io/#getdeposits
+     * @param {string} code unified currency code
+     * @param {int} [since] not used by ndax fetchDeposits
+     * @param {int} [limit] the maximum number of deposits structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
     async fetchDeposits(code = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchDeposits
-         * @description fetch all deposits made to an account
-         * @see https://apidoc.ndax.io/#getdeposits
-         * @param {string} code unified currency code
-         * @param {int} [since] not used by ndax fetchDeposits
-         * @param {int} [limit] the maximum number of deposits structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         let currency = undefined;
         if (code !== undefined) {
             currency = this.currency(code);
@@ -2059,7 +2336,7 @@ class ndax extends ndax$1 {
             'omsId': omsId,
             'AccountId': accountId,
         };
-        const response = await this.privateGetGetDeposits(this.extend(request, params));
+        const response = await this.privateGetGetDeposits(this.extend(request, paramsOmitted));
         //
         //    "[
         //        {
@@ -2093,24 +2370,26 @@ class ndax extends ndax$1 {
         }
         return this.parseTransactions(response, currency, since, limit);
     }
+    /**
+     * @method
+     * @name ndax#fetchWithdrawals
+     * @description fetch all withdrawals made from an account
+     * @see https://apidoc.ndax.io/#getwithdraws
+     * @param {string} code unified currency code
+     * @param {int} [since] the earliest time in ms to fetch withdrawals for
+     * @param {int} [limit] the maximum number of withdrawals structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
     async fetchWithdrawals(code = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#fetchWithdrawals
-         * @description fetch all withdrawals made from an account
-         * @see https://apidoc.ndax.io/#getwithdraws
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch withdrawals for
-         * @param {int} [limit] the maximum number of withdrawals structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
         const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const paramsOmitted = this.omit(params, ['accountId', 'AccountId']);
         let currency = undefined;
         if (code !== undefined) {
             currency = this.currency(code);
@@ -2119,7 +2398,7 @@ class ndax extends ndax$1 {
             'omsId': omsId,
             'AccountId': accountId,
         };
-        const response = await this.privateGetGetWithdraws(this.extend(request, params));
+        const response = await this.privateGetGetWithdraws(this.extend(request, paramsOmitted));
         //
         //     [
         //         {
@@ -2146,52 +2425,55 @@ class ndax extends ndax$1 {
         //
         return this.parseTransactions(response, currency, since, limit);
     }
-    parseTransactionStatusByType(status, type = undefined) {
+    parseTransactionStatusByType(status = undefined, type = undefined) {
         const statusesByType = {
             'deposit': {
-                'New': 'pending',
-                'AdminProcessing': 'pending',
-                'Accepted': 'pending',
-                'Rejected': 'rejected',
-                'SystemProcessing': 'pending',
-                'FullyProcessed': 'ok',
-                'Failed': 'failed',
-                'Pending': 'pending',
-                'Confirmed': 'pending',
-                'AmlProcessing': 'pending',
-                'AmlAccepted': 'pending',
-                'AmlRejected': 'rejected',
-                'AmlFailed': 'failed',
-                'LimitsAccepted': 'pending',
+                'New': 'pending', // new ticket awaiting operator review
+                'AdminProcessing': 'pending', // an admin is looking at the ticket
+                'Accepted': 'pending', // an admin accepts the ticket
+                'Rejected': 'rejected', // admin rejects the ticket
+                'SystemProcessing': 'pending', // automatic processing; an unlikely status for a deposit
+                'FullyProcessed': 'ok', // the deposit has concluded
+                'Failed': 'failed', // the deposit has failed for some reason
+                'Pending': 'pending', // Account Provider has set status to pending
+                'Confirmed': 'pending', // Account Provider confirms the deposit
+                'AmlProcessing': 'pending', // anti-money-laundering process underway
+                'AmlAccepted': 'pending', // anti-money-laundering process successful
+                'AmlRejected': 'rejected', // deposit did not stand up to anti-money-laundering process
+                'AmlFailed': 'failed', // anti-money-laundering process failed/did not complete
+                'LimitsAccepted': 'pending', // deposit meets limits for fiat or crypto asset
                 'LimitsRejected': 'rejected', // deposit does not meet limits for fiat or crypto asset
             },
             'withdrawal': {
-                'New': 'pending',
-                'AdminProcessing': 'pending',
-                'Accepted': 'pending',
-                'Rejected': 'rejected',
-                'SystemProcessing': 'pending',
-                'FullyProcessed': 'ok',
-                'Failed': 'failed',
-                'Pending': 'pending',
-                'Pending2Fa': 'pending',
-                'AutoAccepted': 'pending',
-                'Delayed': 'pending',
-                'UserCanceled': 'canceled',
-                'AdminCanceled': 'canceled',
-                'AmlProcessing': 'pending',
-                'AmlAccepted': 'pending',
-                'AmlRejected': 'rejected',
-                'AmlFailed': 'failed',
-                'LimitsAccepted': 'pending',
-                'LimitsRejected': 'rejected',
-                'Submitted': 'pending',
-                'Confirmed': 'pending',
-                'ManuallyConfirmed': 'pending',
+                'New': 'pending', // awaiting operator review
+                'AdminProcessing': 'pending', // An admin is looking at the ticket
+                'Accepted': 'pending', // withdrawal will proceed
+                'Rejected': 'rejected', // admin or automatic rejection
+                'SystemProcessing': 'pending', // automatic processing underway
+                'FullyProcessed': 'ok', // the withdrawal has concluded
+                'Failed': 'failed', // the withdrawal failed for some reason
+                'Pending': 'pending', // the admin has placed the withdrawal in pending status
+                'Pending2Fa': 'pending', // user must click 2-factor authentication confirmation link
+                'AutoAccepted': 'pending', // withdrawal will be automatically processed
+                'Delayed': 'pending', // waiting for funds to be allocated for the withdrawal
+                'UserCanceled': 'canceled', // withdraw canceled by user or Superuser
+                'AdminCanceled': 'canceled', // withdraw canceled by Superuser
+                'AmlProcessing': 'pending', // anti-money-laundering process underway
+                'AmlAccepted': 'pending', // anti-money-laundering process complete
+                'AmlRejected': 'rejected', // withdrawal did not stand up to anti-money-laundering process
+                'AmlFailed': 'failed', // withdrawal did not complete anti-money-laundering process
+                'LimitsAccepted': 'pending', // withdrawal meets limits for fiat or crypto asset
+                'LimitsRejected': 'rejected', // withdrawal does not meet limits for fiat or crypto asset
+                'Submitted': 'pending', // withdrawal sent to Account Provider; awaiting blockchain confirmation
+                'Confirmed': 'pending', // Account Provider confirms that withdrawal is on the blockchain
+                'ManuallyConfirmed': 'pending', // admin has sent withdrawal via wallet or admin function directly; marks ticket as FullyProcessed; debits account
                 'Confirmed2Fa': 'pending', // user has confirmed withdraw via 2-factor authentication.
             },
         };
-        const statuses = this.safeValue(statusesByType, type, {});
+        const statuses = (type === undefined) ? {} : this.safeDict(statusesByType, type, {});
+        if (status === undefined) {
+            return undefined;
+        }
         return this.safeString(statuses, status, status);
     }
     parseTransaction(transaction, currency = undefined) {
@@ -2245,17 +2527,18 @@ class ndax extends ndax$1 {
         //         "NotionalProductId": 0
         //     }
         //
-        let id = undefined;
+        let id = this.safeString(transaction, 'DepositId');
         const currencyId = this.safeString(transaction, 'ProductId');
         const code = this.safeCurrencyCode(currencyId, currency);
         let type = undefined;
-        if ('DepositId' in transaction) {
-            id = this.safeString(transaction, 'DepositId');
+        if (id !== undefined) {
             type = 'deposit';
         }
-        else if ('WithdrawId' in transaction) {
+        else {
             id = this.safeString(transaction, 'WithdrawId');
-            type = 'withdrawal';
+            if (id !== undefined) {
+                type = 'withdrawal';
+            }
         }
         const templateForm = this.parseJson(this.safeValue2(transaction, 'TemplateForm', 'DepositInfo'));
         let updated = this.safeInteger(transaction, 'LastUpdateTimeStamp');
@@ -2266,7 +2549,7 @@ class ndax extends ndax$1 {
         const timestamp = this.safeInteger(templateForm, 'TimeSubmitted');
         const feeCost = this.safeNumber(transaction, 'FeeAmount');
         const transactionStatus = this.safeString(transaction, 'TicketStatus');
-        let fee = undefined;
+        let fee = {};
         if (feeCost !== undefined) {
             fee = { 'currency': code, 'cost': feeCost };
         }
@@ -2293,19 +2576,20 @@ class ndax extends ndax$1 {
             'network': undefined,
         };
     }
-    async withdraw(code, amount, address, tag = undefined, params = {}) {
-        /**
-         * @method
-         * @name ndax#withdraw
-         * @description make a withdrawal
-         * @param {string} code unified currency code
-         * @param {float} amount the amount to withdraw
-         * @param {string} address the address to withdraw to
-         * @param {string} tag
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        [tag, params] = this.handleWithdrawTagAndParams(tag, params);
+    /**
+     * @method
+     * @name ndax#withdraw
+     * @description make a withdrawal
+     * @param {string} code unified currency code
+     * @param {float} amount the amount to withdraw
+     * @param {string} address the address to withdraw to
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.tag] memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    async withdraw(code, amount, address, params = {}) {
+        const tagWithdrawTag = this.safeString(params, 'tag');
+        const paramsWithdrawTag = this.omit(params, 'tag');
         // this method required login, password and twofa key
         const sessionToken = this.safeString(this.options, 'sessionToken');
         if (sessionToken === undefined) {
@@ -2314,13 +2598,15 @@ class ndax extends ndax$1 {
         if (this.twofa === undefined) {
             throw new errors.AuthenticationError(this.id + ' withdraw() requires exchange.twofa credentials');
         }
-        this.checkAddress(address);
+        this.checkAddress(address, code, tagWithdrawTag);
         const omsId = this.safeInteger(this.options, 'omsId', 1);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
-        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', parseInt(this.accounts[0]['id']));
-        const accountId = this.safeInteger2(params, 'accountId', 'AccountId', defaultAccountId);
-        params = this.omit(params, ['accountId', 'AccountId']);
+        const defaultAccountId = this.safeInteger2(this.options, 'accountId', 'AccountId', this.parseToInt(this.safeString(this.safeDict(this.accounts, 0), 'id')));
+        const accountId = this.safeInteger2(paramsWithdrawTag, 'accountId', 'AccountId', defaultAccountId);
+        const paramsOmitted = this.omit(paramsWithdrawTag, ['accountId', 'AccountId']);
         const currency = this.currency(code);
         const withdrawTemplateTypesRequest = {
             'omsId': omsId,
@@ -2340,8 +2626,8 @@ class ndax extends ndax$1 {
         //         ]
         //     }
         //
-        const templateTypes = this.safeValue(withdrawTemplateTypesResponse, 'TemplateTypes', []);
-        const firstTemplateType = this.safeValue(templateTypes, 0);
+        const templateTypes = this.safeList(withdrawTemplateTypesResponse, 'TemplateTypes', []);
+        const firstTemplateType = this.safeDict(templateTypes, 0);
         if (firstTemplateType === undefined) {
             throw new errors.ExchangeError(this.id + ' withdraw() could not find a withdraw template type for ' + currency['code']);
         }
@@ -2368,9 +2654,9 @@ class ndax extends ndax$1 {
         }
         const withdrawTemplate = JSON.parse(template);
         withdrawTemplate['ExternalAddress'] = address;
-        if (tag !== undefined) {
+        if (tagWithdrawTag !== undefined) {
             if ('Memo' in withdrawTemplate) {
-                withdrawTemplate['Memo'] = tag;
+                withdrawTemplate['Memo'] = tagWithdrawTag;
             }
         }
         const withdrawPayload = {
@@ -2385,20 +2671,27 @@ class ndax extends ndax$1 {
             'TFaCode': totp.totp(this.twofa),
             'Payload': this.json(withdrawPayload),
         };
-        const response = await this.privatePostCreateWithdrawTicket(this.deepExtend(withdrawRequest, params));
+        const response = await this.privatePostCreateWithdrawTicket(this.deepExtend(withdrawRequest, paramsOmitted));
         return this.parseTransaction(response, currency);
     }
     nonce() {
         return this.milliseconds();
     }
-    sign(path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let url = this.urls['api'][api] + '/' + this.implodeParams(path, params);
+    sign(path, api = ['public'], method = 'GET', params = {}) {
+        const apiName = api[0];
+        let bodySigned = undefined;
+        let headersSigned = undefined;
+        const apiUrl = this.safeString(this.urls['api'], apiName);
+        if (apiUrl === undefined) {
+            throw new errors.ExchangeError(this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + '/' + this.implodeParams(path, params);
         let query = this.omit(params, this.extractParams(path));
-        if (api === 'public') {
+        if (apiName === 'public') {
             if (path === 'Authenticate') {
                 const auth = this.login + ':' + this.password;
                 const auth64 = this.stringToBase64(auth);
-                headers = {
+                headersSigned = {
                     'Authorization': 'Basic ' + auth64,
                     // 'Content-Type': 'application/json',
                 };
@@ -2406,47 +2699,66 @@ class ndax extends ndax$1 {
             else if (path === 'Authenticate2FA') {
                 const pending2faToken = this.safeString(this.options, 'pending2faToken');
                 if (pending2faToken !== undefined) {
-                    headers = {
+                    headersSigned = {
                         'Pending2FaToken': pending2faToken,
                         // 'Content-Type': 'application/json',
                     };
                     query = this.omit(query, 'pending2faToken');
                 }
             }
-            if (Object.keys(query).length) {
+            if (Object.keys(query).length > 0) {
                 url += '?' + this.urlencode(query);
             }
         }
-        else if (api === 'private') {
+        else if (apiName === 'private') {
             this.checkRequiredCredentials();
             const sessionToken = this.safeString(this.options, 'sessionToken');
+            const isPost = (method === 'POST');
             if (sessionToken === undefined) {
                 const nonce = this.nonce().toString();
                 const auth = nonce + this.uid + this.apiKey;
-                const signature = this.hmac(this.encode(auth), this.encode(this.secret), sha256.sha256);
-                headers = {
-                    'Nonce': nonce,
-                    'APIKey': this.apiKey,
-                    'Signature': signature,
-                    'UserId': this.uid,
+                const signature = this.hmac(this.encode(auth), this.encode(this.secret), sha2_js.sha256);
+                if (isPost) {
+                    headersSigned = {
+                        'Nonce': nonce,
+                        'APIKey': this.apiKey,
+                        'Signature': signature,
+                        'UserId': this.uid,
+                        'Content-Type': 'application/json',
+                    };
+                }
+                else {
+                    headersSigned = {
+                        'Nonce': nonce,
+                        'APIKey': this.apiKey,
+                        'Signature': signature,
+                        'UserId': this.uid,
+                    };
+                }
+            }
+            else if (isPost) {
+                headersSigned = {
+                    'APToken': sessionToken,
+                    'Content-Type': 'application/json',
                 };
             }
             else {
-                headers = {
+                headersSigned = {
                     'APToken': sessionToken,
                 };
             }
-            if (method === 'POST') {
-                headers['Content-Type'] = 'application/json';
-                body = this.json(query);
+            if (isPost) {
+                bodySigned = this.json(query);
             }
             else {
-                if (Object.keys(query).length) {
+                if (Object.keys(query).length > 0) {
                     url += '?' + this.urlencode(query);
                 }
             }
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const headersResolved = headersSigned;
+        const bodyResolved = bodySigned;
+        return { 'url': url, 'method': method, 'body': bodyResolved, 'headers': headersResolved };
     }
     handleErrors(code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (code === 404) {
@@ -2470,4 +2782,4 @@ class ndax extends ndax$1 {
     }
 }
 
-module.exports = ndax;
+exports["default"] = ndax;

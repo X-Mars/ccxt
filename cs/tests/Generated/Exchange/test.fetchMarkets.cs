@@ -7,17 +7,38 @@ namespace Tests;
 
 public partial class testMainClass : BaseTest
 {
-    async static public Task testFetchMarkets(Exchange exchange, object skippedProperties)
+    async static public Task<object> testFetchMarkets(BaseExchange exchange, object skippedProperties)
     {
-        object method = "fetchMarkets";
-        object markets = await exchange.fetchMarkets();
-        assert((markets is IDictionary<string, object>), add(add(add(add(exchange.id, " "), method), " must return an object. "), exchange.json(markets)));
-        object marketValues = new List<object>(((IDictionary<string,object>)markets).Values);
+        string method = "fetchMarkets";
+        object markets = await invokeExchangeDynamically(exchange, "fetchMarkets");
+        testSharedMethods.assertDictionaryResponse(exchange, method, markets);
+        List<object> marketValues = new List<object>(((IDictionary<string,object>)markets).Values);
         testSharedMethods.assertNonEmtpyArray(exchange, skippedProperties, method, marketValues);
-        for (object i = 0; isLessThan(i, getArrayLength(marketValues)); postFixIncrement(ref i))
+        for (int i = 0; i < marketValues.Count; i++)
         {
-            testMarket(exchange, skippedProperties, method, getValue(marketValues, i));
+            testMarket(exchange, skippedProperties, method, marketValues[i]);
         }
+        detectMarketConflicts(exchange, markets);
+        return true;
+    }
+    public static object detectMarketConflicts(BaseExchange exchange, object marketValues)
+    {
+        // detect if there are markets with different ids for the same symbol
+        Dictionary<string, object> ids = new Dictionary<string, object>() {};
+        for (int i = 0; i < getArrayLength(marketValues); i++)
+        {
+            object market = getValue(marketValues, i);
+            object symbol = getValue(market, "symbol");
+            if (!((symbol is string inOpKey0 && ids.ContainsKey(inOpKey0))))
+            {
+                ids[(string)symbol] = getValue(market, "id");
+            } else
+            {
+                bool isDifferent = !isEqual((ids != null && symbol != null && ids.ContainsKey((string)symbol) ? ids[(string)symbol] : null), getValue(market, "id"));
+                assert(!isDifferent, add(add(add(add(add(add(exchange.id, " fetchMarkets() has different ids for the same symbol: "), symbol), " "), (ids != null && symbol != null && ids.ContainsKey((string)symbol) ? ids[(string)symbol] : null)), " "), getValue(market, "id")));
+            }
+        }
+        return true;
     }
 
 }

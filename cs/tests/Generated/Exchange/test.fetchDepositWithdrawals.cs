@@ -7,17 +7,18 @@ namespace Tests;
 
 public partial class testMainClass : BaseTest
 {
-    async static public Task testFetchDepositsWithdrawals(Exchange exchange, object skippedProperties, object code)
+    async static public Task<object> testFetchDepositWithdrawals(BaseExchange exchange, object skippedProperties, object code)
     {
-        object method = "fetchTransactions";
-        object transactions = await exchange.fetchTransactions(code);
+        string method = "fetchTransactions";
+        object transactions = await invokeExchangeDynamically(exchange, "fetchTransactions", code);
         testSharedMethods.assertNonEmtpyArray(exchange, skippedProperties, method, transactions, code);
-        object now = exchange.milliseconds();
-        for (object i = 0; isLessThan(i, getArrayLength(transactions)); postFixIncrement(ref i))
+        Int64 now = exchange.milliseconds();
+        for (int i = 0; i < getArrayLength(transactions); i++)
         {
             testDepositWithdrawal(exchange, skippedProperties, method, getValue(transactions, i), code, now);
         }
         testSharedMethods.assertTimestampOrder(exchange, method, code, transactions);
+        return true;
     }
 
 }

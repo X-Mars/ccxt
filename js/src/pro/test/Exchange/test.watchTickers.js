@@ -17,8 +17,13 @@ async function testWatchTickersHelper(exchange, skippedProperties, argSymbols, a
     const method = 'watchTickers';
     let now = exchange.milliseconds();
     const ends = now + 15000;
-    while (now < ends) {
-        let response = undefined;
+    const maxIdleTime = 5000;
+    let idle = false;
+    while ((now < ends) && !idle) {
+        let response = {};
+        let success = true;
+        let shouldReturn = false;
+        const startTime = exchange.milliseconds();
         try {
             response = await exchange.watchTickers(argSymbols, argParams);
         }
@@ -29,26 +34,46 @@ async function testWatchTickersHelper(exchange, skippedProperties, argSymbols, a
             // mark tests as failed, but just skip them
             if ((e instanceof ArgumentsRequired) && (argSymbols === undefined || argSymbols.length === 0)) {
                 // todo: provide random symbols to try
-                return;
+                // return;
+                // return false;
+                shouldReturn = true;
             }
             else if (!testSharedMethods.isTemporaryFailure(e)) {
                 throw e;
             }
-            now = exchange.milliseconds();
-            continue;
-        }
-        assert(typeof response === 'object', exchange.id + ' ' + method + ' ' + exchange.json(argSymbols) + ' must return an object. ' + exchange.json(response));
-        const values = Object.values(response);
-        let checkedSymbol = undefined;
-        if (argSymbols !== undefined && argSymbols.length === 1) {
-            checkedSymbol = argSymbols[0];
-        }
-        testSharedMethods.assertNonEmtpyArray(exchange, skippedProperties, method, values, checkedSymbol);
-        for (let i = 0; i < values.length; i++) {
-            const ticker = values[i];
-            testTicker(exchange, skippedProperties, method, ticker, checkedSymbol);
+            success = false;
         }
         now = exchange.milliseconds();
+        if (shouldReturn) {
+            return false;
+        }
+        if (success) {
+            assert(exchange.isDictionary(response), exchange.id + ' ' + method + ' ' + exchange.json(argSymbols) + ' must return a dictionary. ' + exchange.json(response));
+            const values = Object.values(response);
+            let checkedSymbol = undefined;
+            if (argSymbols !== undefined && argSymbols.length === 1) {
+                checkedSymbol = argSymbols[0];
+            }
+            testSharedMethods.assertNonEmtpyArray(exchange, skippedProperties, method, values, checkedSymbol);
+            for (let i = 0; i < values.length; i++) {
+                const ticker = values[i];
+                try {
+                    testTicker(exchange, skippedProperties, method, ticker, checkedSymbol);
+                }
+                catch (ex) {
+                    let ohlcv = undefined;
+                    const tickerSymbol = ticker['symbol'];
+                    if ((tickerSymbol !== undefined) && testSharedMethods.tickerExceptionNeedsOhlcv(ex, exchange, ticker)) {
+                        ohlcv = await exchange.fetchOHLCV(tickerSymbol, '1d', undefined, 5);
+                    }
+                    testSharedMethods.validateTickerExceptionForPercentage(ex, exchange, ticker, ohlcv);
+                }
+            }
+            if ((now - startTime) > maxIdleTime) {
+                idle = true;
+            }
+        }
     }
+    return true;
 }
 export default testWatchTickers;

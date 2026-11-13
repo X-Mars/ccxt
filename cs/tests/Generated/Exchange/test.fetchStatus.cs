@@ -7,11 +7,12 @@ namespace Tests;
 
 public partial class testMainClass : BaseTest
 {
-    async static public Task testFetchStatus(Exchange exchange, object skippedProperties)
+    async static public Task<object> testFetchStatus(BaseExchange exchange, object skippedProperties)
     {
-        object method = "fetchStatus";
-        object status = await exchange.fetchStatus();
+        string method = "fetchStatus";
+        object status = await invokeExchangeDynamically(exchange, "fetchStatus");
         testStatus(exchange, skippedProperties, method, status, exchange.milliseconds());
+        return true;
     }
 
 }

@@ -10,9 +10,8 @@ sys.path.append(root + '/python')
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 # ----------------------------------------------------------------------------
-undefined
 
-# AUTO-TRANSPILE #
+
 async def example():
     exchange = ccxt.bingx({
         'apiKey': 'MY_API_KEY',

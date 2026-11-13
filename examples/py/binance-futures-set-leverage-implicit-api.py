@@ -13,7 +13,7 @@ exchange = ccxt.binance({
     'apiKey': 'YOUR_API_KEY',
     'secret': 'YOUR_SECRET',
     'options': {
-        'defaultType': 'future',
+        'defaultType': 'swap',
     }
 })
 
@@ -23,7 +23,7 @@ symbol = 'ADA/USDT'
 market = exchange.market(symbol)
 leverage =  10
 
-response = exchange.fapiPrivate_post_leverage({
+response = exchange.fapiprivate_post_leverage({
     'symbol': market['id'],
     'leverage': leverage,
 })

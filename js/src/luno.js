@@ -6,7 +6,7 @@
 
 //  ---------------------------------------------------------------------------
 import Exchange from './abstract/luno.js';
-import { ExchangeError, ArgumentsRequired } from './base/errors.js';
+import { ExchangeError, ArgumentsRequired, AuthenticationError, PermissionDenied, AccountNotEnabled, BadRequest, BadSymbol, OperationRejected, ManualInteractionNeeded, InsufficientFunds, InvalidAddress, InvalidOrder, OrderNotFound, DuplicateOrderId, RateLimitExceeded, ExchangeNotAvailable, OnMaintenance, RequestTimeout, NullResponse } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 //  ---------------------------------------------------------------------------
@@ -18,7 +18,7 @@ export default class luno extends Exchange {
     describe() {
         return this.deepExtend(super.describe(), {
             'id': 'luno',
-            'name': 'luno',
+            'name': 'Luno',
             'countries': ['GB', 'SG', 'ZA'],
             // 300 calls per minute = 5 calls per second = 1000ms / 5 = 200ms between requests
             'rateLimit': 200,
@@ -32,52 +32,93 @@ export default class luno extends Exchange {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelOrder': true,
                 'closeAllPositions': false,
                 'closePosition': false,
+                'createDepositAddress': true,
                 'createOrder': true,
                 'createReduceOnlyOrder': false,
                 'fetchAccounts': true,
+                'fetchAllGreeks': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
+                'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchClosedOrders': true,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
+                'fetchCurrencies': true,
+                'fetchDepositAddress': true,
+                'fetchDepositWithdrawFee': true,
+                'fetchDepositWithdrawFees': false,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLedger': true,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
                 'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
                 'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrice': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
                 'fetchOHLCV': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchOrders': true,
                 'fetchPosition': false,
+                'fetchPositionForSymbolWs': false,
                 'fetchPositionHistory': false,
                 'fetchPositionMode': false,
                 'fetchPositions': false,
                 'fetchPositionsForSymbol': false,
+                'fetchPositionsForSymbolWs': false,
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchTicker': true,
                 'fetchTickers': true,
                 'fetchTrades': true,
                 'fetchTradingFee': true,
                 'fetchTradingFees': false,
+                'fetchUnderlyingAssets': false,
+                'fetchVolatilityHistory': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
                 'setLeverage': false,
+                'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
             },
@@ -92,7 +133,7 @@ export default class luno extends Exchange {
                 },
                 'www': 'https://www.luno.com',
                 'doc': [
-                    'https://www.luno.com/en/api',
+                    'https://www.luno.com/en/developers/api',
                     'https://npmjs.org/package/bitx',
                     'https://github.com/bausmeier/node-bitx',
                 ],
@@ -100,65 +141,69 @@ export default class luno extends Exchange {
             'api': {
                 'exchange': {
                     'get': {
-                        'markets': 1,
+                        'markets': { 'cost': 1 },
                     },
                 },
                 'exchangePrivate': {
                     'get': {
-                        'candles': 1,
+                        'candles': { 'cost': 1 },
+                        'move': { 'cost': 1 },
+                        'move/list_moves': { 'cost': 1 },
+                        'transfers': { 'cost': 1 },
+                    },
+                    'post': {
+                        'convert': { 'cost': 1 },
+                        'move': { 'cost': 1 },
                     },
                 },
                 'public': {
                     'get': {
-                        'orderbook': 1,
-                        'orderbook_top': 1,
-                        'ticker': 1,
-                        'tickers': 1,
-                        'trades': 1,
+                        'orderbook': { 'cost': 1 },
+                        'orderbook_top': { 'cost': 1 },
+                        'ticker': { 'cost': 1 },
+                        'tickers': { 'cost': 1 },
+                        'trades': { 'cost': 1 },
                     },
                 },
                 'private': {
                     'get': {
-                        'accounts/{id}/pending': 1,
-                        'accounts/{id}/transactions': 1,
-                        'balance': 1,
-                        'beneficiaries': 1,
-                        'fee_info': 1,
-                        'funding_address': 1,
-                        'listorders': 1,
-                        'listtrades': 1,
-                        'send_fee': 1,
-                        'orders/{id}': 1,
-                        'withdrawals': 1,
-                        'withdrawals/{id}': 1,
-                        'transfers': 1,
-                        // GET /api/exchange/1/move
-                        // GET /api/exchange/1/move/list_moves
-                        // GET /api/exchange/1/candles
-                        // GET /api/exchange/1/transfers
+                        'accounts/{id}/pending': { 'cost': 1 },
+                        'accounts/{id}/transactions': { 'cost': 1 },
+                        'balance': { 'cost': 1 },
+                        'beneficiaries': { 'cost': 1 },
+                        'send/networks': { 'cost': 1 },
+                        'fee_info': { 'cost': 1 },
+                        'funding_address': { 'cost': 1 },
+                        'listorders': { 'cost': 1 },
+                        'listtrades': { 'cost': 1 },
+                        'send_fee': { 'cost': 1 },
+                        'orders/{id}': { 'cost': 1 },
+                        'withdrawals': { 'cost': 1 },
+                        'withdrawals/{id}': { 'cost': 1 },
+                        'transfers': { 'cost': 1 }, // not found in current docs, use GET /api/exchange/1/transfers
+                        'users/linked': { 'cost': 1 },
                         // GET /api/exchange/2/listorders
                         // GET /api/exchange/2/orders/{id}
                         // GET /api/exchange/3/order
                     },
                     'post': {
-                        'accounts': 1,
-                        'address/validate': 1,
-                        'postorder': 1,
-                        'marketorder': 1,
-                        'stoporder': 1,
-                        'funding_address': 1,
-                        'withdrawals': 1,
-                        'send': 1,
-                        'oauth2/grant': 1,
-                        'beneficiaries': 1,
-                        // POST /api/exchange/1/move
+                        'accounts': { 'cost': 1 },
+                        'address/validate': { 'cost': 1 },
+                        'postorder': { 'cost': 1 },
+                        'marketorder': { 'cost': 1 },
+                        'stoporder': { 'cost': 1 },
+                        'funding_address': { 'cost': 1 },
+                        'withdrawals': { 'cost': 1 },
+                        'send': { 'cost': 1 },
+                        'oauth2/grant': { 'cost': 1 }, // deprecated for new applications
+                        'beneficiaries': { 'cost': 1 },
                     },
                     'put': {
-                        'accounts/{id}/name': 1,
+                        'accounts/{id}/name': { 'cost': 1 },
                     },
                     'delete': {
-                        'withdrawals/{id}': 1,
-                        'beneficiaries/{id}': 1,
+                        'withdrawals/{id}': { 'cost': 1 },
+                        'beneficiaries/{id}': { 'cost': 1 },
                     },
                 },
             },
@@ -176,24 +221,330 @@ export default class luno extends Exchange {
             },
             'fees': {
                 'trading': {
-                    'tierBased': true,
+                    // Luno prices by PAIR CATEGORY as well as by 30-day volume tier:
+                    // crypto/fiat, stablecoin/fiat and crypto/crypto each have their own
+                    // ladder, and the maker side is a charge in one category and a rebate
+                    // in another at the same tier. A single scalar cannot represent that,
+                    // so per-market 'taker'/'maker' are set in fetchMarkets where the
+                    // published schedule has been verified. The values below are the
+                    // exchange-wide fallback: crypto/fiat at the entry tier, which is the
+                    // dearest cell in the table and therefore the safe direction to quote
+                    // for a caller who cannot reach the authenticated fetchTradingFee.
+                    'tierBased': true, // based on volume from your primary currency (not the same for everyone)
                     'percentage': true,
-                    'taker': this.parseNumber('0.001'),
-                    'maker': this.parseNumber('0'),
+                    'taker': this.parseNumber('0.006'),
+                    'maker': this.parseNumber('0.004'),
+                    'tiers': {
+                        'taker': [
+                            [this.parseNumber('0'), this.parseNumber('0.006')],
+                            [this.parseNumber('20000'), this.parseNumber('0.005')],
+                            [this.parseNumber('200000'), this.parseNumber('0.004')],
+                            [this.parseNumber('1000000'), this.parseNumber('0.003')],
+                            [this.parseNumber('2000000'), this.parseNumber('0.002')],
+                            [this.parseNumber('5000000'), this.parseNumber('0.0015')],
+                            [this.parseNumber('10000000'), this.parseNumber('0.001')],
+                            [this.parseNumber('20000000'), this.parseNumber('0.0009')],
+                            [this.parseNumber('40000000'), this.parseNumber('0.0008')],
+                            [this.parseNumber('80000000'), this.parseNumber('0.0007')],
+                            [this.parseNumber('120000000'), this.parseNumber('0.0006')],
+                            [this.parseNumber('160000000'), this.parseNumber('0.0005')],
+                            [this.parseNumber('300000000'), this.parseNumber('0.0005')],
+                        ],
+                        'maker': [
+                            [this.parseNumber('0'), this.parseNumber('0.004')],
+                            [this.parseNumber('20000'), this.parseNumber('0.003')],
+                            [this.parseNumber('200000'), this.parseNumber('0.002')],
+                            [this.parseNumber('1000000'), this.parseNumber('0.001')],
+                            [this.parseNumber('2000000'), this.parseNumber('0.0008')],
+                            [this.parseNumber('5000000'), this.parseNumber('0.0006')],
+                            [this.parseNumber('10000000'), this.parseNumber('0')],
+                            [this.parseNumber('20000000'), this.parseNumber('0')],
+                            [this.parseNumber('40000000'), this.parseNumber('-0.0001')],
+                            [this.parseNumber('80000000'), this.parseNumber('-0.0001')],
+                            [this.parseNumber('120000000'), this.parseNumber('-0.0002')],
+                            [this.parseNumber('160000000'), this.parseNumber('-0.0002')],
+                            [this.parseNumber('300000000'), this.parseNumber('-0.0002')],
+                        ],
+                    },
+                },
+            },
+            'exceptions': {
+                'exact': {
+                    'ErrAccountIsMigrating': OperationRejected, // Account migration in progress
+                    'ErrAccountLimit': OperationRejected, // You can't add another wallet with this currency
+                    'ErrAccountNotFound': ExchangeError, // Cannot find that account
+                    'ErrAccountsNotDifferent': BadRequest, // Debit and credit accounts must be different
+                    'ErrActiveCryptoRequestExists': OperationRejected, // Send request pending. Please try again after it has completed.
+                    'ErrAddressCreateRateLimitReached': RateLimitExceeded, // Receive address create rate limit reached. Please try again later.
+                    'ErrAddressLimitReached': OperationRejected, // Receive address limit reached.
+                    'ErrAmountTooBig': BadRequest, // The specified amount is higher than the maximum allowed.
+                    'ErrAmountTooSmall': BadRequest, // The specified amount is lower than the minimum allowed.
+                    'ErrApiKeyRevoked': AuthenticationError, // Your API key has been revoked.
+                    'ErrBeneficiaryNotFound': ExchangeError, // Beneficiary not Found
+                    'ErrBlockedSendsCurrency': OperationRejected, // Sends are currently disabled for this currency
+                    'ErrCannotStopUnknownOrNonPendingOrder': InvalidOrder, // Cannot stop unknown or non-pending order.
+                    'ErrCannotTradeWhileQuoteActive': OperationRejected, // Cannot trade while you have any active quotes.
+                    'ErrConvertPairNotSupported': BadRequest, // The requested pair is not supported for conversion.
+                    'ErrConvertRateLimited': RateLimitExceeded, // You have exceeded the conversion rate limit for this pair. Please try again later.
+                    'ErrCounterDenominationNotAllowed': InvalidOrder, // Amount contains too many decimal places
+                    'ErrCreditAccountNotTransactional': BadRequest, // The specified credit-account must be transactional
+                    'ErrCustomRefNotAllowed': BadRequest, // Custom reference not allowed
+                    'ErrDeadlineExceeded': RequestTimeout, // Could not complete before the deadline
+                    'ErrDebitAccountNotTransactional': BadRequest, // Debit account not transactional
+                    'ErrDescriptionTooLong': BadRequest, // Your transaction reference is too long. The maximum length is 256 characters.
+                    'ErrDifferentCurrencies': BadRequest, // Debit and credit accounts have different currencies
+                    'ErrDisallowedTarget': InvalidAddress, // Given address not allowed.
+                    'ErrDuplicateClientMoveID': OperationRejected, // Duplicate client move id
+                    'ErrDuplicateClientOrderID': DuplicateOrderId, // Duplicate client order id
+                    'ErrDuplicateExternalID': OperationRejected, // A withdrawal with an identical external id already exists.
+                    'ErrERC20AddressAlreadyAssigned': OperationRejected, // You can only create 1 ERC-20 receive address per token
+                    'ErrERC20AssignNonDefault': BadRequest, // You can only assign ERC-20 receive addresses to your default account
+                    'ErrFundsMoveNotFound': ExchangeError, // Funds move not found
+                    'ErrIdempotencyKeyConflict': OperationRejected, // A request with this idempotency_key has already been processed.
+                    'ErrIdempotencyKeyRequestMismatch': BadRequest, // A request with this idempotency_key has a mismatched request
+                    'ErrIncompatibleBeneficiary': BadRequest, // Beneficiary is incompatible with the requested withdrawal.
+                    'ErrIncorrectPin': AuthenticationError, // Invalid pin specified
+                    'ErrInsufficientBalance': InsufficientFunds, // Insufficient balance.
+                    'ErrInsufficientFunds': InsufficientFunds, // Account has insufficient funds
+                    'ErrInsufficientPerms': PermissionDenied, // You do not have the required permissions to perform this action
+                    'ErrInternal': ExchangeNotAvailable, // Something went wrong. We're looking into it.
+                    'ErrInvalidAccount': BadRequest, // Account is invalid
+                    'ErrInvalidAccountID': BadRequest, // Invalid account ID specified
+                    'ErrInvalidAccountNumber': BadRequest, // Account number is invalid
+                    'ErrInvalidAmount': BadRequest, // Invalid amount specified
+                    'ErrInvalidArguments': BadRequest, // If any request parameters have invalid values this error will be returned. This error should also include a list of the offending fields to help identify and fix any issues.
+                    'ErrInvalidBaseVolume': InvalidOrder, // Invalid base volume for sell order.
+                    'ErrInvalidBranchCode': BadRequest, // Bank branch code is invalid.
+                    'ErrInvalidClientOrderId': InvalidOrder, // Invalid client order id
+                    'ErrInvalidCounterVolume': InvalidOrder, // Invalid counter volume for buy order.
+                    'ErrInvalidCurrency': BadRequest, // Invalid currency specified
+                    'ErrInvalidDetails': BadRequest, // Bank account details invalid
+                    'ErrInvalidMarketPair': BadSymbol, // Market pair is invalid
+                    'ErrInvalidOrderRef': InvalidOrder, // Order reference is invalid
+                    'ErrInvalidOrderSide': InvalidOrder, // Order side is invalid
+                    'ErrInvalidParameters': BadRequest, // Invalid parameters
+                    'ErrInvalidPrice': InvalidOrder, // Invalid order price.
+                    'ErrInvalidRequestType': BadRequest, // Invalid withdrawal request type specified.
+                    'ErrInvalidSourceAccount': BadRequest, // Invalid source account
+                    'ErrInvalidStopDirection': InvalidOrder, // Stop direction is invalid.
+                    'ErrInvalidStopPrice': InvalidOrder, // Invalid order stop price.
+                    'ErrInvalidVolume': InvalidOrder, // Invalid order volume.
+                    'ErrLimitOutOfRange': BadRequest, // List limit is out of allowed range
+                    'ErrMarketNotAllowed': PermissionDenied, // This market is not enabled for you.
+                    'ErrMarketUnavailable': ExchangeError, // Market not available
+                    'ErrMaxActiveFiatRequestsExists': OperationRejected, // Too many withdrawals in progress. Cancel one or try again later.
+                    'ErrMissingIdempotencyKey': BadRequest, // idempotency_key is required.
+                    'ErrNoAddressesAssigned': InvalidAddress, // No funding addresses linked to default account
+                    'ErrNoTradesToInferStopDirection': InvalidOrder, // Could not place Stop Limit Order, no trades to determine direction
+                    'ErrNotEnoughLiquidity': InvalidOrder, // Market order price would vary too much from the market rate - use a limit order instead
+                    'ErrNotFound': ExchangeError, // No result found
+                    'ErrOrderCanceled': InvalidOrder, // Your post-only order was cancelled before trading
+                    'ErrOrderNotFound': OrderNotFound, // Cannot find that order
+                    'ErrPostOnlyMode': InvalidOrder, // Market is in post-only mode
+                    'ErrPostOnlyNotAllowed': InvalidOrder, // IOC and FOK time-in-force types are not supported as post-only orders
+                    'ErrPriceDenominationNotAllowed': InvalidOrder, // Price contains too many decimal places
+                    'ErrPriceTooHigh': InvalidOrder, // Price is above the maximum
+                    'ErrPriceTooLow': InvalidOrder, // Price is below the minimum
+                    'ErrRejectedBeneficiary': OperationRejected, // Cannot request withdrawal to rejected beneficiary.
+                    'ErrRequestTypeDoesNotSupportFastWithdrawals': BadRequest, // The specified request type does not support fast withdrawals.
+                    'ErrStopPriceTooHigh': InvalidOrder, // Stop price is too high.
+                    'ErrStopPriceTooLow': InvalidOrder, // Stop price is too low.
+                    'ErrTooManyRequests': RateLimitExceeded, // You are exceeding the allowed request rate limit
+                    'ErrTooManyRowsRequested': BadRequest, // Too many rows requested
+                    'ErrTravelRule': ManualInteractionNeeded, // Please ensure that you've initiated a once-off crypto send for this specific wallet address via the website or mobile app and included relevant Travel Rule information before trying again via the send API. [Click here](https://www.luno.com/help/articles/421340781836897) for more information on the Travel Rule.
+                    'ErrUnauthorised': AuthenticationError, // You are not authorised to access this route
+                    'ErrUnderMaintenance': OnMaintenance, // The market is currently undergoing maintenance
+                    'ErrUpdateRequired': ExchangeError, // Luno app update required
+                    'ErrUserBlockedForCancelWithdrawal': PermissionDenied, // User blocked from cancelling withdrawals
+                    'ErrUserNotVerifiedForCurrency': AccountNotEnabled, // You are not verified for this currency
+                    'ErrValueTooHigh': InvalidOrder, // Order value too high
+                    'ErrVerificationLevelTooLow': AccountNotEnabled, // You must verify your identity using the Luno app before you can send crypto.
+                    'ErrVolumeDenominationNotAllowed': InvalidOrder, // Volume contains too many decimal places
+                    'ErrVolumeTooHigh': InvalidOrder, // Volume is above the maximum
+                    'ErrVolumeTooLow': InvalidOrder, // Volume is below the minimum
+                    'ErrWithdrawalBlocked': PermissionDenied, // To increase your withdraw limit add more information to your profile in settings.
+                    'ErrWithdrawalNotFound': ExchangeError, // Cannot find that withdrawal
                 },
             },
             'precisionMode': TICK_SIZE,
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'fetchCurrencies': {
+                        'private': true,
+                    },
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': true, // todo
+                        'triggerPriceType': undefined,
+                        'triggerDirection': true, // todo
+                        'stopLossPrice': false, // todo
+                        'takeProfitPrice': false, // todo
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': true,
+                            'FOK': true,
+                            'PO': true,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'trailing': false,
+                        'leverage': false,
+                        'marketBuyByCost': true,
+                        'marketBuyRequiresPrice': false,
+                        'selfTradePrevention': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'daysBack': 100000, // todo
+                        'untilDays': 100000, // todo
+                        'symbolRequired': true,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrders': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'daysBack': 100000,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchClosedOrders': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'daysBack': 100000,
+                        'daysBackCanceled': 1,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOHLCV': {
+                        'limit': undefined,
+                    },
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+            },
+            'rollingWindowSize': 60000.0,
         });
     }
+    /**
+     * @method
+     * @name luno#fetchCurrencies
+     * @description fetches all available currencies on an exchange
+     * @see https://www.luno.com/en/developers/api#tag/Send/operation/ListSupportedNetworks
+     * @param {dict} [params] extra parameters specific to the exchange API endpoint
+     * @returns {dict} an associative dictionary of currencies
+     */
+    async fetchCurrencies(params = {}) {
+        if (!this.checkRequiredCredentials(false)) {
+            return {};
+        }
+        const response = await this.privateGetSendNetworks(params);
+        //
+        //     {
+        //         "networks": [
+        //           {
+        //             "id": 0,
+        //             "name": "Ethereum",
+        //             "native_currency": "ETH"
+        //           },
+        //           ...
+        //         ]
+        //     }
+        //
+        const currenciesData = this.safeList(response, 'data', []);
+        const grouped = this.groupBy(currenciesData, 'native_currency');
+        const values = Object.values(grouped);
+        return this.parseCurrencies(values);
+    }
+    parseCurrency(rawCurrency) {
+        const id = this.safeString(this.safeDict(rawCurrency, 0), 'native_currency'); // first item is guaranteed
+        const code = this.safeCurrencyCode(id);
+        const networks = {};
+        for (let i = 0; i < rawCurrency.length; i++) {
+            const networkEntry = this.safeDict(rawCurrency, i);
+            const networkId = this.safeString(networkEntry, 'name');
+            const networkCode = this.networkIdToCode(networkId, code);
+            if (networkCode !== undefined) {
+                networks[networkCode] = {
+                    'id': networkId,
+                    'network': networkCode,
+                    'limits': {
+                        'withdraw': {
+                            'min': undefined,
+                            'max': undefined,
+                        },
+                        'deposit': {
+                            'min': undefined,
+                            'max': undefined,
+                        },
+                    },
+                    'active': undefined,
+                    'deposit': undefined,
+                    'withdraw': undefined,
+                    'fee': undefined,
+                    'precision': undefined,
+                    'info': networkEntry,
+                };
+            }
+        }
+        return this.safeCurrencyStructure({
+            'id': id,
+            'code': code,
+            'precision': undefined,
+            'type': undefined,
+            'name': undefined,
+            'active': undefined,
+            'deposit': undefined,
+            'withdraw': undefined,
+            'fee': undefined,
+            'limits': {
+                'withdraw': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+                'deposit': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+            },
+            'networks': networks,
+            'info': rawCurrency,
+        });
+    }
+    /**
+     * @method
+     * @name luno#fetchMarkets
+     * @description retrieves data on all markets for luno
+     * @see https://www.luno.com/en/developers/api#tag/Market/operation/Markets
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
     async fetchMarkets(params = {}) {
-        /**
-         * @method
-         * @name luno#fetchMarkets
-         * @description retrieves data on all markets for luno
-         * @see https://www.luno.com/en/developers/api#tag/Market/operation/Markets
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
         const response = await this.exchangeGetMarkets(params);
         //
         //     {
@@ -215,7 +566,7 @@ export default class luno extends Exchange {
         //     }
         //
         const result = [];
-        const markets = this.safeValue(response, 'markets', []);
+        const markets = this.safeList(response, 'markets', []);
         for (let i = 0; i < markets.length; i++) {
             const market = markets[i];
             const id = this.safeString(market, 'market_id');
@@ -223,10 +574,43 @@ export default class luno extends Exchange {
             const quoteId = this.safeString(market, 'counter_currency');
             const base = this.safeCurrencyCode(baseId);
             const quote = this.safeCurrencyCode(quoteId);
+            if ((base === undefined) || (quote === undefined)) {
+                continue;
+            }
             const status = this.safeString(market, 'trading_status');
+            // Luno's published schedule is categorical, not a single pair. Entry-tier
+            // rates below are read from Luno's own Help Centre fee article for the ZAR
+            // market; markets quoted in other fiat currencies are left on the
+            // exchange-wide default until their schedules are verified the same way.
+            const fiats = ['ZAR'];
+            // live-but-unverified counters, kept on the exchange-wide default; the market
+            // list is geo-filtered so this is a superset of any one region's view, and
+            // ZARU is Luno's tokenized rand ("ZAR Universal"), not fiat, but equally unverified
+            const unverifiedQuotes = ['MYR', 'NGN', 'IDR', 'KES', 'UGX', 'AUD', 'GBP', 'EUR', 'USD', 'ZARU'];
+            const stablecoins = ['USDT', 'USDC'];
+            let taker = undefined;
+            let maker = undefined;
+            if (this.inArray(quote, fiats)) {
+                if (this.inArray(base, stablecoins)) {
+                    taker = this.parseNumber('0.002');
+                    maker = this.parseNumber('-0.0001'); // a rebate, not a charge
+                }
+                else {
+                    taker = this.parseNumber('0.006');
+                    maker = this.parseNumber('0.004');
+                }
+            }
+            else if (!this.inArray(quote, unverifiedQuotes)) {
+                // stablecoin-quoted (BTC/USDT) and crypto-quoted (ETH/BTC, SOL/ADA) books
+                // are both in Luno's crypto/crypto column
+                taker = this.parseNumber('0.001');
+                maker = this.parseNumber('0.0008');
+            }
             result.push({
                 'id': id,
                 'symbol': base + '/' + quote,
+                'taker': taker,
+                'maker': maker,
                 'base': base,
                 'quote': quote,
                 'settle': undefined,
@@ -276,17 +660,17 @@ export default class luno extends Exchange {
         }
         return result;
     }
+    /**
+     * @method
+     * @name luno#fetchAccounts
+     * @description fetch all the accounts associated with a profile
+     * @see https://www.luno.com/en/developers/api#tag/Accounts/operation/getBalances
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [account structures]{@link https://docs.ccxt.com/?id=account-structure} indexed by the account type
+     */
     async fetchAccounts(params = {}) {
-        /**
-         * @method
-         * @name luno#fetchAccounts
-         * @description fetch all the accounts associated with a profile
-         * @see https://www.luno.com/en/developers/api#tag/Accounts/operation/getBalances
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [account structures]{@link https://docs.ccxt.com/#/?id=account-structure} indexed by the account type
-         */
         const response = await this.privateGetBalance(params);
-        const wallets = this.safeValue(response, 'balance', []);
+        const wallets = this.safeList(response, 'balance', []);
         const result = [];
         for (let i = 0; i < wallets.length; i++) {
             const account = wallets[i];
@@ -296,21 +680,21 @@ export default class luno extends Exchange {
             result.push({
                 'id': accountId,
                 'type': undefined,
-                'currency': code,
+                'code': code,
                 'info': account,
             });
         }
         return result;
     }
     parseBalance(response) {
-        const wallets = this.safeValue(response, 'balance', []);
+        const wallets = this.safeList(response, 'balance', []);
         const result = {
             'info': response,
             'timestamp': undefined,
             'datetime': undefined,
         };
         for (let i = 0; i < wallets.length; i++) {
-            const wallet = wallets[i];
+            const wallet = this.safeDict(wallets, i);
             const currencyId = this.safeString(wallet, 'asset');
             const code = this.safeCurrencyCode(currencyId);
             const reserved = this.safeString(wallet, 'reserved');
@@ -318,11 +702,13 @@ export default class luno extends Exchange {
             const balance = this.safeString(wallet, 'balance');
             const reservedUnconfirmed = Precise.stringAdd(reserved, unconfirmed);
             const balanceUnconfirmed = Precise.stringAdd(balance, unconfirmed);
-            if (code in result) {
-                result[code]['used'] = Precise.stringAdd(result[code]['used'], reservedUnconfirmed);
-                result[code]['total'] = Precise.stringAdd(result[code]['total'], balanceUnconfirmed);
+            if ((code !== undefined) && (code in result)) {
+                result[code] = this.extend(result[code], {
+                    'used': Precise.stringAdd(this.safeString(result[code], 'used'), reservedUnconfirmed),
+                    'total': Precise.stringAdd(this.safeString(result[code], 'total'), balanceUnconfirmed),
+                });
             }
-            else {
+            else if (code !== undefined) {
                 const account = this.account();
                 account['used'] = reservedUnconfirmed;
                 account['total'] = balanceUnconfirmed;
@@ -331,16 +717,18 @@ export default class luno extends Exchange {
         }
         return this.safeBalance(result);
     }
+    /**
+     * @method
+     * @name luno#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://www.luno.com/en/developers/api#tag/Accounts/operation/getBalances
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
     async fetchBalance(params = {}) {
-        /**
-         * @method
-         * @name luno#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://www.luno.com/en/developers/api#tag/Accounts/operation/getBalances
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const response = await this.privateGetBalance(params);
         //
         //     {
@@ -354,19 +742,21 @@ export default class luno extends Exchange {
         //
         return this.parseBalance(response);
     }
+    /**
+     * @method
+     * @name luno#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetOrderBookFull
+     * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetOrderBook
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async fetchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetOrderBookFull
-         * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetOrderBook
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
@@ -407,8 +797,7 @@ export default class luno extends Exchange {
         //     }
         //
         const timestamp = this.safeInteger(order, 'creation_timestamp');
-        let status = this.parseOrderStatus(this.safeString(order, 'state'));
-        status = (status === 'open') ? status : status;
+        const status = this.parseOrderStatus(this.safeString(order, 'state'));
         let side = undefined;
         const orderType = this.safeString(order, 'type');
         if ((orderType === 'ASK') || (orderType === 'SELL')) {
@@ -418,7 +807,7 @@ export default class luno extends Exchange {
             side = 'buy';
         }
         const marketId = this.safeString(order, 'pair');
-        market = this.safeMarket(marketId, market);
+        const marketResolved = this.safeMarket(marketId, market);
         const price = this.safeString(order, 'limit_price');
         const amount = this.safeString(order, 'limit_volume');
         const quoteFee = this.safeNumber(order, 'fee_counter');
@@ -429,13 +818,13 @@ export default class luno extends Exchange {
         if (quoteFee !== undefined) {
             fee = {
                 'cost': quoteFee,
-                'currency': market['quote'],
+                'currency': marketResolved['quote'],
             };
         }
         else if (baseFee !== undefined) {
             fee = {
                 'cost': baseFee,
-                'currency': market['base'],
+                'currency': marketResolved['base'],
             };
         }
         const id = this.safeString(order, 'order_id');
@@ -446,13 +835,12 @@ export default class luno extends Exchange {
             'timestamp': timestamp,
             'lastTradeTimestamp': undefined,
             'status': status,
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'type': undefined,
             'timeInForce': undefined,
             'postOnly': undefined,
             'side': side,
             'price': price,
-            'stopPrice': undefined,
             'triggerPrice': undefined,
             'amount': amount,
             'filled': filled,
@@ -462,27 +850,32 @@ export default class luno extends Exchange {
             'fee': fee,
             'info': order,
             'average': undefined,
-        }, market);
+        }, marketResolved);
     }
+    /**
+     * @method
+     * @name luno#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/GetOrder
+     * @param {string} id order id
+     * @param {string} symbol not used by luno fetchOrder
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/GetOrder
-         * @param {string} symbol not used by luno fetchOrder
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'id': id,
         };
         const response = await this.privateGetOrdersId(this.extend(request, params));
         return this.parseOrder(response);
     }
-    async fetchOrdersByState(state = undefined, symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        await this.loadMarkets();
+    async fetchOrdersByState(state, symbol = undefined, since = undefined, limit = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {};
         let market = undefined;
         if (state !== undefined) {
@@ -496,46 +889,46 @@ export default class luno extends Exchange {
         const orders = this.safeList(response, 'orders', []);
         return this.parseOrders(orders, market, since, limit);
     }
+    /**
+     * @method
+     * @name luno#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/ListOrders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchOrders
-         * @description fetches information on multiple orders made by the user
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/ListOrders
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         return await this.fetchOrdersByState(undefined, symbol, since, limit, params);
     }
+    /**
+     * @method
+     * @name luno#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/ListOrders
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOpenOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/ListOrders
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         return await this.fetchOrdersByState('PENDING', symbol, since, limit, params);
     }
+    /**
+     * @method
+     * @name luno#fetchClosedOrders
+     * @description fetches information on multiple closed orders made by the user
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/ListOrders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchClosedOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchClosedOrders
-         * @description fetches information on multiple closed orders made by the user
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/ListOrders
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         return await this.fetchOrdersByState('COMPLETE', symbol, since, limit, params);
     }
     parseTicker(ticker, market = undefined) {
@@ -575,20 +968,23 @@ export default class luno extends Exchange {
             'info': ticker,
         }, market);
     }
+    /**
+     * @method
+     * @name luno#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
+     * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetTickers
+     * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async fetchTickers(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchTickers
-         * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-         * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetTickers
-         * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
-        symbols = this.marketSymbols(symbols);
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols);
         const response = await this.publicGetTickers(params);
-        const tickers = this.indexBy(response['tickers'], 'pair');
+        const rawTickers = this.safeList(response, 'tickers', []);
+        const tickers = this.indexBy(rawTickers, 'pair');
         const ids = Object.keys(tickers);
         const result = {};
         for (let i = 0; i < ids.length; i++) {
@@ -598,19 +994,21 @@ export default class luno extends Exchange {
             const ticker = tickers[id];
             result[symbol] = this.parseTicker(ticker, market);
         }
-        return this.filterByArrayTickers(result, 'symbol', symbols);
+        return this.filterByArrayTickers(result, 'symbol', symbolsNormalized);
     }
+    /**
+     * @method
+     * @name luno#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetTicker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async fetchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetTicker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
@@ -672,10 +1070,10 @@ export default class luno extends Exchange {
             else if ((type === 'BID') || (type === 'BUY')) {
                 side = 'buy';
             }
-            if (side === 'sell' && trade['is_buy']) {
+            if ((side === 'sell') && (this.safeBool(trade, 'is_buy', false))) {
                 takerOrMaker = 'maker';
             }
-            else if (side === 'buy' && !trade['is_buy']) {
+            else if ((side === 'buy') && (!this.safeBool(trade, 'is_buy', false))) {
                 takerOrMaker = 'maker';
             }
             else {
@@ -683,7 +1081,7 @@ export default class luno extends Exchange {
             }
         }
         else {
-            side = trade['is_buy'] ? 'buy' : 'sell';
+            side = (this.safeBool(trade, 'is_buy', false)) ? 'buy' : 'sell';
         }
         const feeBaseString = this.safeString(trade, 'fee_base');
         const feeCounterString = this.safeString(trade, 'fee_counter');
@@ -691,13 +1089,13 @@ export default class luno extends Exchange {
         let feeCost = undefined;
         if (feeBaseString !== undefined) {
             if (!Precise.stringEquals(feeBaseString, '0.0')) {
-                feeCurrency = market['base'];
+                feeCurrency = this.safeString(market, 'base');
                 feeCost = feeBaseString;
             }
         }
         else if (feeCounterString !== undefined) {
             if (!Precise.stringEquals(feeCounterString, '0.0')) {
-                feeCurrency = market['quote'];
+                feeCurrency = this.safeString(market, 'quote');
                 feeCost = feeCounterString;
             }
         }
@@ -707,7 +1105,7 @@ export default class luno extends Exchange {
             'id': id,
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
-            'symbol': market['symbol'],
+            'symbol': this.safeString(market, 'symbol'),
             'order': orderId,
             'type': undefined,
             'side': side,
@@ -722,19 +1120,21 @@ export default class luno extends Exchange {
             },
         }, market);
     }
+    /**
+     * @method
+     * @name luno#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://www.luno.com/en/developers/api#tag/Market/operation/ListTrades
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
     async fetchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://www.luno.com/en/developers/api#tag/Market/operation/ListTrades
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
@@ -759,20 +1159,22 @@ export default class luno extends Exchange {
         const trades = this.safeList(response, 'trades', []);
         return this.parseTrades(trades, market, since, limit);
     }
+    /**
+     * @method
+     * @name luno#fetchOHLCV
+     * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetCandles
+     * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} params extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async fetchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchOHLCV
-         * @see https://www.luno.com/en/developers/api#tag/Market/operation/GetCandles
-         * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} params extra parameters specific to the luno api endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'duration': this.safeValue(this.timeframes, timeframe, timeframe),
@@ -823,22 +1225,24 @@ export default class luno extends Exchange {
             this.safeNumber(ohlcv, 'volume'),
         ];
     }
+    /**
+     * @method
+     * @name luno#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/ListUserTrades
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
     async fetchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/ListUserTrades
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
         if (symbol === undefined) {
             throw new ArgumentsRequired(this.id + ' fetchMyTrades() requires a symbol argument');
         }
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
@@ -874,17 +1278,19 @@ export default class luno extends Exchange {
         const trades = this.safeList(response, 'trades', []);
         return this.parseTrades(trades, market, since, limit);
     }
+    /**
+     * @method
+     * @name luno#fetchTradingFee
+     * @description fetch the trading fees for a market
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/getFeeInfo
+     * @param {string} symbol unified market symbol
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [fee structure]{@link https://docs.ccxt.com/?id=fee-structure}
+     */
     async fetchTradingFee(symbol, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchTradingFee
-         * @description fetch the trading fees for a market
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/getFeeInfo
-         * @param {string} symbol unified market symbol
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [fee structure]{@link https://docs.ccxt.com/#/?id=fee-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
@@ -906,27 +1312,30 @@ export default class luno extends Exchange {
             'tierBased': undefined,
         };
     }
+    /**
+     * @method
+     * @name luno#createOrder
+     * @description create a trade order
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/PostMarketOrder
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/PostLimitOrder
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async createOrder(symbol, type, side, amount, price = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#createOrder
-         * @description create a trade order
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/PostMarketOrder
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/PostLimitOrder
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
         };
         let response = undefined;
+        this.checkRequiredArgument('createOrder', side, 'side');
         if (type === 'market') {
             request['type'] = side.toUpperCase();
             // todo add createMarketBuyOrderRequires price logic as it is implemented in the other exchanges
@@ -944,89 +1353,98 @@ export default class luno extends Exchange {
             request['type'] = (side === 'buy') ? 'BID' : 'ASK';
             response = await this.privatePostPostorder(this.extend(request, params));
         }
+        if (response === undefined) {
+            throw new NullResponse(this.id + ' createOrder() returned empty response');
+        }
+        const orderId = this.safeString(response, 'order_id');
         return this.safeOrder({
             'info': response,
-            'id': response['order_id'],
+            'id': orderId,
         }, market);
     }
+    /**
+     * @method
+     * @name luno#cancelOrder
+     * @description cancels an open order
+     * @see https://www.luno.com/en/developers/api#tag/Orders/operation/StopOrder
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async cancelOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#cancelOrder
-         * @description cancels an open order
-         * @see https://www.luno.com/en/developers/api#tag/Orders/operation/StopOrder
-         * @param {string} id order id
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'order_id': id,
         };
-        return await this.privatePostStoporder(this.extend(request, params));
+        const response = await this.privatePostStoporder(this.extend(request, params));
+        //
+        //    {
+        //        "success": true
+        //    }
+        //
+        return this.safeOrder({
+            'info': response,
+        });
     }
     async fetchLedgerByEntries(code = undefined, entry = undefined, limit = undefined, params = {}) {
         // by default without entry number or limit number, return most recent entry
-        if (entry === undefined) {
-            entry = -1;
-        }
-        if (limit === undefined) {
-            limit = 1;
-        }
+        const entryValue = (entry === undefined) ? -1 : entry;
+        const limitValue = (limit === undefined) ? 1 : limit;
         const since = undefined;
         const request = {
-            'min_row': entry,
-            'max_row': this.sum(entry, limit),
+            'min_row': entryValue,
+            'max_row': this.sum(entryValue, limitValue),
         };
-        return await this.fetchLedger(code, since, limit, this.extend(request, params));
+        return await this.fetchLedger(code, since, limitValue, this.extend(request, params));
     }
+    /**
+     * @method
+     * @name luno#fetchLedger
+     * @description fetch the history of changes, actions done by the user or operations that altered the balance of the user
+     * @see https://www.luno.com/en/developers/api#tag/Accounts/operation/ListTransactions
+     * @param {string} [code] unified currency code, default is undefined
+     * @param {int} [since] timestamp in ms of the earliest ledger entry, default is undefined
+     * @param {int} [limit] max number of ledger entries to return, default is undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ledger structure]{@link https://docs.ccxt.com/?id=ledger-entry-structure}
+     */
     async fetchLedger(code = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name luno#fetchLedger
-         * @description fetch the history of changes, actions done by the user or operations that altered balance of the user
-         * @see https://www.luno.com/en/developers/api#tag/Accounts/operation/ListTransactions
-         * @param {string} code unified currency code, default is undefined
-         * @param {int} [since] timestamp in ms of the earliest ledger entry, default is undefined
-         * @param {int} [limit] max number of ledger entrys to return, default is undefined
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ledger structure]{@link https://docs.ccxt.com/#/?id=ledger-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         await this.loadAccounts();
         let currency = undefined;
         let id = this.safeString(params, 'id'); // account id
-        let min_row = this.safeValue(params, 'min_row');
-        let max_row = this.safeValue(params, 'max_row');
+        const minRowParam = this.safeInteger(params, 'min_row');
+        const maxRowParam = this.safeInteger(params, 'max_row');
         if (id === undefined) {
             if (code === undefined) {
                 throw new ArgumentsRequired(this.id + ' fetchLedger() requires a currency code argument if no account id specified in params');
             }
             currency = this.currency(code);
             const accountsByCurrencyCode = this.indexBy(this.accounts, 'currency');
-            const account = this.safeValue(accountsByCurrencyCode, code);
+            const account = this.safeDict(accountsByCurrencyCode, code);
             if (account === undefined) {
                 throw new ExchangeError(this.id + ' fetchLedger() could not find account id for ' + code);
             }
-            id = account['id'];
+            id = this.safeString(account, 'id');
         }
-        if (min_row === undefined && max_row === undefined) {
-            max_row = 0; // Default to most recent transactions
-            min_row = -1000; // Maximum number of records supported
-        }
-        else if (min_row === undefined || max_row === undefined) {
+        if ((minRowParam === undefined || maxRowParam === undefined) && (minRowParam !== undefined || maxRowParam !== undefined)) {
             throw new ExchangeError(this.id + " fetchLedger() require both params 'max_row' and 'min_row' or neither to be defined");
         }
-        if (limit !== undefined && max_row - min_row > limit) {
-            if (max_row <= 0) {
-                min_row = max_row - limit;
-            }
-            else if (min_row > 0) {
-                max_row = min_row + limit;
-            }
+        const maxRowBase = this.safeInteger(params, 'max_row', 0); // Default to most recent transactions
+        const minRowBase = this.safeInteger(params, 'min_row', -1000); // Maximum number of records supported
+        const limitApplies = (limit !== undefined) && (maxRowBase - minRowBase > limit);
+        const min_row = (limitApplies && (limit !== undefined) && maxRowBase <= 0) ? maxRowBase - limit : minRowBase;
+        let max_row = maxRowBase;
+        if (limitApplies && maxRowBase > 0 && minRowBase > 0) {
+            max_row = minRowBase + limit;
         }
-        if (max_row - min_row > 1000) {
+        const limitAdjusts = limitApplies && (maxRowBase <= 0 || minRowBase > 0); // max_row - min_row becomes limit
+        if ((limitAdjusts && limit > 1000) || (!limitAdjusts && maxRowBase - minRowBase > 1000)) {
             throw new ExchangeError(this.id + " fetchLedger() requires the params 'max_row' - 'min_row' <= 1000");
         }
         const request = {
@@ -1035,7 +1453,7 @@ export default class luno extends Exchange {
             'max_row': max_row,
         };
         const response = await this.privateGetAccountsIdTransactions(this.extend(params, request));
-        const entries = this.safeValue(response, 'transactions', []);
+        const entries = this.safeList(response, 'transactions', []);
         return this.parseLedger(entries, currency, since, limit);
     }
     parseLedgerComment(comment) {
@@ -1057,7 +1475,7 @@ export default class luno extends Exchange {
         const firstWord = this.safeString(words, 0);
         const thirdWord = this.safeString(words, 2);
         const fourthWord = this.safeString(words, 3);
-        let type = this.safeString(types, firstWord, undefined);
+        let type = this.safeString(types, firstWord);
         if ((type === undefined) && (thirdWord === 'fee')) {
             type = 'fee';
         }
@@ -1076,15 +1494,16 @@ export default class luno extends Exchange {
         const timestamp = this.safeInteger(entry, 'timestamp');
         const currencyId = this.safeString(entry, 'currency');
         const code = this.safeCurrencyCode(currencyId, currency);
+        const currencyResolved = this.safeCurrency(currencyId, currency);
         const available_delta = this.safeString(entry, 'available_delta');
         const balance_delta = this.safeString(entry, 'balance_delta');
         const after = this.safeString(entry, 'balance');
-        const comment = this.safeString(entry, 'description');
+        const comment = this.safeString(entry, 'description', '');
         let before = after;
         let amount = '0.0';
         const result = this.parseLedgerComment(comment);
-        const type = result['type'];
-        const referenceId = result['referenceId'];
+        const resultType = this.safeString(result, 'type');
+        const resultReferenceId = this.safeString(result, 'referenceId');
         let direction = undefined;
         let status = undefined;
         if (!Precise.stringEquals(balance_delta, '0.0')) {
@@ -1106,46 +1525,206 @@ export default class luno extends Exchange {
         else if (Precise.stringLt(balance_delta, '0') || Precise.stringLt(available_delta, '0')) {
             direction = 'out';
         }
-        return {
+        return this.safeLedgerEntry({
+            'info': entry,
             'id': id,
             'direction': direction,
             'account': account_id,
-            'referenceId': referenceId,
+            'referenceId': resultReferenceId,
             'referenceAccount': undefined,
-            'type': type,
+            'type': resultType,
             'currency': code,
-            'amount': this.parseNumber(amount),
+            'amount': this.parseToNumeric(amount),
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
-            'before': this.parseNumber(before),
-            'after': this.parseNumber(after),
+            'before': this.parseToNumeric(before),
+            'after': this.parseToNumeric(after),
             'status': status,
             'fee': undefined,
-            'info': entry,
+        }, currencyResolved);
+    }
+    /**
+     * @method
+     * @name luno#createDepositAddress
+     * @description create a currency deposit address
+     * @see https://www.luno.com/en/developers/api#tag/Receive/operation/createFundingAddress
+     * @param {string} code unified currency code of the currency for the deposit address
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.name] an optional name for the new address
+     * @param {int} [params.account_id] an optional account id for the new address
+     * @param {int} [params.network] the blockchain network id to use
+     * @returns {object} an [address structure]{@link https://docs.ccxt.com/?id=address-structure}
+     */
+    async createDepositAddress(code, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const currency = this.currency(code);
+        const request = {
+            'asset': currency['id'],
+        };
+        const response = await this.privatePostFundingAddress(this.extend(request, params));
+        //
+        //     {
+        //         "account_id": "string",
+        //         "address": "string",
+        //         "address_meta": [
+        //             {
+        //                 "label": "string",
+        //                 "value": "string"
+        //             }
+        //         ],
+        //         "asset": "string",
+        //         "assigned_at": 0,
+        //         "name": "string",
+        //         "network": 0,
+        //         "qr_code_uri": "string",
+        //         "receive_fee": "string",
+        //         "total_received": "string",
+        //         "total_unconfirmed": "string"
+        //     }
+        //
+        return this.parseDepositAddress(response, currency);
+    }
+    /**
+     * @method
+     * @name luno#fetchDepositAddress
+     * @description fetch the deposit address for a currency associated with this account
+     * @see https://www.luno.com/en/developers/api#tag/Receive/operation/getFundingAddress
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.address] a specific cryptocurrency address to retrieve
+     * @param {int} [params.network] the blockchain network id to use
+     * @returns {object} an [address structure]{@link https://docs.ccxt.com/?id=address-structure}
+     */
+    async fetchDepositAddress(code, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const currency = this.currency(code);
+        const request = {
+            'asset': currency['id'],
+        };
+        const response = await this.privateGetFundingAddress(this.extend(request, params));
+        //
+        //     {
+        //         "account_id": "string",
+        //         "address": "string",
+        //         "address_meta": [
+        //             {
+        //                 "label": "string",
+        //                 "value": "string"
+        //             }
+        //         ],
+        //         "asset": "string",
+        //         "assigned_at": 0,
+        //         "name": "string",
+        //         "network": 0,
+        //         "qr_code_uri": "string",
+        //         "receive_fee": "string",
+        //         "total_received": "string",
+        //         "total_unconfirmed": "string"
+        //     }
+        //
+        return this.parseDepositAddress(response, currency);
+    }
+    parseDepositAddress(depositAddress, currency = undefined) {
+        //
+        //     {
+        //         "account_id": "string",
+        //         "address": "string",
+        //         "address_meta": [
+        //             {
+        //                 "label": "string",
+        //                 "value": "string"
+        //             }
+        //         ],
+        //         "asset": "string",
+        //         "assigned_at": 0,
+        //         "name": "string",
+        //         "network": 0,
+        //         "qr_code_uri": "string",
+        //         "receive_fee": "string",
+        //         "total_received": "string",
+        //         "total_unconfirmed": "string"
+        //     }
+        //
+        const currencyId = this.safeStringUpper(depositAddress, 'currency');
+        const code = this.safeCurrencyCode(currencyId, currency);
+        return {
+            'info': depositAddress,
+            'currency': code,
+            'network': undefined,
+            'address': this.safeString(depositAddress, 'address'),
+            'tag': this.safeString(depositAddress, 'name'),
         };
     }
-    sign(path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let url = this.urls['api'][api] + '/' + this.version + '/' + this.implodeParams(path, params);
+    /**
+     * @method
+     * @name luno#fetchDepositWithdrawFee
+     * @description fetch the fee for sending (withdrawing) a currency to a specific address; luno quotes the network fee per destination, so an address is required, see https://github.com/ccxt/ccxt/issues/25830
+     * @see https://www.luno.com/en/developers/api#tag/Send/operation/SendFee
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} params.address the destination address luno should quote the send fee for (required by the exchange)
+     * @returns {object} a [fee structure]{@link https://docs.ccxt.com/?id=fee-structure}
+     */
+    async fetchDepositWithdrawFee(code, params = {}) {
+        const address = this.safeString(params, 'address');
+        if (address === undefined) {
+            throw new ArgumentsRequired(this.id + ' fetchDepositWithdrawFee() requires an "address" parameter - luno quotes the send fee per destination address');
+        }
+        await this.loadMarkets();
+        const currency = this.currency(code);
+        const request = {
+            'currency': currency['id'],
+        };
+        const response = await this.privateGetSendFee(this.extend(request, params));
+        //
+        //     {
+        //         "currency": "XBT",
+        //         "fee": "0.00015"
+        //     }
+        //
+        const result = this.depositWithdrawFee(response);
+        result['withdraw'] = {
+            'fee': this.safeNumber(response, 'fee'),
+            'percentage': false,
+        };
+        return this.assignDefaultDepositWithdrawFees(result, currency);
+    }
+    sign(path, api = ['public'], method = 'GET', params = {}) {
+        const apiName = api[0];
+        const apiUrl = this.safeString(this.urls['api'], apiName);
+        if (apiUrl === undefined) {
+            throw new ExchangeError(this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + '/' + this.version + '/' + this.implodeParams(path, params);
         const query = this.omit(params, this.extractParams(path));
-        if (Object.keys(query).length) {
+        let requestHeaders = undefined;
+        if (Object.keys(query).length > 0) {
             url += '?' + this.urlencode(query);
         }
-        if ((api === 'private') || (api === 'exchangePrivate')) {
+        if ((apiName === 'private') || (apiName === 'exchangePrivate')) {
             this.checkRequiredCredentials();
             const auth = this.stringToBase64(this.apiKey + ':' + this.secret);
-            headers = {
+            requestHeaders = {
                 'Authorization': 'Basic ' + auth,
             };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const headersResolved = requestHeaders;
+        return { 'url': url, 'method': method, 'body': undefined, 'headers': headersResolved };
     }
-    handleErrors(httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody) {
+    handleErrors(code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
             return undefined;
         }
         const error = this.safeValue(response, 'error');
         if (error !== undefined) {
-            throw new ExchangeError(this.id + ' ' + this.json(response));
+            const feedback = this.id + ' ' + this.json(response);
+            const errorCode = this.safeString(response, 'error_code');
+            this.throwExactlyMatchedException(this.exceptions['exact'], errorCode, feedback);
+            throw new ExchangeError(feedback);
         }
         return undefined;
     }

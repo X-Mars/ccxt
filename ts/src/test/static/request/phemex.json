@@ -5,7 +5,179 @@
     ],
     "outputType": "json",
     "methods": {
+        "fetchPositionHistory": [
+            {
+                "description": "default",
+                "method": "fetchPositionHistory",
+                "url": "https://api.phemex.com/api-data/g-futures/closedPosition?symbol=ETHUSDT",
+                "input": [
+                    "ETH/USDT:USDT"
+                ],
+                "output": null
+            }
+        ],
+        "setMarginMode": [
+            {
+                "description": "cross",
+                "method": "setMarginMode",
+                "url": "https://api.phemex.com/g-positions/leverage?symbol=BTCUSDT&leverageRr=-5&leverage=5",
+                "input": [
+                    "cross",
+                    "BTC/USDT:USDT",
+                    {
+                        "leverage": 5
+                    }
+                ],
+                "output": null
+            },
+            {
+                "description": "isolated",
+                "method": "setMarginMode",
+                "url": "https://api.phemex.com/g-positions/leverage?symbol=BTCUSDT&leverageRr=5&leverage=5",
+                "input": [
+                    "isolated",
+                    "BTC/USDT:USDT",
+                    {
+                        "leverage": 5
+                    }
+                ],
+                "output": null
+            }
+        ],
+        "fetchCurrencies": [
+            {
+                "description": "default",
+                "method": "fetchCurrencies",
+                "url": "https://api.phemex.com/public/products",
+                "input": [],
+                "output": null
+            }
+        ],
         "createOrder": [
+            {
+                "description": "swap +buy +limit +triggerPrice +triggerDirection +reduceOnly",
+                "method": "createOrder",
+                "url": "https://api.phemex.com/g-orders",
+                "input": [
+                    "SOL/USDT:USDT",
+                    "limit",
+                    "buy",
+                    0.01,
+                    395,
+                    {
+                        "triggerPrice": 400,
+                        "triggerDirection": "up",
+                        "reduceOnly": true
+                    }
+                ],
+                "output": { "symbol": "SOLUSDT", "side": "Buy", "ordType": "StopLimit", "clOrdID": "CCXT1234561b1598e7648198f0", "stopPxRp": "400", "posSide": "Merged", "orderQtyRq": "0.01", "triggerType": "ByMarkPrice", "priceRp": "395", "reduceOnly": true }
+            },
+            {
+                "description": "swap +buy +market +triggerPrice +triggerDirection +reduceOnly",
+                "method": "createOrder",
+                "url": "https://api.phemex.com/g-orders",
+                "input": [
+                    "SOL/USDT:USDT",
+                    "market",
+                    "buy",
+                    0.01,
+                    null,
+                    {
+                        "triggerPrice": 400,
+                        "triggerDirection": "up",
+                        "reduceOnly": true
+                    }
+                ],
+                "output": { "symbol": "SOLUSDT", "side": "Buy", "ordType": "Stop", "clOrdID": "CCXT123456b6074ff3d4d3ad71", "stopPxRp": "400", "posSide": "Merged", "orderQtyRq": "0.01", "triggerType": "ByMarkPrice", "reduceOnly": true }
+            },
+            {
+                "description": "swap +sell +market +triggerPrice +triggerDirection +reduceOnly",
+                "method": "createOrder",
+                "url": "https://api.phemex.com/g-orders",
+                "input": [
+                    "SOL/USDT:USDT",
+                    "market",
+                    "sell",
+                    0.01,
+                    null,
+                    {
+                        "triggerPrice": 400,
+                        "triggerDirection": "up",
+                        "reduceOnly": true
+                    }
+                ],
+                "output": { "symbol": "SOLUSDT", "side": "Sell", "ordType": "MarketIfTouched", "clOrdID": "CCXT12345604588208b43c8181", "stopPxRp": "400", "posSide": "Merged", "orderQtyRq": "0.01", "triggerType": "ByMarkPrice", "reduceOnly": true }
+            },
+            {
+                "description": "swap +buy +triggerPrice +triggerDirection +reduceOnly",
+                "method": "createOrder",
+                "url": "https://api.phemex.com/g-orders",
+                "input": [
+                    "SOL/USDT:USDT",
+                    "market",
+                    "buy",
+                    0.01,
+                    null,
+                    {
+                        "triggerPrice": 200,
+                        "triggerDirection": "down",
+                        "reduceOnly": true
+                    }
+                ],
+                "output": { "symbol": "SOLUSDT", "side": "Buy", "ordType": "MarketIfTouched", "clOrdID": "CCXT1234567a026aa3e4c0b839", "stopPxRp": "200", "posSide": "Merged", "orderQtyRq": "0.01", "triggerType": "ByMarkPrice", "reduceOnly": true }
+            },
+            {
+                "description": "swap +marginMode +stopLoss +takeProfit +triggerLimitPrices",
+                "method": "createOrder",
+                "url": "https://api.phemex.com/g-orders",
+                "input": [
+                    "SOL/USDT:USDT",
+                    "limit",
+                    "buy",
+                    0.01,
+                    192,
+                    {
+                        "marginMode": "isolated",
+                        "stopLoss": {
+                            "triggerPrice": 190,
+                            "price": 189,
+                            "triggerPriceType": "mark"
+                        },
+                        "takeProfit": {
+                            "triggerPrice": 277,
+                            "price": 278,
+                            "triggerPriceType": "last"
+                        }
+                    }
+                ],
+                "output": { "symbol": "SOLUSDT", "side": "Buy", "ordType": "Limit", "clOrdID": "CCXT123456efbeec36d415aadf", "posSide": "Merged", "orderQtyRq": "0.01", "stopLossRp": "190", "slTrigger": "ByMarkPrice", "slPxRp": "189", "takeProfitRp": "277", "tpTrigger": "ByLastPrice", "tpPxRp": "278", "priceRp": "192", "marginMode": "isolated" }
+            },
+            {
+                "description": "swap +stableSettled +limit, amount is truncated to qtyStepSize precision",
+                "method": "createOrder",
+                "url": "https://api.phemex.com/g-orders",
+                "input": [
+                    "SOL/USDT:USDT",
+                    "limit",
+                    "buy",
+                    0.012345,
+                    195
+                ],
+                "output": { "symbol": "SOLUSDT", "side": "Buy", "ordType": "Limit", "clOrdID": "CCXT123456efbeec36d415aadf", "posSide": "Merged", "orderQtyRq": "0.01", "priceRp": "195" }
+            },
+            {
+                "description": "swap +inverse +limit, orderQty stays an integer number of contracts",
+                "method": "createOrder",
+                "url": "https://api.phemex.com/orders",
+                "input": [
+                    "BTC/USD:BTC",
+                    "limit",
+                    "buy",
+                    2,
+                    60000
+                ],
+                "output": { "symbol": "BTCUSD", "side": "Buy", "ordType": "Limit", "clOrdID": "CCXT123456efbeec36d415aadf", "posSide": "Merged", "orderQty": 2, "priceEp": 600000000 }
+            },
             {
                 "description": "Spot market buy",
                 "method": "createOrder",
@@ -16,7 +188,7 @@
                     "buy",
                     0.1
                 ],
-                "output": "{\"symbol\":\"sLTCUSDT\",\"side\":\"Buy\",\"ordType\":\"Market\",\"clOrdID\":\"ccxt20228e2ff23c142d8430\",\"qtyType\":\"ByBase\",\"baseQtyEv\":10000000}"
+                "output": { "symbol": "sLTCUSDT", "side": "Buy", "ordType": "Market", "clOrdID": "ccxt20228e2ff23c142d8430", "qtyType": "ByBase", "baseQtyEv": 10000000 }
             },
             {
                 "description": "Spot market sell",
@@ -28,7 +200,7 @@
                     "sell",
                     0.1
                 ],
-                "output": "{\"symbol\":\"sLTCUSDT\",\"side\":\"Sell\",\"ordType\":\"Market\",\"clOrdID\":\"ccxt2022682fd099549bbfeb\",\"qtyType\":\"ByBase\",\"baseQtyEv\":10000000}"
+                "output": { "symbol": "sLTCUSDT", "side": "Sell", "ordType": "Market", "clOrdID": "ccxt2022682fd099549bbfeb", "qtyType": "ByBase", "baseQtyEv": 10000000 }
             },
             {
                 "description": "Spot limit buy",
@@ -39,9 +211,22 @@
                     "limit",
                     "buy",
                     0.1,
-                    "55"
+                    55
                 ],
-                "output": "{\"symbol\":\"sLTCUSDT\",\"side\":\"Buy\",\"ordType\":\"Limit\",\"clOrdID\":\"ccxt202269fb13ce74759a10\",\"qtyType\":\"ByBase\",\"baseQtyEv\":10000000,\"priceEp\":5500000000}"
+                "output": { "symbol": "sLTCUSDT", "side": "Buy", "ordType": "Limit", "clOrdID": "ccxt202269fb13ce74759a10", "qtyType": "ByBase", "baseQtyEv": 10000000, "priceEp": 5500000000 }
+            },
+            {
+                "description": "Spot limit buy with float-artifact amount rounds to market precision",
+                "method": "createOrder",
+                "url": "https://testnet-api.phemex.com/spot/orders",
+                "input": [
+                    "LTC/USDT",
+                    "limit",
+                    "buy",
+                    0.10000000800000003,
+                    55
+                ],
+                "output": { "symbol": "sLTCUSDT", "side": "Buy", "ordType": "Limit", "clOrdID": "ccxt202269fb13ce74759a10", "qtyType": "ByBase", "baseQtyEv": 10000000, "priceEp": 5500000000 }
             },
             {
                 "description": "spot limit trigger order",
@@ -57,7 +242,7 @@
                     "triggerPrice": 3500
                   }
                 ],
-                "output": "{\"symbol\":\"sETHUSDT\",\"side\":\"Buy\",\"ordType\":\"StopLimit\",\"clOrdID\":\"CCXT123456ebe0dbfc04c284b5\",\"stopPxEp\":350000000000,\"trigger\":\"ByLastPrice\",\"qtyType\":\"ByBase\",\"baseQtyEv\":100000,\"priceEp\":320000000000}"
+                "output": { "symbol": "sETHUSDT", "side": "Buy", "ordType": "StopLimit", "clOrdID": "CCXT123456ebe0dbfc04c284b5", "stopPxEp": 350000000000, "trigger": "ByLastPrice", "qtyType": "ByBase", "baseQtyEv": 100000, "priceEp": 320000000000 }
             },
             {
                 "description": "spot market trigger order",
@@ -73,7 +258,7 @@
                     "triggerPrice": 3500
                   }
                 ],
-                "output": "{\"symbol\":\"sETHUSDT\",\"side\":\"Buy\",\"ordType\":\"Stop\",\"clOrdID\":\"CCXT1234561e393cf154038656\",\"stopPxEp\":350000000000,\"trigger\":\"ByLastPrice\",\"qtyType\":\"ByBase\",\"baseQtyEv\":100000}"
+                "output": { "symbol": "sETHUSDT", "side": "Buy", "ordType": "Stop", "clOrdID": "CCXT1234561e393cf154038656", "stopPxEp": 350000000000, "trigger": "ByLastPrice", "qtyType": "ByBase", "baseQtyEv": 100000 }
             },
             {
                 "description": "Swap market buy",
@@ -85,7 +270,7 @@
                     "buy",
                     0.1
                 ],
-                "output": "{\"symbol\":\"LTCUSDT\",\"side\":\"Buy\",\"ordType\":\"Market\",\"clOrdID\":\"ccxt20221857f87e9488b077\",\"posSide\":\"Merged\",\"orderQtyRq\":0.1}"
+                "output": { "symbol": "LTCUSDT", "side": "Buy", "ordType": "Market", "clOrdID": "ccxt20221857f87e9488b077", "posSide": "Merged", "orderQtyRq": "0.1" }
             },
             {
                 "description": "swap order with tp/sl attached",
@@ -106,24 +291,41 @@
                     }
                   }
                 ],
-                "output": "{\"symbol\":\"LTCUSDT\",\"side\":\"Buy\",\"ordType\":\"Limit\",\"clOrdID\":\"CCXT123456037657993410b08f\",\"posSide\":\"Merged\",\"orderQtyRq\":0.5,\"stopLossRp\":\"30\",\"takeProfitRp\":\"150\",\"priceRp\":\"50\"}"
+                "output": { "symbol": "LTCUSDT", "side": "Buy", "ordType": "Limit", "clOrdID": "CCXT123456037657993410b08f", "posSide": "Merged", "orderQtyRq": "0.5", "stopLossRp": "30", "takeProfitRp": "150", "priceRp": "50" }
             },
             {
-                "description": "Swap limit buy with trigger price",
+                "description": "Swap sell hedged reduceOnly order",
                 "method": "createOrder",
                 "url": "https://testnet-api.phemex.com/g-orders",
                 "input": [
-                    "LTC/USDT:USDT",
-                    "limit",
-                    "buy",
-                    0.1,
-                    "55",
-                    {
-                        "triggerPrice": 60,
-                        "clientOrderId": "myordr2"
-                    }
+                  "BTC/USDT:USDT",
+                  "market",
+                  "sell",
+                  0.001,
+                  null,
+                  {
+                    "hedged": true,
+                    "reduceOnly": true
+                  }
                 ],
-                "output": "{\"symbol\":\"LTCUSDT\",\"side\":\"Buy\",\"ordType\":\"Limit\",\"clOrdID\":\"myordr2\",\"stopPxRp\":\"60\",\"posSide\":\"Merged\",\"orderQtyRq\":0.1,\"triggerType\":\"ByMarkPrice\",\"priceRp\":\"55\"}"
+                "output": { "symbol": "BTCUSDT", "side": "Sell", "ordType": "Market", "clOrdID": "CCXT1234569a4fe87934c6ab0c", "posSide": "Long", "orderQtyRq": "0.001" }
+            },
+            {
+                "description": "Swap buy hedged reduceOnly order",
+                "method": "createOrder",
+                "url": "https://testnet-api.phemex.com/g-orders",
+                "input": [
+                  "BTC/USDT:USDT",
+                  "market",
+                  "buy",
+                  0.001,
+                  null,
+                  {
+                    "hedged": true,
+                    "reduceOnly": true
+                  }
+                ],
+                "output": { "symbol": "BTCUSDT", "side": "Buy", "ordType": "Market", "clOrdID": "CCXT123456f0ddc1de04ee9efb", "posSide": "Short", "orderQtyRq": "0.001" }
             }
         ],
         "editOrder": [
@@ -137,7 +339,7 @@
                     "limit",
                     "buy",
                     0.11,
-                    "56"
+                    56
                 ]
             },
             {
@@ -150,7 +352,7 @@
                     "limit",
                     "buy",
                     0.14,
-                    "50"
+                    50
                 ]
             }
         ],
@@ -174,13 +376,33 @@
                 ]
             }
         ],
+        "fetchOrder": [
+            {
+                "description": "spot",
+                "method": "fetchOrder",
+                "url": "https://api.phemex.com/api-data/spots/orders/by-order-id?symbol=sBTCUSDT&orderID=123",
+                "input": [
+                  "123",
+                  "BTC/USDT"
+                ]
+            },
+            {
+                "description": "usdt order",
+                "method": "fetchOrder",
+                "url": "https://testnet-api.phemex.com/api-data/g-futures/orders/by-order-id?symbol=LTCUSDT&orderID=a630814b-0b2c-4b84-86fe-62e18b4daba8",
+                "input": [
+                  "a630814b-0b2c-4b84-86fe-62e18b4daba8",
+                  "LTC/USDT:USDT"
+                ]
+            }
+        ],
         "fetchOrders": [
             {
-                "description": "Spot orders",
+                "description": "spot",
                 "method": "fetchOrders",
-                "url": "https://api.phemex.com/spot/orders?symbol=sLTCUSDT",
+                "url": "https://api.phemex.com/api-data/spots/orders?symbol=sBTCUSDT",
                 "input": [
-                    "LTC/USDT"
+                    "BTC/USDT"
                 ]
             },
             {
@@ -201,6 +423,13 @@
             }
         ],
         "fetchMyTrades": [
+            {
+                "description": "by default uses spot",
+                "method": "fetchMyTrades",
+                "url": "https://api.phemex.com/exchange/spot/order/trades",
+                "input": [],
+                "output": null
+            },
             {
                 "description": "Spot private trades",
                 "method": "fetchMyTrades",
@@ -224,7 +453,7 @@
             {
                 "description": "Swap private trades - inverse",
                 "method": "fetchMyTrades",
-                "url": "https://api.phemex.com/exchange/order/trade?limit=5&symbol=BTCUSD&start=1699457638000",
+                "url": "https://api.phemex.com/exchange/order/trade?limit=5&symbol=BTCUSD&start=1699457638000&tradeType=Trade",
                 "input": [
                     "BTC/USD:BTC",
                     1699457638000,
@@ -235,7 +464,12 @@
                 "description": "my trades without symbol should return usdt settled trades",
                 "method": "fetchMyTrades",
                 "url": "https://testnet-api.phemex.com/exchange/order/v2/tradingList?currency=USDT&offset=0&limit=200",
-                "input": []
+                "input": [
+                    null,
+                    null,
+                    null,
+                    {"type": "swap"}
+                ]
             }
         ],
         "fetchOpenOrders": [
@@ -356,7 +590,33 @@
                 ]
             }
         ],
-        "fetchPositions": [
+    "fetchPositions": [
+            {
+                "description": "fetchPosition with privateGetGAccountsPositions",
+                "method": "fetchPositions",
+                "url": "https://api.phemex.com/g-accounts/positions?currency=USDT",
+                "input": [
+                    [
+                        "XRP/USDT:USDT"
+                    ],
+                    {
+                        "method": "privateGetAccountsPositions"
+                    }
+                ],
+                "output": null
+            },
+            {
+                "description": "fetch btc positions",
+                "method": "fetchPositions",
+                "url": "https://testnet-api.phemex.com/accounts/accountPositions?currency=BTC",
+                "input": [
+                    null,
+                    {
+                        "currency": "BTC"
+                    }
+                ],
+                "output": null
+            },
             {
                 "description": "Fetch linear position",
                 "method": "fetchPositions",
@@ -384,6 +644,7 @@
                 "input": [
                     null,
                     {
+                        "code": "USD",
                         "method": "privateGetAccountsPositions"
                     }
                 ]
@@ -428,9 +689,9 @@
         ],
         "fetchDepositAddress": [
             {
-                "description": "fetch USDT deposit address",
+                "description": "fetch the USDT deposit address",
                 "method": "fetchDepositAddress",
-                "url": "https://api.phemex.com/phemex-user/wallets/v2/depositAddress?currency=USDT&chainName=ETH",
+                "url": "https://testnet-api.phemex.com/exchange/wallets/v2/depositAddress?currency=USDT&chainName=ETH",
                 "input": [
                     "USDT"
                 ]
@@ -618,7 +879,7 @@
                     0.03,
                     "6CV4jDnwyiJDEmR5paeiCdia1386c15vvuwLQSScQTCK"
                 ],
-                "output": "{\"currency\":\"SOL\",\"address\":\"6CV4jDnwyiJDEmR5paeiCdia1386c15vvuwLQSScQTCK\",\"amount\":0.03,\"chainName\":\"SOL\"}"
+                "output": { "currency": "SOL", "address": "6CV4jDnwyiJDEmR5paeiCdia1386c15vvuwLQSScQTCK", "amount": 0.03, "chainName": "SOL" }
             }
         ],
         "setLeverage": [
@@ -675,6 +936,20 @@
                 "input": [
                     "BTC/USDT:USDT"
                 ]
+            },
+            {
+                "description": "swap ohlcv with until only",
+                "method": "fetchOHLCV",
+                "url": "https://api.phemex.com/exchange/public/md/v2/kline/list?symbol=BTCUSDT&resolution=60&limit=2000&from=1718517717&to=1718637717",
+                "input": [
+                  "BTC/USDT:USDT",
+                  "1m",
+                  null,
+                  2000,
+                  {
+                    "until": 1718637717000
+                  }
+                ]
             }
         ],
         "fetchFundingRateHistory": [
@@ -689,11 +964,86 @@
         ],
         "fetchFundingRate": [
             {
-                "description": "fundingRate",
+                "description": "linear swap funding rate",
                 "method": "fetchFundingRate",
                 "url": "https://api.phemex.com/md/v2/ticker/24hr?symbol=BTCUSDT",
                 "input": [
                     "BTC/USDT:USDT"
+                ]
+            },
+            {
+                "description": "inverse swap funding rate",
+                "method": "fetchFundingRate",
+                "url": "https://testnet-api.phemex.com/v1/md/ticker/24hr?symbol=BTCUSD",
+                "input": [
+                  "BTC/USD:BTC"
+                ]
+            }
+        ],
+        "fetchOpenInterest": [
+            {
+                "description": "Fetch open interest",
+                "method": "fetchOpenInterest",
+                "url": "https://api.phemex.com/md/v2/ticker/24hr?symbol=BTCUSDT",
+                "input": [
+                "BTC/USDT:USDT"
+                ]
+            }
+        ],
+        "fetchConvertQuote": [
+            {
+                "description": "fetch convert quote",
+                "method": "fetchConvertQuote",
+                "url": "https://api.phemex.com/assets/quote?fromCurrency=BTC&toCurrency=USDT&fromAmountEv=100000",
+                "input": [
+                    "BTC",
+                    "USDT",
+                    0.001
+                ],
+                "output": null
+            }
+        ],
+        "createConvertTrade": [
+            {
+                "description": "create a conversion trade",
+                "method": "createConvertTrade",
+                "url": "https://testnet-api.phemex.com/assets/convert",
+                "input": [
+                  "GLL45PA3J4BDXXXS24HYT542UN4V6MASXYMMC54W2NJXHBKNDD5OG6ZCOF2W65DFIJXSEOT3EJTHE33NIN2XE4TFNZRXSIR2EJKVGRCUEIWCE5DPIN2XE4TFNZRXSIR2EJBFIQZCFQRG64TJM5UW4IR2GEYDAMBQGAYDAMBQFQRHA4TJMNSSEORCGAXDAMBQGAYTAMZVEIWCE4DSNFRWKUZYEI5DCMBTGUWCE4DSNFRWKRTPOJBWC3DDEI5DALRQGAYDAMJQGM2TSMRXGE3TQMJVGYYTIMRZGQWCE4DSN5RWKZLEOMRDUIRQFYYDAMBRGAZTKOJCFQRHA4TPMNSWKZDTIV3CEORRGAZTKOJMEJRW63TWMVZHG2LPNZDGKZKJORSW24ZCHJ5SEY3PNZ3GK4TTNFXW4RTFMVJHK3DFOMRDUWZCI5JECRCVIFGF6RSFIUWTCIS5FQRHI33UMFWEMZLFKJQXIZJCHIYC4MBQGEYDAMBMEJ2G65DBNRDGKZKFOYRDUMJQGAYDAMBQFQRGEYLTMVDGKZKSMF2GKIR2GAXDAMBRGAYDALBCMJQXGZKGMVSUK5RCHIYTAMBQGAYDALBCM5ZGCZDVMFWEMZLFKJQXIZJCHIYC4MBQGEYDAMBMEJTXEYLEOVQWYRTFMVCXMIR2GEYDAMBQGAYCYITQMVXGC3DUPFDGKZKSMF2GKIR2NZ2WY3BMEJYGK3TBNR2HSRTFMVCXMIR2GAWCE53INF2GKTDJON2EMZLFKJQXIZJCHJXHK3DMFQRHO2DJORSUY2LTORDGKZKFOYRDUMBMEJSGKZTBOVWHIRTFMVJGC5DFEI5G45LMNQWCEZDFMZQXK3DUIZSWKRLWEI5DALBCORUGS4TEKBQXE5DZIZSWKUTBORSSEOTOOVWGYLBCORUGS4TEKBQXE5DZIZSWKRLWEI5DALBCOBZGSY3FEI5G45LMNQWCE4DSNFRWKVDZOBSSEOTOOVWGY7JMEJ2GSY3LJFXGM3ZCHJ5SE4DSNFRWKVDZOBSSEORCKZLUCUC7KBJESQ2FL5EU2UCBINKCELBCOJSWMU3ZNVRG63BCHIRHGQSUINKVGRCUEIWCE4DSNFRWKIR2HE3DIMZVGM2TAMBQGAYDALBCONRWC3DFEI5DQLBCORUW2ZLTORQW24BCHIYTOMZZHE3DOMRYGI2DSMZWGY3DKNRZFQRHI32CMFZWKQ3VOJZGK3TDPERDUZTBNRZWK7JMEJWW65TFJ5YCEORQFQRGK6DQNFZGKQLUEI5DCNZTHE4TMNZSHEYTIMJRFQRHEZLROVSXG5CBOQRDUMJXGM4TSNRXGI4DGNBRGEWCE4LVN52GKQLUEI5DCNZTHE4TMNZSHAZDIOJTFQRHC5LPORSUSZBCHIYTOMZZHE3DOMRYGI2DSMZMEJYXK33UMVIHE2LDMVJTIIR2HE3DIMZVGM2TAMBQGAYDALBCN5ZGSZ3JNZJHCIR2GEYC4MBQGAYDAMBQGAWCE4LVN52GKUDSNFRWKIR2HE3DIMZVFYZTKMBQGAYDAMBMEJYHE33DMVSWI42SOERDUMBOGAYDAMJQGM2TSMRXGE3TQMJVGYYTIMRZGQ4SYITCOJUWIZ3FEI5GMYLMONSX2LBCOVZWK4SJMQRDUOJUGA3DMNRMEJRGSZBCHIRCELBCOF2W65DFJNSXSIR2EI3DMODGMUZDSNBNHFRTMMZNGQ2TMMBNHFTDEMZNMM4GIZJVGMZTKZRUG44SE7NUKQTB5FIBAAAA",
+                  "USDT",
+                  "BTC",
+                  10
+                ],
+                "output": {"code":"GLL45PA3J4BDXXXS24HYT542UN4V6MASXYMMC54W2NJXHBKNDD5OG6ZCOF2W65DFIJXSEOT3EJTHE33NIN2XE4TFNZRXSIR2EJKVGRCUEIWCE5DPIN2XE4TFNZRXSIR2EJBFIQZCFQRG64TJM5UW4IR2GEYDAMBQGAYDAMBQFQRHA4TJMNSSEORCGAXDAMBQGAYTAMZVEIWCE4DSNFRWKUZYEI5DCMBTGUWCE4DSNFRWKRTPOJBWC3DDEI5DALRQGAYDAMJQGM2TSMRXGE3TQMJVGYYTIMRZGQWCE4DSN5RWKZLEOMRDUIRQFYYDAMBRGAZTKOJCFQRHA4TPMNSWKZDTIV3CEORRGAZTKOJMEJRW63TWMVZHG2LPNZDGKZKJORSW24ZCHJ5SEY3PNZ3GK4TTNFXW4RTFMVJHK3DFOMRDUWZCI5JECRCVIFGF6RSFIUWTCIS5FQRHI33UMFWEMZLFKJQXIZJCHIYC4MBQGEYDAMBMEJ2G65DBNRDGKZKFOYRDUMJQGAYDAMBQFQRGEYLTMVDGKZKSMF2GKIR2GAXDAMBRGAYDALBCMJQXGZKGMVSUK5RCHIYTAMBQGAYDALBCM5ZGCZDVMFWEMZLFKJQXIZJCHIYC4MBQGEYDAMBMEJTXEYLEOVQWYRTFMVCXMIR2GEYDAMBQGAYCYITQMVXGC3DUPFDGKZKSMF2GKIR2NZ2WY3BMEJYGK3TBNR2HSRTFMVCXMIR2GAWCE53INF2GKTDJON2EMZLFKJQXIZJCHJXHK3DMFQRHO2DJORSUY2LTORDGKZKFOYRDUMBMEJSGKZTBOVWHIRTFMVJGC5DFEI5G45LMNQWCEZDFMZQXK3DUIZSWKRLWEI5DALBCORUGS4TEKBQXE5DZIZSWKUTBORSSEOTOOVWGYLBCORUGS4TEKBQXE5DZIZSWKRLWEI5DALBCOBZGSY3FEI5G45LMNQWCE4DSNFRWKVDZOBSSEOTOOVWGY7JMEJ2GSY3LJFXGM3ZCHJ5SE4DSNFRWKVDZOBSSEORCKZLUCUC7KBJESQ2FL5EU2UCBINKCELBCOJSWMU3ZNVRG63BCHIRHGQSUINKVGRCUEIWCE4DSNFRWKIR2HE3DIMZVGM2TAMBQGAYDALBCONRWC3DFEI5DQLBCORUW2ZLTORQW24BCHIYTOMZZHE3DOMRYGI2DSMZWGY3DKNRZFQRHI32CMFZWKQ3VOJZGK3TDPERDUZTBNRZWK7JMEJWW65TFJ5YCEORQFQRGK6DQNFZGKQLUEI5DCNZTHE4TMNZSHEYTIMJRFQRHEZLROVSXG5CBOQRDUMJXGM4TSNRXGI4DGNBRGEWCE4LVN52GKQLUEI5DCNZTHE4TMNZSHAZDIOJTFQRHC5LPORSUSZBCHIYTOMZZHE3DOMRYGI2DSMZMEJYXK33UMVIHE2LDMVJTIIR2HE3DIMZVGM2TAMBQGAYDALBCN5ZGSZ3JNZJHCIR2GEYC4MBQGAYDAMBQGAWCE4LVN52GKUDSNFRWKIR2HE3DIMZVFYZTKMBQGAYDAMBMEJYHE33DMVSWI42SOERDUMBOGAYDAMJQGM2TSMRXGE3TQMJVGYYTIMRZGQ4SYITCOJUWIZ3FEI5GMYLMONSX2LBCOVZWK4SJMQRDUOJUGA3DMNRMEJRGSZBCHIRCELBCOF2W65DFJNSXSIR2EI3DMODGMUZDSNBNHFRTMMZNGQ2TMMBNHFTDEMZNMM4GIZJVGMZTKZRUG44SE7NUKQTB5FIBAAAA","fromCurrency":"USDT","toCurrency":"BTC","fromAmountEv":1000000000}
+            }
+        ],
+        "fetchConvertTradeHistory": [
+            {
+                "description": "fetch the history of conversion trades from USDT",
+                "method": "fetchConvertTradeHistory",
+                "url": "https://testnet-api.phemex.com/assets/convert?fromCurrency=USDT&limit=1",
+                "input": [
+                  "USDT",
+                  null,
+                  1
+                ]
+            }
+        ],
+        "fetchPositionADLRank": [
+            {
+                "description": "linear swap fetchPositionADLRank",
+                "method": "fetchPositionADLRank",
+                "url": "https://testnet-api.phemex.com/g-accounts/accountPositions?currency=USDT",
+                "input": [
+                    "BTC/USDT:USDT"
+                ]
+            },
+            {
+                "description": "inverse swap fetchPositionADLRank",
+                "method": "fetchPositionADLRank",
+                "url": "https://testnet-api.phemex.com/accounts/accountPositions?currency=BTC",
+                "input": [
+                    "BTC/USD:BTC"
                 ]
             }
         ]

@@ -1,5 +1,4 @@
-import assert from 'assert';
-import { Exchange } from "../../../ccxt";
+import { Exchange } from "../../../ccxt.js";
 import testOpenInterest from './base/test.openInterest.js';
 import testSharedMethods from './base/test.sharedMethods.js';
 
@@ -10,6 +9,7 @@ async function testFetchOpenInterestHistory (exchange: Exchange, skippedProperti
     for (let i = 0; i < openInterestHistory.length; i++) {
         testOpenInterest (exchange, skippedProperties, method, openInterestHistory[i]);
     }
+    return true;
 }
 
 export default testFetchOpenInterestHistory;

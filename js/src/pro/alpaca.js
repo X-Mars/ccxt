@@ -14,15 +14,31 @@ export default class alpaca extends alpacaRest {
         return this.deepExtend(super.describe(), {
             'has': {
                 'ws': true,
+                'createOrderWithTakeProfitAndStopLossWs': false,
+                'createReduceOnlyOrderWs': false,
+                'createStopLossOrderWs': false,
+                'createTakeProfitOrderWs': false,
+                'fetchPositionForSymbolWs': false,
+                'fetchPositionsForSymbolWs': false,
+                'fetchPositionsWs': false,
+                'fetchPositionWs': false,
+                'unWatchPositions': false,
                 'watchBalance': false,
+                'watchLiquidations': false,
+                'watchLiquidationsForSymbols': false,
+                'watchMarkPrice': false,
+                'watchMarkPrices': false,
+                'watchMyLiquidations': false,
+                'watchMyLiquidationsForSymbols': false,
                 'watchMyTrades': true,
                 'watchOHLCV': true,
                 'watchOrderBook': true,
                 'watchOrders': true,
-                'watchTicker': true,
-                'watchTickers': false,
-                'watchTrades': true,
                 'watchPosition': false,
+                'watchPositions': false,
+                'watchTicker': true,
+                'watchTickers': false, // for now
+                'watchTrades': true,
             },
             'urls': {
                 'api': {
@@ -47,18 +63,21 @@ export default class alpaca extends alpacaRest {
             },
         });
     }
+    /**
+     * @method
+     * @name alpaca#watchTicker
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://docs.alpaca.markets/docs/real-time-crypto-pricing-data#quotes
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async watchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name alpaca#watchTicker
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        const url = this.urls['api']['ws']['crypto'];
+        const url = this.safeString(this.safeDict(this.urls['api'], 'ws'), 'crypto');
         await this.authenticate(url);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const messageHash = 'ticker:' + market['symbol'];
         const request = {
@@ -81,9 +100,12 @@ export default class alpaca extends alpacaRest {
         //
         const ticker = this.parseTicker(message);
         const symbol = ticker['symbol'];
-        const messageHash = 'ticker:' + symbol;
-        this.tickers[symbol] = ticker;
-        client.resolve(this.tickers[symbol], messageHash);
+        const tickerSymbol = this.safeString(ticker, 'symbol', '');
+        const messageHash = 'ticker:' + tickerSymbol;
+        if (symbol !== undefined) {
+            this.tickers[symbol] = ticker;
+        }
+        client.resolve(ticker, messageHash);
     }
     parseTicker(ticker, market = undefined) {
         //
@@ -122,33 +144,37 @@ export default class alpaca extends alpacaRest {
             'info': ticker,
         }, market);
     }
+    /**
+     * @method
+     * @name alpaca#watchOHLCV
+     * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://docs.alpaca.markets/docs/real-time-crypto-pricing-data#bars
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async watchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name alpaca#watchOHLCV
-         * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        const url = this.urls['api']['ws']['crypto'];
+        const url = this.safeString(this.safeDict(this.urls['api'], 'ws'), 'crypto');
         await this.authenticate(url);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        symbol = market['symbol'];
+        const symbolValue = this.safeString(market, 'symbol', '');
         const request = {
             'action': 'subscribe',
             'bars': [market['id']],
         };
-        const messageHash = 'ohlcv:' + symbol;
+        const messageHash = 'ohlcv:' + symbolValue;
         const ohlcv = await this.watch(url, messageHash, this.extend(request, params), messageHash);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = ohlcv.getLimit(symbol, limit);
+            limitResolved = ohlcv.getLimit(symbolValue, limit);
         }
-        return this.filterBySinceLimit(ohlcv, since, limit, 0, true);
+        return this.filterBySinceLimit(ohlcv, since, limitResolved, 0, true);
     }
     handleOHLCV(client, message) {
         //
@@ -178,22 +204,25 @@ export default class alpaca extends alpacaRest {
         const messageHash = 'ohlcv:' + symbol;
         client.resolve(stored, messageHash);
     }
+    /**
+     * @method
+     * @name alpaca#watchOrderBook
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://docs.alpaca.markets/docs/real-time-crypto-pricing-data#orderbooks
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return.
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async watchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name alpaca#watchOrderBook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return.
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        const url = this.urls['api']['ws']['crypto'];
+        const url = this.safeString(this.safeDict(this.urls['api'], 'ws'), 'crypto');
         await this.authenticate(url);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        symbol = market['symbol'];
-        const messageHash = 'orderbook' + ':' + symbol;
+        const symbolValue = this.safeString(market, 'symbol', '');
+        const messageHash = 'orderbook' + ':' + symbolValue;
         const request = {
             'action': 'subscribe',
             'orderbooks': [market['id']],
@@ -228,17 +257,17 @@ export default class alpaca extends alpacaRest {
         const datetime = this.safeString(message, 't');
         const timestamp = this.parse8601(datetime);
         const isSnapshot = this.safeBool(message, 'r', false);
-        let orderbook = this.safeValue(this.orderbooks, symbol);
-        if (orderbook === undefined) {
-            orderbook = this.orderBook();
+        if (!(symbol in this.orderbooks)) {
+            this.orderbooks[symbol] = this.orderBook();
         }
+        const orderbook = this.orderbooks[symbol];
         if (isSnapshot) {
             const snapshot = this.parseOrderBook(message, symbol, timestamp, 'b', 'a', 'p', 's');
             orderbook.reset(snapshot);
         }
         else {
-            const asks = this.safeValue(message, 'a', []);
-            const bids = this.safeValue(message, 'b', []);
+            const asks = this.safeList(message, 'a', []);
+            const bids = this.safeList(message, 'b', []);
             this.handleDeltas(orderbook['asks'], asks);
             this.handleDeltas(orderbook['bids'], bids);
             orderbook['timestamp'] = timestamp;
@@ -249,40 +278,39 @@ export default class alpaca extends alpacaRest {
         client.resolve(orderbook, messageHash);
     }
     handleDelta(bookside, delta) {
-        const bidAsk = this.parseBidAsk(delta, 'p', 's');
+        const bidAsk = this.parseOrderBookBidAsk(delta, 'p', 's');
         bookside.storeArray(bidAsk);
     }
-    handleDeltas(bookside, deltas) {
-        for (let i = 0; i < deltas.length; i++) {
-            this.handleDelta(bookside, deltas[i]);
-        }
-    }
+    /**
+     * @method
+     * @name alpaca#watchTrades
+     * @description watches information on multiple trades made in a market
+     * @see https://docs.alpaca.markets/docs/real-time-crypto-pricing-data#trades
+     * @param {string} symbol unified market symbol of the market trades were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of trade structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
     async watchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name alpaca#watchTrades
-         * @description watches information on multiple trades made in a market
-         * @param {string} symbol unified market symbol of the market trades were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of trade structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure
-         */
-        const url = this.urls['api']['ws']['crypto'];
+        const url = this.safeString(this.safeDict(this.urls['api'], 'ws'), 'crypto');
         await this.authenticate(url);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        symbol = market['symbol'];
-        const messageHash = 'trade:' + symbol;
+        const symbolValue = this.safeString(market, 'symbol', '');
+        const messageHash = 'trade:' + symbolValue;
         const request = {
             'action': 'subscribe',
             'trades': [market['id']],
         };
         const trades = await this.watch(url, messageHash, this.extend(request, params), messageHash);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = trades.getLimit(symbol, limit);
+            limitResolved = trades.getLimit(symbolValue, limit);
         }
-        return this.filterBySinceLimit(trades, since, limit, 'timestamp', true);
+        return this.filterBySinceLimit(trades, since, limitResolved, 'timestamp', true);
     }
     handleTrades(client, message) {
         //
@@ -309,25 +337,31 @@ export default class alpaca extends alpacaRest {
         const messageHash = 'trade' + ':' + symbol;
         client.resolve(stored, messageHash);
     }
+    /**
+     * @method
+     * @name alpaca#watchMyTrades
+     * @description watches information on multiple trades made by the user
+     * @see https://docs.alpaca.markets/docs/websocket-streaming#trade-updates
+     * @param {string} symbol unified market symbol of the market trades were made in
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trade structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {boolean} [params.unifiedMargin] use unified margin account
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
     async watchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name alpaca#watchMyTrades
-         * @description watches information on multiple trades made by the user
-         * @param {string} symbol unified market symbol of the market trades were made in
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trade structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {boolean} [params.unifiedMargin] use unified margin account
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure
-         */
-        const url = this.urls['api']['ws']['trading'];
+        const url = this.safeString(this.safeDict(this.urls['api'], 'ws'), 'trading');
         await this.authenticate(url);
         let messageHash = 'myTrades';
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        let symbolResolved = undefined;
         if (symbol !== undefined) {
-            symbol = this.symbol(symbol);
-            messageHash += ':' + symbol;
+            const market = this.market(symbol);
+            const marketSymbol = this.safeString(market, 'symbol', '');
+            symbolResolved = marketSymbol;
+            messageHash = 'myTrades:' + marketSymbol;
         }
         const request = {
             'action': 'listen',
@@ -336,30 +370,35 @@ export default class alpaca extends alpacaRest {
             },
         };
         const trades = await this.watch(url, messageHash, this.extend(request, params), messageHash);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = trades.getLimit(symbol, limit);
+            limitResolved = trades.getLimit(symbolResolved, limit);
         }
-        return this.filterBySinceLimit(trades, since, limit, 'timestamp', true);
+        return this.filterBySinceLimit(trades, since, limitResolved, 'timestamp', true);
     }
+    /**
+     * @method
+     * @name alpaca#watchOrders
+     * @description watches information on multiple orders made by the user
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async watchOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name alpaca#watchOrders
-         * @description watches information on multiple orders made by the user
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure
-         */
-        const url = this.urls['api']['ws']['trading'];
+        const url = this.safeString(this.safeDict(this.urls['api'], 'ws'), 'trading');
         await this.authenticate(url);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let messageHash = 'orders';
+        let symbolResolved = undefined;
         if (symbol !== undefined) {
             const market = this.market(symbol);
-            symbol = market['symbol'];
-            messageHash = 'orders:' + symbol;
+            const marketSymbol = this.safeString(market, 'symbol', '');
+            symbolResolved = marketSymbol;
+            messageHash = 'orders:' + marketSymbol;
         }
         const request = {
             'action': 'listen',
@@ -368,10 +407,11 @@ export default class alpaca extends alpacaRest {
             },
         };
         const orders = await this.watch(url, messageHash, this.extend(request, params), messageHash);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = orders.getLimit(symbol, limit);
+            limitResolved = orders.getLimit(symbolResolved, limit);
         }
-        return this.filterBySymbolSinceLimit(orders, symbol, since, limit, true);
+        return this.filterBySymbolSinceLimit(orders, symbolResolved, since, limitResolved, true);
     }
     handleTradeUpdate(client, message) {
         this.handleOrder(client, message);
@@ -423,8 +463,8 @@ export default class alpaca extends alpacaRest {
         //        }
         //      }
         //
-        const data = this.safeValue(message, 'data', {});
-        const rawOrder = this.safeValue(data, 'order', {});
+        const data = this.safeDict(message, 'data', {});
+        const rawOrder = this.safeDict(data, 'order', {});
         if (this.orders === undefined) {
             const limit = this.safeInteger(this.options, 'ordersLimit', 1000);
             this.orders = new ArrayCacheBySymbolById(limit);
@@ -434,7 +474,8 @@ export default class alpaca extends alpacaRest {
         orders.append(order);
         let messageHash = 'orders';
         client.resolve(orders, messageHash);
-        messageHash = 'orders:' + order['symbol'];
+        const orderSymbol = this.safeString(order, 'symbol', '');
+        messageHash = 'orders:' + orderSymbol;
         client.resolve(orders, messageHash);
     }
     handleMyTrade(client, message) {
@@ -483,20 +524,24 @@ export default class alpaca extends alpacaRest {
         //        }
         //      }
         //
-        const data = this.safeValue(message, 'data', {});
+        const data = this.safeDict(message, 'data', {});
         const event = this.safeString(data, 'event');
         if (event !== 'fill' && event !== 'partial_fill') {
             return;
         }
-        const rawOrder = this.safeValue(data, 'order', {});
+        const rawOrder = this.safeDict(data, 'order', {});
         let myTrades = this.myTrades;
         if (myTrades === undefined) {
             const limit = this.safeInteger(this.options, 'tradesLimit', 1000);
             myTrades = new ArrayCacheBySymbolById(limit);
         }
         const trade = this.parseMyTrade(rawOrder);
+        if (trade === undefined) {
+            return;
+        }
         myTrades.append(trade);
-        let messageHash = 'myTrades:' + trade['symbol'];
+        const tradeSymbol = this.safeString(trade, 'symbol', '');
+        let messageHash = 'myTrades:' + tradeSymbol;
         client.resolve(myTrades, messageHash);
         messageHash = 'myTrades';
         client.resolve(myTrades, messageHash);
@@ -542,6 +587,9 @@ export default class alpaca extends alpacaRest {
         const marketId = this.safeString(trade, 'symbol');
         const datetime = this.safeString(trade, 'filled_at');
         let type = this.safeString(trade, 'type');
+        if (type === undefined) {
+            return undefined;
+        }
         if (type.indexOf('limit') >= 0) {
             // might be limit or stop-limit
             type = 'limit';
@@ -566,7 +614,7 @@ export default class alpaca extends alpacaRest {
         this.checkRequiredCredentials();
         const messageHash = 'authenticated';
         const client = this.client(url);
-        const future = client.future(messageHash);
+        const future = client.reusableFuture(messageHash);
         const authenticated = this.safeValue(client.subscriptions, messageHash);
         if (authenticated === undefined) {
             let request = {
@@ -574,7 +622,7 @@ export default class alpaca extends alpacaRest {
                 'key': this.apiKey,
                 'secret': this.secret,
             };
-            if (url === this.urls['api']['ws']['trading']) {
+            if (url === this.safeString(this.safeDict(this.urls['api'], 'ws'), 'trading')) {
                 // this auth request is being deprecated in test environment
                 request = {
                     'action': 'authenticate',
@@ -596,9 +644,14 @@ export default class alpaca extends alpacaRest {
         //        "msg": "invalid syntax"
         //    }
         //
-        const code = this.safeString(message, 'code');
-        const msg = this.safeValue(message, 'msg', {});
-        throw new ExchangeError(this.id + ' code: ' + code + ' message: ' + msg);
+        const code = this.safeString(message, 'code', '');
+        const msg = this.safeString(message, 'msg');
+        const header = this.id + ' code: ' + code;
+        let errorMessage = header;
+        if (msg !== undefined) {
+            errorMessage = header + ' message: ' + msg;
+        }
+        throw new ExchangeError(errorMessage);
     }
     handleConnected(client, message) {
         //
@@ -652,11 +705,10 @@ export default class alpaca extends alpacaRest {
         }
     }
     handleMessage(client, message) {
-        if (Array.isArray(message)) {
-            this.handleCryptoMessage(client, message);
-            return;
-        }
         this.handleTradingMessage(client, message);
+    }
+    handleListMessage(client, message) {
+        this.handleCryptoMessage(client, message);
     }
     handleAuthenticate(client, message) {
         //
@@ -685,7 +737,7 @@ export default class alpaca extends alpacaRest {
         //    }
         //
         const T = this.safeString(message, 'T');
-        const data = this.safeValue(message, 'data', {});
+        const data = this.safeDict(message, 'data', {});
         const status = this.safeString(data, 'status');
         if (T === 'success' || status === 'authorized') {
             const promise = client.futures['authenticated'];

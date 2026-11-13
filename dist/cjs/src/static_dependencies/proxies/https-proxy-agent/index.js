@@ -32,6 +32,7 @@ var net__namespace = /*#__PURE__*/_interopNamespace(net);
 var tls__namespace = /*#__PURE__*/_interopNamespace(tls);
 var assert__default = /*#__PURE__*/_interopDefaultLegacy(assert);
 
+// ----------------------------------------------------------------------------
 /**
  * The `HttpsProxyAgent` implements an HTTP Agent subclass that connects to
  * the specified "HTTP(s) proxy server" in order to proxy HTTPS requests.
@@ -45,6 +46,10 @@ var assert__default = /*#__PURE__*/_interopDefaultLegacy(assert);
  * the connection to the proxy server has been established.
  */
 class HttpsProxyAgent extends index.Agent {
+    static { this.protocols = ['http', 'https']; }
+    get secureProxy() {
+        return isHTTPS(this.proxy.protocol);
+    }
     constructor(proxy, opts) {
         super(opts);
         this.options = { path: undefined };
@@ -65,9 +70,6 @@ class HttpsProxyAgent extends index.Agent {
             host,
             port,
         };
-    }
-    get secureProxy() {
-        return isHTTPS(this.proxy.protocol);
     }
     /**
      * Called when the node-core HTTP client library is creating a
@@ -154,7 +156,6 @@ class HttpsProxyAgent extends index.Agent {
         return fakeSocket;
     }
 }
-HttpsProxyAgent.protocols = ['http', 'https'];
 function resume(socket) {
     socket.resume();
 }

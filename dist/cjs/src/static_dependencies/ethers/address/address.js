@@ -2,19 +2,18 @@
 
 Object.defineProperty(exports, '__esModule', { value: true });
 
-var sha3 = require('../../noble-hashes/sha3.js');
-require('../utils/base58.js');
+var sha3_js = require('@noble/hashes/sha3.js');
 var errors = require('../utils/errors.js');
-require('../utils/events.js');
-require('../utils/fixednumber.js');
 require('../utils/maths.js');
 require('../utils/utf8.js');
 require('../../../base/functions/platform.js');
 require('../../../base/functions/encode.js');
 require('../../../base/functions/crypto.js');
-require('../../noble-hashes/sha256.js');
+require('../../../base/functions/time.js');
+require('../../../base/functions/io.js');
+require('@noble/hashes/sha2.js');
 
-// TODO: unify address functions in other language? or remove it?
+// ----------------------------------------------------------------------------
 const BN_0 = BigInt(0);
 const BN_36 = BigInt(36);
 function getChecksumAddress(address) {
@@ -27,7 +26,7 @@ function getChecksumAddress(address) {
     for (let i = 0; i < 40; i++) {
         expanded[i] = chars[i].charCodeAt(0);
     }
-    const hashed = sha3.keccak_256(expanded);
+    const hashed = sha3_js.keccak_256(expanded);
     for (let i = 0; i < 40; i += 2) {
         if ((hashed[i >> 1] >> 4) >= 8) {
             chars[i] = chars[i].toUpperCase();

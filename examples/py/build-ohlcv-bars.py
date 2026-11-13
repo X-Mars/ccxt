@@ -14,7 +14,6 @@ import asyncio
 import ccxt.pro as ccxt  # noqa: E402
 
 
-# AUTO-TRANSPILE #
 # Bulding OHLCV array from trades (executions) data is a bit tricky. For example, if you want to build 100 ohlcv bars of 1-minute timeframe, then you have to fetch the 100 minutes of trading data. So, higher timeframe bars require more trading data (i.e. building 100 bars of 1-day timeframe OHLCV would require massive amount of trading data, which might not be desirable for user, because of data-usage rate limits)
 async def example_with_fetch_trades():
     exch = ccxt.binance({})
@@ -39,7 +38,7 @@ async def example_with_watch_trades():
     collected_bars = []
     while True:
         ws_trades = await exch.watch_trades(symbol, since, limit, {})
-        collected_trades = collected_trades.concat(ws_trades)
+        collected_trades = collected_trades + ws_trades
         generated_bars = exch.build_ohlcvc(collected_trades, timeframe, since, limit)
         # Note: first bar would be partially constructed bar and its 'open' & 'high' & 'low' prices (except 'close' price) would probably have different values compared to real bar on chart, because the first obtained trade timestamp might be somewhere in the middle of timeframe period, so the pre-period would be missing because we would not have trades data. To fix that, you can get older data with `fetchTrades` to fill up bars till start bar.
         for i in range(0, len(generated_bars)):

@@ -1,23 +1,25 @@
 
 //  ---------------------------------------------------------------------------
 
+import { sha256 } from '@noble/hashes/sha2.js';
 import cryptocomRest from '../cryptocom.js';
-import { AuthenticationError, InvalidNonce, NetworkError } from '../base/errors.js';
+import { AuthenticationError, ArgumentsRequired, ChecksumError, ExchangeError, NetworkError } from '../base/errors.js';
 import { ArrayCache, ArrayCacheByTimestamp, ArrayCacheBySymbolById, ArrayCacheBySymbolBySide } from '../base/ws/Cache.js';
-import { sha256 } from '../static_dependencies/noble-hashes/sha256.js';
-import type { Int, OrderSide, OrderType, Str, Strings, OrderBook, Order, Trade, Ticker, OHLCV, Position, Balances, Num, Dict } from '../base/types.js';
+import type { Int, OrderSide, OrderType, Str, Strings, OrderBook, Order, Trade, Ticker, OHLCV, Position, Balances, Num, Dict, Tickers, Market } from '../base/types.js';
 import Client from '../base/ws/Client.js';
+import type { WsOrderBook } from '../base/ws/OrderBook.js';
 
 //  ---------------------------------------------------------------------------
 
 export default class cryptocom extends cryptocomRest {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'has': {
                 'ws': true,
                 'watchBalance': true,
                 'watchTicker': true,
-                'watchTickers': false,
+                'watchTickers': true,
+                'watchBidsAsks': true,
                 'watchMyTrades': true,
                 'watchTrades': true,
                 'watchTradesForSymbols': true,
@@ -29,6 +31,7 @@ export default class cryptocom extends cryptocomRest {
                 'createOrderWs': true,
                 'cancelOrderWs': true,
                 'cancelAllOrders': true,
+                'editOrderWs': true,
             },
             'urls': {
                 'api': {
@@ -47,13 +50,16 @@ export default class cryptocom extends cryptocomRest {
                     'fetchPositionsSnapshot': true, // or false
                     'awaitPositionsSnapshot': true, // whether to wait for the positions snapshot before providing updates
                 },
+                'watchOrderBook': {
+                    'checksum': true,
+                },
             },
             'streaming': {
             },
         });
     }
 
-    async pong (client, message) {
+    async pong (client: Client, message: Dict) {
         // {
         //     "id": 1587523073344,
         //     "method": "public/heartbeat",
@@ -62,89 +68,145 @@ export default class cryptocom extends cryptocomRest {
         try {
             await client.send ({ 'id': this.safeInteger (message, 'id'), 'method': 'public/respond-heartbeat' });
         } catch (e) {
-            const error = new NetworkError (this.id + ' pong failed with error ' + this.json (e));
+            const error = new NetworkError (this.id + ' pong failed with error ' + this.exceptionMessage (e));
             client.reset (error);
         }
     }
 
-    async watchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name cryptocom#watchOrderBook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#book-instrument_name
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {string} [params.bookSubscriptionType] The subscription type. Allowed values: SNAPSHOT full snapshot. This is the default if not specified. SNAPSHOT_AND_UPDATE delta updates
-         * @param {int} [params.bookUpdateFrequency] Book update interval in ms. Allowed values: 100 for snapshot subscription 10 for delta subscription
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        return await this.watchOrderBookForSymbols ([ symbol ], limit, params);
+    /**
+     * @method
+     * @name cryptocom#watchOrderBook
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#book-instrument_name
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.bookSubscriptionType] The subscription type. Allowed values: SNAPSHOT full snapshot. This is the default if not specified. SNAPSHOT_AND_UPDATE delta updates
+     * @param {int} [params.bookUpdateFrequency] Book update interval in ms. Allowed values: 100 for snapshot subscription 10 for delta subscription
+     * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override watchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        return this.watchOrderBookForSymbols ([ symbol ], limit, params);
     }
 
-    async watchOrderBookForSymbols (symbols: string[], limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name cryptocom#watchOrderBook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#book-instrument_name
-         * @param {string[]} symbols unified array of symbols
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {string} [params.bookSubscriptionType] The subscription type. Allowed values: SNAPSHOT full snapshot. This is the default if not specified. SNAPSHOT_AND_UPDATE delta updates
-         * @param {int} [params.bookUpdateFrequency] Book update interval in ms. Allowed values: 100 for snapshot subscription 10 for delta subscription
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
-        symbols = this.marketSymbols (symbols);
-        const topics = [];
-        const messageHashes = [];
-        if (!limit) {
-            limit = 50;
+    /**
+     * @method
+     * @name cryptocom#unWatchOrderBook
+     * @description unWatches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#book-instrument_name
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.bookSubscriptionType] The subscription type. Allowed values: SNAPSHOT full snapshot. This is the default if not specified. SNAPSHOT_AND_UPDATE delta updates
+     * @param {int} [params.bookUpdateFrequency] Book update interval in ms. Allowed values: 100 for snapshot subscription 10 for delta subscription
+     * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override unWatchOrderBook (symbol: string, params = {}): Promise<any> {
+        return this.unWatchOrderBookForSymbols ([ symbol ], params);
+    }
+
+    /**
+     * @method
+     * @name cryptocom#watchOrderBookForSymbols
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#book-instrument_name
+     * @param {string[]} symbols unified array of symbols
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.bookSubscriptionType] The subscription type. Allowed values: SNAPSHOT full snapshot. This is the default if not specified. SNAPSHOT_AND_UPDATE delta updates
+     * @param {int} [params.bookUpdateFrequency] Book update interval in ms. Allowed values: 100 for snapshot subscription 10 for delta subscription
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async watchOrderBookForSymbols (symbols: string[], limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: string[] = this.marketSymbols (symbols);
+        const topics: string[] = [];
+        const messageHashes: string[] = [];
+        let limitResolved: number = 50;
+        if ((limit !== undefined) && (limit !== 0)) {
+            limitResolved = limit;
         }
         const topicParams = this.safeValue (params, 'params');
         if (topicParams === undefined) {
             params['params'] = {};
         }
-        let bookSubscriptionType = undefined;
-        let bookSubscriptionType2 = undefined;
-        [ bookSubscriptionType, params ] = this.handleOptionAndParams (params, 'watchOrderBook', 'bookSubscriptionType', 'SNAPSHOT_AND_UPDATE');
-        [ bookSubscriptionType2, params ] = this.handleOptionAndParams (params, 'watchOrderBookForSymbols', 'bookSubscriptionType', bookSubscriptionType);
-        params['params']['bookSubscriptionType'] = bookSubscriptionType2;
-        let bookUpdateFrequency = undefined;
-        let bookUpdateFrequency2 = undefined;
-        [ bookUpdateFrequency, params ] = this.handleOptionAndParams (params, 'watchOrderBook', 'bookUpdateFrequency');
-        [ bookUpdateFrequency2, params ] = this.handleOptionAndParams (params, 'watchOrderBookForSymbols', 'bookUpdateFrequency', bookUpdateFrequency);
+        const [ bookSubscriptionType, paramsBookSubscriptionType ] = this.handleOptionStringAndParams (params, 'watchOrderBook', 'bookSubscriptionType', 'SNAPSHOT_AND_UPDATE');
+        const [ bookSubscriptionType2, paramsBookSubscriptionType2 ] = this.handleOptionStringAndParams (paramsBookSubscriptionType, 'watchOrderBookForSymbols', 'bookSubscriptionType', bookSubscriptionType);
+        paramsBookSubscriptionType2['params']['bookSubscriptionType'] = bookSubscriptionType2;
+        const [ bookUpdateFrequency, paramsBookUpdateFrequency ] = this.handleOptionStringAndParams (paramsBookSubscriptionType2, 'watchOrderBook', 'bookUpdateFrequency');
+        const [ bookUpdateFrequency2, paramsBookUpdateFrequency2 ] = this.handleOptionStringAndParams (paramsBookUpdateFrequency, 'watchOrderBookForSymbols', 'bookUpdateFrequency', bookUpdateFrequency);
         if (bookUpdateFrequency2 !== undefined) {
-            params['params']['bookSubscriptionType'] = bookUpdateFrequency2;
+            paramsBookUpdateFrequency2['params']['bookSubscriptionType'] = bookUpdateFrequency2;
         }
-        for (let i = 0; i < symbols.length; i++) {
-            const symbol = symbols[i];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
             const market = this.market (symbol);
-            const currentTopic = 'book' + '.' + market['id'] + '.' + limit.toString ();
-            const messageHash = 'orderbook:' + market['symbol'];
-            messageHashes.push (messageHash);
-            topics.push (currentTopic);
+            const limitString = this.numberToString (limitResolved);
+            messageHashes.push ('orderbook:' + market['symbol']);
+            topics.push ('book.' + this.safeString (market, 'id', '') + '.' + limitString);
         }
-        const orderbook = await this.watchPublicMultiple (messageHashes, topics, params);
+        const orderbook: WsOrderBook = await this.watchPublicMultiple (messageHashes, topics, paramsBookUpdateFrequency2);
         return orderbook.limit ();
     }
 
-    handleDelta (bookside, delta) {
+    /**
+     * @method
+     * @name cryptocom#unWatchOrderBookForSymbols
+     * @description unWatches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#book-instrument_name
+     * @param {string[]} symbols unified array of symbols
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.limit] orderbook limit, default is 50
+     * @param {string} [params.bookSubscriptionType] The subscription type. Allowed values: SNAPSHOT full snapshot. This is the default if not specified. SNAPSHOT_AND_UPDATE delta updates
+     * @param {int} [params.bookUpdateFrequency] Book update interval in ms. Allowed values: 100 for snapshot subscription 10 for delta subscription
+     * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async unWatchOrderBookForSymbols (symbols: string[], params: Dict = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: string[] = this.marketSymbols (symbols);
+        const topics: string[] = [];
+        const subMessageHashes: string[] = [];
+        const messageHashes: string[] = [];
+        const limit = this.safeInteger (params, 'limit', 50);
+        const topicParams = this.safeValue (params, 'params');
+        if (topicParams === undefined) {
+            params['params'] = {};
+        }
+        const [ bookSubscriptionType, paramsBookSubscriptionType ] = this.handleOptionStringAndParams (params, 'watchOrderBook', 'bookSubscriptionType', 'SNAPSHOT_AND_UPDATE');
+        const [ bookSubscriptionType2, paramsBookSubscriptionType2 ] = this.handleOptionStringAndParams (paramsBookSubscriptionType, 'watchOrderBookForSymbols', 'bookSubscriptionType', bookSubscriptionType);
+        paramsBookSubscriptionType2['params']['bookSubscriptionType'] = bookSubscriptionType2;
+        const [ bookUpdateFrequency, paramsBookUpdateFrequency ] = this.handleOptionStringAndParams (paramsBookSubscriptionType2, 'watchOrderBook', 'bookUpdateFrequency');
+        const [ bookUpdateFrequency2, paramsBookUpdateFrequency2 ] = this.handleOptionStringAndParams (paramsBookUpdateFrequency, 'watchOrderBookForSymbols', 'bookUpdateFrequency', bookUpdateFrequency);
+        if (bookUpdateFrequency2 !== undefined) {
+            paramsBookUpdateFrequency2['params']['bookSubscriptionType'] = bookUpdateFrequency2;
+        }
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
+            const market = this.market (symbol);
+            subMessageHashes.push ('orderbook:' + market['symbol']);
+            messageHashes.push ('unsubscribe:orderbook:' + market['symbol']);
+            topics.push ('book.' + this.safeString (market, 'id', '') + '.' + limit.toString ());
+        }
+        return await this.unWatchPublicMultiple ('orderbook', symbolsNormalized, messageHashes, subMessageHashes, topics, paramsBookUpdateFrequency2);
+    }
+
+    override handleDelta (bookside: any, delta: any) {
         const price = this.safeFloat (delta, 0);
         const amount = this.safeFloat (delta, 1);
         const count = this.safeInteger (delta, 2);
         bookside.storeArray ([ price, amount, count ]);
     }
 
-    handleDeltas (bookside, deltas) {
+    override handleDeltas (bookside: any, deltas: any[]) {
         for (let i = 0; i < deltas.length; i++) {
-            this.handleDelta (bookside, deltas[i]);
+            this.handleDelta (bookside, this.safeValue (deltas, i));
         }
     }
 
-    handleOrderBook (client: Client, message) {
+    handleOrderBook (client: Client, message: Dict) {
         //
         // snapshot
         //    {
@@ -203,8 +265,7 @@ export default class cryptocom extends cryptocomRest {
         const marketId = this.safeString (message, 'instrument_name');
         const market = this.safeMarket (marketId);
         const symbol = market['symbol'];
-        let data = this.safeValue (message, 'data');
-        data = this.safeValue (data, 0);
+        const data = this.safeDict (this.safeList (message, 'data'), 0);
         const timestamp = this.safeInteger (data, 't');
         if (!(symbol in this.orderbooks)) {
             const limit = this.safeInteger (message, 'depth');
@@ -221,67 +282,111 @@ export default class cryptocom extends cryptocomRest {
             orderbook['datetime'] = this.iso8601 (timestamp);
             orderbook['nonce'] = nonce;
         } else {
-            books = this.safeValue (data, 'update', {});
+            books = this.safeDict (data, 'update', {});
             const previousNonce = this.safeInteger (data, 'pu');
-            const currentNonce = orderbook['nonce'];
+            const currentNonce = this.safeInteger (orderbook, 'nonce');
             if (currentNonce !== previousNonce) {
-                throw new InvalidNonce (this.id + ' watchOrderBook() ' + symbol + ' ' + previousNonce + ' != ' + nonce);
+                const checksum = this.handleOption ('watchOrderBook', 'checksum', true);
+                if (checksum === true) {
+                    throw new ChecksumError (this.id + ' ' + this.orderbookChecksumMessage (symbol));
+                }
             }
         }
-        this.handleDeltas (orderbook['asks'], this.safeValue (books, 'asks', []));
-        this.handleDeltas (orderbook['bids'], this.safeValue (books, 'bids', []));
+        this.handleDeltas (orderbook['asks'], this.safeList (books, 'asks', []));
+        this.handleDeltas (orderbook['bids'], this.safeList (books, 'bids', []));
         orderbook['nonce'] = nonce;
         this.orderbooks[symbol] = orderbook;
         const messageHash = 'orderbook:' + symbol;
         client.resolve (orderbook, messageHash);
     }
 
-    async watchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name cryptocom#watchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#trade-instrument_name
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        return await this.watchTradesForSymbols ([ symbol ], since, limit, params);
+    /**
+     * @method
+     * @name cryptocom#watchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#trade-instrument_name
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override watchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        return this.watchTradesForSymbols ([ symbol ], since, limit, params);
     }
 
-    async watchTradesForSymbols (symbols: string[], since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name cryptocom#watchTradesForSymbols
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#trade-instrument_name
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
-        symbols = this.marketSymbols (symbols);
-        const topics = [];
-        for (let i = 0; i < symbols.length; i++) {
-            const symbol = symbols[i];
+    /**
+     * @method
+     * @name cryptocom#unWatchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#trade-instrument_name
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override unWatchTrades (symbol: string, params: Dict = {}) {
+        return this.unWatchTradesForSymbols ([ symbol ], params);
+    }
+
+    /**
+     * @method
+     * @name cryptocom#watchTradesForSymbols
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#trade-instrument_name
+     * @param {string[]} symbols unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async watchTradesForSymbols (symbols: string[], since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: string[] = this.marketSymbols (symbols);
+        const topics: string[] = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
             const market = this.market (symbol);
-            const currentTopic = 'trade' + '.' + market['id'];
-            topics.push (currentTopic);
+            topics.push ('trade.' + this.safeString (market, 'id', ''));
         }
         const trades = await this.watchPublicMultiple (topics, topics, params);
+        const first = this.safeDict (trades, 0);
+        const tradeSymbol = this.safeString (first, 'symbol');
+        let limitResolved: Int = limit;
         if (this.newUpdates) {
-            const first = this.safeValue (trades, 0);
-            const tradeSymbol = this.safeString (first, 'symbol');
-            limit = trades.getLimit (tradeSymbol, limit);
+            limitResolved = trades.getLimit (tradeSymbol, limit);
         }
-        return this.filterBySinceLimit (trades, since, limit, 'timestamp', true);
+        return this.filterBySinceLimit (trades, since, limitResolved, 'timestamp', true);
     }
 
-    handleTrades (client: Client, message) {
+    /**
+     * @method
+     * @name cryptocom#unWatchTradesForSymbols
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#trade-instrument_name
+     * @param {string[]} [symbols] list of unified market symbols to unwatch trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async unWatchTradesForSymbols (symbols: string[], params: Dict = {}): Promise<any> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: string[] = this.marketSymbols (symbols);
+        const topics: string[] = [];
+        const messageHashes: string[] = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
+            const market = this.market (symbol);
+            const currentTopic = 'trade.' + this.safeString (market, 'id', '');
+            messageHashes.push ('unsubscribe:trades:' + market['symbol']);
+            topics.push (currentTopic);
+        }
+        return await this.unWatchPublicMultiple ('trades', symbolsNormalized, messageHashes, topics, topics, params);
+    }
+
+    handleTrades (client: Client, message: Dict) {
         //
         // {
         //     "code": 0,
@@ -305,6 +410,9 @@ export default class cryptocom extends cryptocomRest {
         // }
         //
         const channel = this.safeString (message, 'channel');
+        if (channel === undefined) {
+            return;
+        }
         const marketId = this.safeString (message, 'instrument_name');
         const symbolSpecificMessageHash = this.safeString (message, 'subscription');
         const market = this.safeMarket (marketId);
@@ -315,125 +423,363 @@ export default class cryptocom extends cryptocomRest {
             stored = new ArrayCache (limit);
             this.trades[symbol] = stored;
         }
-        const data = this.safeValue (message, 'data', []);
+        const data = this.safeList (message, 'data', []);
         const dataLength = data.length;
         if (dataLength === 0) {
             return;
         }
         const parsedTrades = this.parseTrades (data, market);
         for (let j = 0; j < parsedTrades.length; j++) {
-            stored.append (parsedTrades[j]);
+            stored.append (this.safeValue (parsedTrades, j));
         }
         const channelReplaced = channel.replace ('.' + marketId, '');
         client.resolve (stored, symbolSpecificMessageHash);
         client.resolve (stored, channelReplaced);
     }
 
-    async watchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name cryptocom#watchMyTrades
-         * @description watches information on multiple trades made by the user
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#user-trade-instrument_name
-         * @param {string} symbol unified market symbol of the market trades were made in
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trade structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure
-         */
-        await this.loadMarkets ();
-        let market = undefined;
+    /**
+     * @method
+     * @name cryptocom#watchMyTrades
+     * @description watches information on multiple trades made by the user
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#user-trade-instrument_name
+     * @param {string} symbol unified market symbol of the market trades were made in
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trade structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async watchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let market: Market = undefined;
+        let symbolResolved: Str = undefined;
         if (symbol !== undefined) {
             market = this.market (symbol);
-            symbol = market['symbol'];
+            symbolResolved = this.safeString (market, 'symbol');
         }
         let messageHash = 'user.trade';
-        messageHash = (market !== undefined) ? (messageHash + '.' + market['id']) : messageHash;
-        const trades = await this.watchPrivateSubscribe (messageHash, params);
-        if (this.newUpdates) {
-            limit = trades.getLimit (symbol, limit);
+        if (market !== undefined) {
+            messageHash = 'user.trade.' + this.safeString (market, 'id', '');
         }
-        return this.filterBySymbolSinceLimit (trades, symbol, since, limit, true);
+        const trades = await this.watchPrivateSubscribe (messageHash, params);
+        let limitResolved: Int = limit;
+        if (this.newUpdates) {
+            limitResolved = trades.getLimit (symbolResolved, limit);
+        }
+        return this.filterBySymbolSinceLimit (trades, symbolResolved, since, limitResolved, true);
     }
 
-    async watchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name cryptocom#watchTicker
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#ticker-instrument_name
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name cryptocom#watchTicker
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#ticker-instrument_name
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async watchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
-        const messageHash = 'ticker' + '.' + market['id'];
-        return await this.watchPublic (messageHash, params);
+        return await this.watchPublic ('ticker.' + this.safeString (market, 'id', ''), params);
     }
 
-    handleTicker (client: Client, message) {
+    /**
+     * @method
+     * @name cryptocom#unWatchTicker
+     * @description unWatches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#ticker-instrument_name
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async unWatchTicker (symbol: string, params: Dict = {}): Promise<any> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const market = this.market (symbol);
+        const subMessageHash = 'ticker.' + this.safeString (market, 'id', '');
+        const messageHash = 'unsubscribe:ticker:' + market['symbol'];
+        return await this.unWatchPublicMultiple ('ticker', [ market['symbol'] ], [ messageHash ], [ subMessageHash ], [ subMessageHash ], params);
+    }
+
+    /**
+     * @method
+     * @name cryptocom#watchTickers
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#ticker-instrument_name
+     * @param {string[]} symbols unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async watchTickers (symbols: Strings = undefined, params: Dict = {}): Promise<Tickers> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: string[] = this.marketSymbols (symbols, undefined, false);
+        const messageHashes: string[] = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
+            messageHashes.push ('ticker.' + this.safeString (this.market (symbol), 'id', ''));
+        }
+        const url = this.urls['api']['ws']['public'];
+        const id = this.incrementingNonce ();
+        const request: Dict = {
+            'method': 'subscribe',
+            'params': {
+                'channels': messageHashes,
+            },
+            'nonce': id,
+        };
+        const ticker = await this.watchMultiple (url, messageHashes, this.extend (request, params), messageHashes);
+        if (this.newUpdates) {
+            const result: Dict = {};
+            const tickerSymbol = this.safeString (ticker, 'symbol');
+            if (tickerSymbol !== undefined) {
+                result[tickerSymbol] = ticker;
+            }
+            return result;
+        }
+        return this.filterByArray (this.tickers, 'symbol', symbolsNormalized);
+    }
+
+    /**
+     * @method
+     * @name cryptocom#unWatchTickers
+     * @description unWatches a price ticker
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#ticker-instrument_name
+     * @param {string[]} symbols unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async unWatchTickers (symbols: Strings = undefined, params: Dict = {}): Promise<any> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: string[] = this.marketSymbols (symbols, undefined, false);
+        const messageHashes: string[] = [];
+        const subMessageHashes: string[] = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
+            subMessageHashes.push ('ticker.' + this.safeString (this.market (symbol), 'id', ''));
+            messageHashes.push ('unsubscribe:ticker:' + symbol);
+        }
+        return await this.unWatchPublicMultiple ('ticker', symbolsNormalized, messageHashes, subMessageHashes, subMessageHashes, params);
+    }
+
+    handleTicker (client: Client, message: Dict) {
         //
-        // {
-        //     "info":{
-        //        "instrument_name":"BTC_USDT",
-        //        "subscription":"ticker.BTC_USDT",
-        //        "channel":"ticker",
-        //        "data":[
-        //           {
-        //              "i":"BTC_USDT",
-        //              "b":43063.19,
-        //              "k":43063.2,
-        //              "a":43063.19,
-        //              "t":1648121165658,
-        //              "v":43573.912409,
-        //              "h":43498.51,
-        //              "l":41876.58,
-        //              "c":1087.43
-        //           }
-        //        ]
+        //     {
+        //       "instrument_name": "ETHUSD-PERP",
+        //       "subscription": "ticker.ETHUSD-PERP",
+        //       "channel": "ticker",
+        //       "data": [
+        //         {
+        //           "h": "2400.20",
+        //           "l": "2277.10",
+        //           "a": "2335.25",
+        //           "c": "-0.0022",
+        //           "b": "2335.10",
+        //           "bs": "5.4000",
+        //           "k": "2335.16",
+        //           "ks": "1.9970",
+        //           "i": "ETHUSD-PERP",
+        //           "v": "1305697.6462",
+        //           "vv": "3058704939.17",
+        //           "oi": "161646.3614",
+        //           "t": 1726069647560
+        //         }
+        //       ]
         //     }
-        //  }
         //
+        this.handleBidAsk (client, message);
         const messageHash = this.safeString (message, 'subscription');
         const marketId = this.safeString (message, 'instrument_name');
         const market = this.safeMarket (marketId);
-        const data = this.safeValue (message, 'data', []);
+        const data: Dict[] = this.safeList (message, 'data', []);
         for (let i = 0; i < data.length; i++) {
             const ticker = data[i];
-            const parsed = this.parseTicker (ticker, market);
+            const parsed = this.parseWsTicker (ticker, market);
             const symbol = parsed['symbol'];
-            this.tickers[symbol] = parsed;
+            if (symbol !== undefined) {
+                this.tickers[symbol] = parsed;
+            }
             client.resolve (parsed, messageHash);
         }
     }
 
-    async watchOHLCV (symbol: string, timeframe = '1m', since: Int = undefined, limit: Int = undefined, params = {}): Promise<OHLCV[]> {
-        /**
-         * @method
-         * @name cryptocom#watchOHLCV
-         * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#candlestick-time_frame-instrument_name
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets ();
-        const market = this.market (symbol);
-        symbol = market['symbol'];
-        const interval = this.safeString (this.timeframes, timeframe, timeframe);
-        const messageHash = 'candlestick' + '.' + interval + '.' + market['id'];
-        const ohlcv = await this.watchPublic (messageHash, params);
-        if (this.newUpdates) {
-            limit = ohlcv.getLimit (symbol, limit);
-        }
-        return this.filterBySinceLimit (ohlcv, since, limit, 0, true);
+    parseWsTicker (ticker: Dict, market: Market = undefined): Ticker {
+        //
+        //     {
+        //       "h": "2400.20",
+        //       "l": "2277.10",
+        //       "a": "2335.25",
+        //       "c": "-0.0022",
+        //       "b": "2335.10",
+        //       "bs": "5.4000",
+        //       "k": "2335.16",
+        //       "ks": "1.9970",
+        //       "i": "ETHUSD-PERP",
+        //       "v": "1305697.6462",
+        //       "vv": "3058704939.17",
+        //       "oi": "161646.3614",
+        //       "t": 1726069647560
+        //     }
+        //
+        const timestamp = this.safeInteger (ticker, 't');
+        const marketId = this.safeString (ticker, 'i');
+        const marketResolved: Market = this.safeMarket (marketId, market, '_');
+        const quote = this.safeString (marketResolved, 'quote');
+        const last = this.safeString (ticker, 'a');
+        return this.safeTicker ({
+            'symbol': marketResolved['symbol'],
+            'timestamp': timestamp,
+            'datetime': this.iso8601 (timestamp),
+            'high': this.safeNumber (ticker, 'h'),
+            'low': this.safeNumber (ticker, 'l'),
+            'bid': this.safeNumber (ticker, 'b'),
+            'bidVolume': this.safeNumber (ticker, 'bs'),
+            'ask': this.safeNumber (ticker, 'k'),
+            'askVolume': this.safeNumber (ticker, 'ks'),
+            'vwap': undefined,
+            'open': undefined,
+            'close': last,
+            'last': last,
+            'previousClose': undefined,
+            'change': undefined,
+            'percentage': this.safeString (ticker, 'c'),
+            'average': undefined,
+            'baseVolume': this.safeString (ticker, 'v'),
+            'quoteVolume': (quote === 'USD') ? this.safeString (ticker, 'vv') : undefined,
+            'info': ticker,
+        }, marketResolved);
     }
 
-    handleOHLCV (client: Client, message) {
+    /**
+     * @method
+     * @name cryptocom#watchBidsAsks
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#ticker-instrument_name
+     * @description watches best bid & ask for symbols
+     * @param {string[]} symbols unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async watchBidsAsks (symbols: Strings = undefined, params: Dict = {}): Promise<Tickers> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: string[] = this.marketSymbols (symbols, undefined, false);
+        const messageHashes: string[] = [];
+        const topics: string[] = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
+            messageHashes.push ('bidask.' + symbol);
+            topics.push ('ticker.' + this.safeString (this.market (symbol), 'id', ''));
+        }
+        const url = this.urls['api']['ws']['public'];
+        const id = this.incrementingNonce ();
+        const request: Dict = {
+            'method': 'subscribe',
+            'params': {
+                'channels': topics,
+            },
+            'nonce': id,
+        };
+        const newTickers = await this.watchMultiple (url, messageHashes, this.extend (request, params), messageHashes);
+        if (this.newUpdates) {
+            const tickers: Dict = {};
+            const newTickersSymbol = this.safeString (newTickers, 'symbol');
+            if (newTickersSymbol !== undefined) {
+                tickers[newTickersSymbol] = newTickers;
+            }
+            return tickers;
+        }
+        return this.filterByArray (this.bidsasks, 'symbol', symbolsNormalized);
+    }
+
+    handleBidAsk (client: Client, message: Dict) {
+        const data = this.safeList (message, 'data', []);
+        const ticker = this.safeDict (data, 0, {});
+        const parsedTicker = this.parseWsBidAsk (ticker);
+        const symbol = this.safeString (parsedTicker, 'symbol', '');
+        if (symbol !== '') {
+            this.bidsasks[symbol] = parsedTicker;
+        }
+        const messageHash = 'bidask.' + symbol;
+        client.resolve (parsedTicker, messageHash);
+    }
+
+    parseWsBidAsk (ticker: Dict, market: Market = undefined): Ticker {
+        const marketId = this.safeString (ticker, 'i');
+        const marketResolved: Market = this.safeMarket (marketId, market);
+        const symbol = this.safeString (marketResolved, 'symbol');
+        const timestamp = this.safeInteger (ticker, 't');
+        return this.safeTicker ({
+            'symbol': symbol,
+            'timestamp': timestamp,
+            'datetime': this.iso8601 (timestamp),
+            'ask': this.safeString (ticker, 'k'),
+            'askVolume': this.safeString (ticker, 'ks'),
+            'bid': this.safeString (ticker, 'b'),
+            'bidVolume': this.safeString (ticker, 'bs'),
+            'info': ticker,
+        }, marketResolved);
+    }
+
+    /**
+     * @method
+     * @name cryptocom#watchOHLCV
+     * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#candlestick-time_frame-instrument_name
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    override async watchOHLCV (symbol: string, timeframe: string = '1m', since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<OHLCV[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const market = this.market (symbol);
+        const interval = this.safeString (this.timeframes, timeframe, timeframe);
+        const ohlcv = await this.watchPublic ('candlestick.' + interval + '.' + this.safeString (market, 'id', ''), params);
+        let limitResolved: Int = limit;
+        if (this.newUpdates) {
+            limitResolved = ohlcv.getLimit (market['symbol'], limit);
+        }
+        return this.filterBySinceLimit (ohlcv, since, limitResolved, 0, true);
+    }
+
+    /**
+     * @method
+     * @name cryptocom#unWatchOHLCV
+     * @description unWatches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#candlestick-time_frame-instrument_name
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    override async unWatchOHLCV (symbol: string, timeframe: string = '1m', params: Dict = {}): Promise<any> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const market = this.market (symbol);
+        const interval = this.safeString (this.timeframes, timeframe, timeframe);
+        const subMessageHash = 'candlestick.' + interval + '.' + this.safeString (market, 'id', '');
+        const messageHash = 'unsubscribe:ohlcv:' + market['symbol'] + ':' + timeframe;
+        const subExtend = {
+            'symbolsAndTimeframes': [ [ market['symbol'], timeframe ] ],
+        };
+        return await this.unWatchPublicMultiple ('ohlcv', [ market['symbol'] ], [ messageHash ], [ subMessageHash ], [ subMessageHash ], params, subExtend);
+    }
+
+    handleOHLCV (client: Client, message: Dict) {
         //
         //  {
         //       "instrument_name": "BTC_USDT",
@@ -450,50 +796,58 @@ export default class cryptocom extends cryptocomRest {
         const symbol = market['symbol'];
         const interval = this.safeString (message, 'interval');
         const timeframe = this.findTimeframe (interval);
-        this.ohlcvs[symbol] = this.safeValue (this.ohlcvs, symbol, {});
-        let stored = this.safeValue (this.ohlcvs[symbol], timeframe);
+        this.ohlcvs[symbol] = this.safeDict (this.ohlcvs, symbol, {});
+        let stored = this.safeValue (this.safeDict (this.ohlcvs, symbol), timeframe);
         if (stored === undefined) {
             const limit = this.safeInteger (this.options, 'OHLCVLimit', 1000);
             stored = new ArrayCacheByTimestamp (limit);
-            this.ohlcvs[symbol][timeframe] = stored;
+            if (symbol !== undefined && timeframe !== undefined) {
+                this.ohlcvs[symbol][timeframe] = stored;
+            }
         }
-        const data = this.safeValue (message, 'data');
+        const data = this.safeList (message, 'data', []);
         for (let i = 0; i < data.length; i++) {
-            const tick = data[i];
+            const tick = this.safeDict (data, i);
             const parsed = this.parseOHLCV (tick, market);
             stored.append (parsed);
         }
         client.resolve (stored, messageHash);
     }
 
-    async watchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name cryptocom#watchOrders
-         * @description watches information on multiple orders made by the user
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#user-order-instrument_name
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
-        let market = undefined;
+    /**
+     * @method
+     * @name cryptocom#watchOrders
+     * @description watches information on multiple orders made by the user
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#user-order-instrument_name
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async watchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let market: Market = undefined;
+        let symbolResolved: Str = undefined;
         if (symbol !== undefined) {
             market = this.market (symbol);
-            symbol = market['symbol'];
+            symbolResolved = this.safeString (market, 'symbol');
         }
         let messageHash = 'user.order';
-        messageHash = (market !== undefined) ? (messageHash + '.' + market['id']) : messageHash;
-        const orders = await this.watchPrivateSubscribe (messageHash, params);
-        if (this.newUpdates) {
-            limit = orders.getLimit (symbol, limit);
+        if (market !== undefined) {
+            messageHash = 'user.order.' + this.safeString (market, 'id', '');
         }
-        return this.filterBySymbolSinceLimit (orders, symbol, since, limit, true);
+        const orders = await this.watchPrivateSubscribe (messageHash, params);
+        let limitResolved: Int = limit;
+        if (this.newUpdates) {
+            limitResolved = orders.getLimit (symbolResolved, limit);
+        }
+        return this.filterBySymbolSinceLimit (orders, symbolResolved, since, limitResolved, true);
     }
 
-    handleOrders (client: Client, message, subscription = undefined) {
+    handleOrders (client: Client, message: Dict, subscription: Dict | undefined = undefined) {
         //
         //    {
         //        "method": "subscribe",
@@ -526,7 +880,7 @@ export default class cryptocom extends cryptocomRest {
         //
         const channel = this.safeString (message, 'channel');
         const symbolSpecificMessageHash = this.safeString (message, 'subscription');
-        const orders = this.safeValue (message, 'data', []);
+        const orders = this.safeList (message, 'data', []);
         const ordersLength = orders.length;
         if (ordersLength > 0) {
             if (this.orders === undefined) {
@@ -545,20 +899,24 @@ export default class cryptocom extends cryptocomRest {
         }
     }
 
-    async watchPositions (symbols: Strings = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Position[]> {
-        /**
-         * @method
-         * @name cryptocom#watchPositions
-         * @description watch all open positions
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#user-position_balance
-         * @param {string[]|undefined} symbols list of unified market symbols
-         * @param {object} params extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/en/latest/manual.html#position-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name cryptocom#watchPositions
+     * @description watch all open positions
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#user-position_balance
+     * @param {string[]} [symbols] list of unified market symbols to watch positions for
+     * @param {int} [since] the earliest time in ms to fetch positions for
+     * @param {int} [limit] the maximum number of positions to retrieve
+     * @param {object} params extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/en/latest/manual.html#position-structure}
+     */
+    override async watchPositions (symbols: Strings = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Position[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         await this.authenticate ();
         const url = this.urls['api']['ws']['private'];
-        const id = this.nonce ();
+        const id = this.incrementingNonce ();
         const request: Dict = {
             'method': 'subscribe',
             'params': {
@@ -567,28 +925,31 @@ export default class cryptocom extends cryptocomRest {
             'nonce': id,
         };
         let messageHash = 'positions';
-        symbols = this.marketSymbols (symbols);
-        if (!this.isEmpty (symbols)) {
-            messageHash = '::' + symbols.join (',');
+        const symbolsNormalized: Strings = this.marketSymbols (symbols);
+        if (!this.isEmpty (symbolsNormalized)) {
+            if (symbolsNormalized === undefined) {
+                throw new ArgumentsRequired (this.id + ' watchPositions() symbols is required');
+            }
+            messageHash = 'positions::' + symbolsNormalized.join (',');
         }
         const client = this.client (url);
-        this.setPositionsCache (client, symbols);
+        this.setPositionsCache (client, symbolsNormalized);
         const fetchPositionsSnapshot = this.handleOption ('watchPositions', 'fetchPositionsSnapshot', true);
-        const awaitPositionsSnapshot = this.safeBool ('watchPositions', 'awaitPositionsSnapshot', true);
-        if (fetchPositionsSnapshot && awaitPositionsSnapshot && this.positions === undefined) {
+        const awaitPositionsSnapshot = this.handleOption ('watchPositions', 'awaitPositionsSnapshot', true);
+        if ((fetchPositionsSnapshot === true) && (awaitPositionsSnapshot === true) && (this.positions === undefined)) {
             const snapshot = await client.future ('fetchPositionsSnapshot');
-            return this.filterBySymbolsSinceLimit (snapshot, symbols, since, limit, true);
+            return this.filterBySymbolsSinceLimit (snapshot, symbolsNormalized, since, limit, true);
         }
         const newPositions = await this.watch (url, messageHash, this.extend (request, params));
         if (this.newUpdates) {
             return newPositions;
         }
-        return this.filterBySymbolsSinceLimit (this.positions, symbols, since, limit, true);
+        return this.filterBySymbolsSinceLimit (this.positions, symbolsNormalized, since, limit, true);
     }
 
-    setPositionsCache (client: Client, type, symbols: Strings = undefined) {
+    setPositionsCache (client: Client, type: any, symbols: Strings = undefined) {
         const fetchPositionsSnapshot = this.handleOption ('watchPositions', 'fetchPositionsSnapshot', false);
-        if (fetchPositionsSnapshot) {
+        if (fetchPositionsSnapshot === true) {
             const messageHash = 'fetchPositionsSnapshot';
             if (!(messageHash in client.futures)) {
                 client.future (messageHash);
@@ -599,24 +960,26 @@ export default class cryptocom extends cryptocomRest {
         }
     }
 
-    async loadPositionsSnapshot (client, messageHash) {
+    async loadPositionsSnapshot (client: Client, messageHash: string) {
         const positions = await this.fetchPositions ();
         this.positions = new ArrayCacheBySymbolBySide ();
-        const cache = this.positions;
+        const cache: ArrayCacheBySymbolBySide = this.positions;
         for (let i = 0; i < positions.length; i++) {
             const position = positions[i];
             const contracts = this.safeNumber (position, 'contracts', 0);
-            if (contracts > 0) {
+            if ((contracts !== undefined) && (contracts > 0)) {
                 cache.append (position);
             }
         }
         // don't remove the future from the .futures cache
-        const future = client.futures[messageHash];
-        future.resolve (cache);
-        client.resolve (cache, 'positions');
+        if (messageHash in client.futures) {
+            const future = client.futures[messageHash];
+            future.resolve (cache);
+            client.resolve (cache, 'positions');
+        }
     }
 
-    handlePositions (client, message) {
+    handlePositions (client: Client, message: Dict) {
         //
         //    {
         //        "subscription": "user.position_balance",
@@ -643,14 +1006,14 @@ export default class cryptocom extends cryptocomRest {
         //
         // each account is connected to a different endpoint
         // and has exactly one subscriptionhash which is the account type
-        const data = this.safeValue (message, 'data', []);
-        const firstData = this.safeValue (data, 0, {});
-        const rawPositions = this.safeValue (firstData, 'positions', []);
+        const data = this.safeList (message, 'data', []);
+        const firstData = this.safeDict (data, 0, {});
+        const rawPositions: Dict[] = this.safeList (firstData, 'positions', []);
         if (this.positions === undefined) {
             this.positions = new ArrayCacheBySymbolBySide ();
         }
-        const cache = this.positions;
-        const newPositions = [];
+        const cache: ArrayCacheBySymbolBySide = this.positions;
+        const newPositions: Position[] = [];
         for (let i = 0; i < rawPositions.length; i++) {
             const rawPosition = rawPositions[i];
             const position = this.parsePosition (rawPosition);
@@ -671,20 +1034,20 @@ export default class cryptocom extends cryptocomRest {
         client.resolve (newPositions, 'positions');
     }
 
-    async watchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name cryptocom#watchBalance
-         * @description watch balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#user-balance
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
+    /**
+     * @method
+     * @name cryptocom#watchBalance
+     * @description watch balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#user-balance
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async watchBalance (params: Dict = {}): Promise<Balances> {
         const messageHash = 'user.balance';
         return await this.watchPrivateSubscribe (messageHash, params);
     }
 
-    handleBalance (client: Client, message) {
+    handleBalance (client: Client, message: Dict) {
         //
         //     {
         //         "id": 1,
@@ -731,49 +1094,83 @@ export default class cryptocom extends cryptocomRest {
         //     }
         //
         const messageHash = this.safeString (message, 'subscription');
-        const data = this.safeValue (message, 'data', []);
-        const positionBalances = this.safeValue (data[0], 'position_balances', []);
+        const data = this.safeList (message, 'data', []);
+        const positionBalances: Dict[] = this.safeList (data[0], 'position_balances', []);
         this.balance['info'] = data;
         for (let i = 0; i < positionBalances.length; i++) {
-            const balance = positionBalances[i];
+            const balance = this.safeDict (positionBalances, i);
             const currencyId = this.safeString (balance, 'instrument_name');
             const code = this.safeCurrencyCode (currencyId);
             const account = this.account ();
             account['total'] = this.safeString (balance, 'quantity');
             account['used'] = this.safeString (balance, 'reserved_qty');
-            this.balance[code] = account;
+            if (code !== undefined) {
+                this.balance[code] = account;
+            }
             this.balance = this.safeBalance (this.balance);
         }
         client.resolve (this.balance, messageHash);
         const messageHashRequest = this.safeString (message, 'id');
-        client.resolve (this.balance, messageHashRequest);
+        if (messageHashRequest !== undefined) {
+            client.resolve (this.balance, messageHashRequest);
+        }
     }
 
-    async createOrderWs (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}): Promise<Order> {
-        /**
-         * @method
-         * @name cryptocom#createOrderWs
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#private-create-order
-         * @description create a trade order
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
-        params = this.createOrderRequest (symbol, type, side, amount, price, params);
+    /**
+     * @method
+     * @name cryptocom#createOrderWs
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#private-create-order
+     * @description create a trade order
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async createOrderWs (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const paramsValue: Dict = this.createOrderRequest (symbol, type, side, amount, price, params);
         const request: Dict = {
             'method': 'private/create-order',
-            'params': params,
+            'params': paramsValue,
         };
-        const messageHash = this.nonce ();
+        const messageHash = this.incrementingNonce ();
         return await this.watchPrivateRequest (messageHash, request);
     }
 
-    handleOrder (client: Client, message) {
+    /**
+     * @method
+     * @name cryptocom#editOrderWs
+     * @description edit a trade order
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#private-amend-order
+     * @param {string} id order id
+     * @param {string} symbol unified market symbol of the order to edit
+     * @param {string} [type] not used by cryptocom editOrder
+     * @param {string} [side] not used by cryptocom editOrder
+     * @param {float} amount (mandatory) how much of the currency you want to trade in units of the base currency
+     * @param {float} price (mandatory) the price for the order, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.clientOrderId] the original client order id of the order to edit, required if id is not provided
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async editOrderWs (id: string, symbol: string, type: OrderType, side: OrderSide, amount: Num = undefined, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const paramsValue: Dict = this.editOrderRequest (id, symbol, amount, price, params);
+        const request: Dict = {
+            'method': 'private/amend-order',
+            'params': paramsValue,
+        };
+        const messageHash = this.incrementingNonce ();
+        return await this.watchPrivateRequest (messageHash, request);
+    }
+
+    handleOrder (client: Client, message: Dict) {
         //
         //    {
         //        "id": 1,
@@ -786,46 +1183,50 @@ export default class cryptocom extends cryptocomRest {
         //    }
         //
         const messageHash = this.safeString (message, 'id');
-        const rawOrder = this.safeValue (message, 'result', {});
+        const rawOrder = this.safeDict (message, 'result', {});
         const order = this.parseOrder (rawOrder);
         client.resolve (order, messageHash);
     }
 
-    async cancelOrderWs (id: string, symbol: Str = undefined, params = {}): Promise<Order> {
-        /**
-         * @method
-         * @name cryptocom#cancelOrder
-         * @description cancels an open order
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#private-cancel-order
-         * @param {string} id the order id of the order to cancel
-         * @param {string} [symbol] unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
-        params = this.extend ({
+    /**
+     * @method
+     * @name cryptocom#cancelOrderWs
+     * @description cancels an open order
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#private-cancel-order
+     * @param {string} id the order id of the order to cancel
+     * @param {string} [symbol] unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrderWs (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const paramsExtended: Dict = this.extend ({
             'order_id': id,
         }, params);
         const request: Dict = {
             'method': 'private/cancel-order',
-            'params': params,
+            'params': paramsExtended,
         };
-        const messageHash = this.nonce ();
+        const messageHash = this.incrementingNonce ();
         return await this.watchPrivateRequest (messageHash, request);
     }
 
-    async cancelAllOrdersWs (symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name cryptocom#cancelAllOrdersWs
-         * @description cancel all open orders
-         * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#private-cancel-all-orders
-         * @param {string} symbol unified market symbol of the orders to cancel
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} Returns exchange raw message {@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
-        let market = undefined;
+    /**
+     * @method
+     * @name cryptocom#cancelAllOrdersWs
+     * @description cancel all open orders
+     * @see https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#private-cancel-all-orders
+     * @param {string} symbol unified market symbol of the orders to cancel
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} Returns exchange raw message {@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelAllOrdersWs (symbol: Str = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let market: Market = undefined;
         const request: Dict = {
             'method': 'private/cancel-all-orders',
             'params': this.extend ({}, params),
@@ -834,11 +1235,11 @@ export default class cryptocom extends cryptocomRest {
             market = this.market (symbol);
             request['params']['instrument_name'] = market['id'];
         }
-        const messageHash = this.nonce ();
-        return await this.watchPrivateRequest (messageHash, request);
+        const messageHash = this.incrementingNonce ();
+        return await this.watchPrivateRequest (messageHash, request) as Order[];
     }
 
-    handleCancelAllOrders (client: Client, message) {
+    handleCancelAllOrders (client: Client, message: Dict) {
         //
         //    {
         //        "id": 1688914586647,
@@ -850,9 +1251,9 @@ export default class cryptocom extends cryptocomRest {
         client.resolve (message, messageHash);
     }
 
-    async watchPublic (messageHash, params = {}) {
+    async watchPublic (messageHash: Str, params: Dict = {}) {
         const url = this.urls['api']['ws']['public'];
-        const id = this.nonce ();
+        const id = this.incrementingNonce ();
         const request: Dict = {
             'method': 'subscribe',
             'params': {
@@ -864,9 +1265,9 @@ export default class cryptocom extends cryptocomRest {
         return await this.watch (url, messageHash, message, messageHash);
     }
 
-    async watchPublicMultiple (messageHashes, topics, params = {}) {
+    async watchPublicMultiple (messageHashes: string[], topics: string[], params: Dict = {}) {
         const url = this.urls['api']['ws']['public'];
-        const id = this.nonce ();
+        const id = this.incrementingNonce ();
         const request: Dict = {
             'method': 'subscribe',
             'params': {
@@ -878,7 +1279,29 @@ export default class cryptocom extends cryptocomRest {
         return await this.watchMultiple (url, messageHashes, message, messageHashes);
     }
 
-    async watchPrivateRequest (nonce, params = {}) {
+    async unWatchPublicMultiple (topic: string, symbols: string[], messageHashes: string[], subMessageHashes: string[], topics: string[], params: Dict = {}, subExtend: Dict = {}) {
+        const url = this.urls['api']['ws']['public'];
+        const id = this.incrementingNonce ();
+        const request: Dict = {
+            'method': 'unsubscribe',
+            'params': {
+                'channels': topics,
+            },
+            'nonce': id,
+            'id': this.numberToString (id),
+        };
+        const subscription = {
+            'id': this.numberToString (id),
+            'topic': topic,
+            'symbols': symbols,
+            'subMessageHashes': subMessageHashes,
+            'messageHashes': messageHashes,
+        };
+        const message = this.deepExtend (request, params);
+        return await this.watchMultiple (url, messageHashes, message, messageHashes, this.extend (subscription, subExtend));
+    }
+
+    async watchPrivateRequest (nonce: number, params: Dict = {}) {
         await this.authenticate ();
         const url = this.urls['api']['ws']['private'];
         const request: Dict = {
@@ -886,13 +1309,13 @@ export default class cryptocom extends cryptocomRest {
             'nonce': nonce,
         };
         const message = this.extend (request, params);
-        return await this.watch (url, nonce.toString (), message, true);
+        return await this.watch (url, this.numberToString (nonce), message, true);
     }
 
-    async watchPrivateSubscribe (messageHash, params = {}) {
+    async watchPrivateSubscribe (messageHash: Str, params: Dict = {}) {
         await this.authenticate ();
         const url = this.urls['api']['ws']['private'];
-        const id = this.nonce ();
+        const id = this.incrementingNonce ();
         const request: Dict = {
             'method': 'subscribe',
             'params': {
@@ -904,7 +1327,7 @@ export default class cryptocom extends cryptocomRest {
         return await this.watch (url, messageHash, message, messageHash);
     }
 
-    handleErrorMessage (client: Client, message) {
+    handleErrorMessage (client: Client, message: Dict): boolean {
         //
         //    {
         //        "id": 0,
@@ -913,15 +1336,17 @@ export default class cryptocom extends cryptocomRest {
         //        "message": "invalid channel {"channels":["trade.BTCUSD-PERP"]}"
         //    }
         //
+        const id = this.safeString (message, 'id');
         const errorCode = this.safeString (message, 'code');
         try {
-            if (errorCode && errorCode !== '0') {
+            if ((errorCode !== undefined && errorCode !== '') && errorCode !== '0') {
                 const feedback = this.id + ' ' + this.json (message);
                 this.throwExactlyMatchedException (this.exceptions['exact'], errorCode, feedback);
-                const messageString = this.safeValue (message, 'message');
+                const messageString = this.safeString (message, 'message');
                 if (messageString !== undefined) {
                     this.throwBroadlyMatchedException (this.exceptions['broad'], messageString, feedback);
                 }
+                throw new ExchangeError (feedback);
             }
             return false;
         } catch (e) {
@@ -932,13 +1357,13 @@ export default class cryptocom extends cryptocomRest {
                     delete client.subscriptions[messageHash];
                 }
             } else {
-                client.reject (e);
+                client.reject (e, id);
             }
             return true;
         }
     }
 
-    handleSubscribe (client: Client, message) {
+    handleSubscribe (client: Client, message: Dict) {
         const methods: Dict = {
             'candlestick': this.handleOHLCV,
             'ticker': this.handleTicker,
@@ -966,7 +1391,7 @@ export default class cryptocom extends cryptocomRest {
         }
     }
 
-    handleMessage (client: Client, message) {
+    override handleMessage (client: Client, message: Dict) {
         //
         // ping
         //    {
@@ -997,6 +1422,9 @@ export default class cryptocom extends cryptocomRest {
         //           "channel":"ticker",
         //           "data":[ { } ]
         //
+        // handle unsubscribe
+        // {"id":1725448572836,"method":"unsubscribe","code":0}
+        //
         if (this.handleErrorMessage (client, message)) {
             return;
         }
@@ -1006,10 +1434,12 @@ export default class cryptocom extends cryptocomRest {
             'public/heartbeat': this.handlePing,
             'public/auth': this.handleAuthenticate,
             'private/create-order': this.handleOrder,
+            'private/amend-order': this.handleOrder,
             'private/cancel-order': this.handleOrder,
             'private/cancel-all-orders': this.handleCancelAllOrders,
             'private/close-position': this.handleOrder,
             'subscribe': this.handleSubscribe,
+            'unsubscribe': this.handleUnsubscribe,
         };
         const callMethod = this.safeValue (methods, method);
         if (callMethod !== undefined) {
@@ -1017,16 +1447,17 @@ export default class cryptocom extends cryptocomRest {
         }
     }
 
-    async authenticate (params = {}) {
+    async authenticate (params: Dict = {}) {
         this.checkRequiredCredentials ();
         const url = this.urls['api']['ws']['private'];
         const client = this.client (url);
         const messageHash = 'authenticated';
-        const future = client.future (messageHash);
+        const future = client.reusableFuture (messageHash);
         const authenticated = this.safeValue (client.subscriptions, messageHash);
         if (authenticated === undefined) {
             const method = 'public/auth';
-            const nonce = this.nonce ().toString ();
+            const nonceValue = this.incrementingNonce ();
+            const nonce = this.numberToString (nonceValue);
             const auth = method + nonce + this.apiKey + nonce;
             const signature = this.hmac (this.encode (auth), this.encode (this.secret), sha256);
             const request: Dict = {
@@ -1042,15 +1473,42 @@ export default class cryptocom extends cryptocomRest {
         return await future;
     }
 
-    handlePing (client: Client, message) {
+    handlePing (client: Client, message: Dict) {
         this.spawn (this.pong, client, message);
     }
 
-    handleAuthenticate (client: Client, message) {
+    handleAuthenticate (client: Client, message: Dict) {
         //
         //  { id: 1648132625434, method: "public/auth", code: 0 }
         //
         const future = this.safeValue (client.futures, 'authenticated');
         future.resolve (true);
+    }
+
+    handleUnsubscribe (client: Client, message: Dict) {
+        const id = this.safeString (message, 'id');
+        const keys = Object.keys (client.subscriptions);
+        for (let i = 0; i < keys.length; i++) {
+            const messageHash = keys[i];
+            if (!(messageHash in client.subscriptions)) {
+                continue;
+                // the previous iteration can have deleted the messageHash from the subscriptions
+            }
+            if (messageHash.startsWith ('unsubscribe')) {
+                const subscription = this.safeValue (client.subscriptions, messageHash);
+                const subId = this.safeString (subscription, 'id');
+                if (id !== subId) {
+                    continue;
+                }
+                const messageHashes: string[] = this.safeList (subscription, 'messageHashes', []);
+                const subMessageHashes: string[] = this.safeList (subscription, 'subMessageHashes', []);
+                for (let j = 0; j < messageHashes.length; j++) {
+                    const unsubHash = messageHashes[j];
+                    const subHash = subMessageHashes[j];
+                    this.cleanUnsubscription (client, subHash, unsubHash);
+                }
+                this.cleanCache (subscription);
+            }
+        }
     }
 }

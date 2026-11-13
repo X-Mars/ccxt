@@ -2,10 +2,10 @@
 //  ---------------------------------------------------------------------------
 
 import Exchange from './abstract/onetrading.js';
-import { AuthenticationError, ExchangeError, PermissionDenied, BadRequest, ArgumentsRequired, OrderNotFound, InsufficientFunds, ExchangeNotAvailable, DDoSProtection, InvalidAddress, InvalidOrder } from './base/errors.js';
+import { AuthenticationError, ExchangeError, PermissionDenied, BadRequest, ArgumentsRequired, OrderNotFound, InsufficientFunds, ExchangeNotAvailable, DDoSProtection, InvalidAddress, InvalidOrder, NotSupported } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
-import type { Balances, Currencies, Currency, Dict, Int, Market, Num, OHLCV, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade, TradingFees, Transaction, int } from './base/types.js';
+import type { Balances, Currencies, CurrencyInterface, Dict, NullableDict, FeeString, Int, List, Market, Num, OHLCV, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade, TradingFees, int, Endpoint } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ import type { Balances, Currencies, Currency, Dict, Int, Market, Num, OHLCV, Ord
  * @augments Exchange
  */
 export default class onetrading extends Exchange {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'id': 'onetrading',
             'name': 'One Trading',
@@ -27,50 +27,79 @@ export default class onetrading extends Exchange {
                 'CORS': undefined,
                 'spot': true,
                 'margin': false,
-                'swap': false,
-                'future': false,
+                'swap': true,
+                'future': true,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelAllOrders': true,
                 'cancelOrder': true,
                 'cancelOrders': true,
                 'closeAllPositions': false,
                 'closePosition': false,
-                'createDepositAddress': true,
+                'createDepositAddress': false,
                 'createOrder': true,
                 'createReduceOnlyOrder': false,
                 'createStopLimitOrder': true,
                 'createStopMarketOrder': false,
                 'createStopOrder': true,
                 'fetchAccounts': false,
+                'fetchAllGreeks': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchClosedOrders': true,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
                 'fetchCurrencies': true,
                 'fetchDeposit': false,
-                'fetchDepositAddress': true,
+                'fetchDepositAddress': false,
                 'fetchDepositAddresses': false,
-                'fetchDeposits': true,
+                'fetchDepositAddressesByNetwork': false,
+                'fetchDeposits': false,
                 'fetchDepositsWithdrawals': false,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLedger': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
+                'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
                 'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrice': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
                 'fetchOHLCV': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchOrders': false,
@@ -83,10 +112,11 @@ export default class onetrading extends Exchange {
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchTicker': true,
                 'fetchTickers': true,
                 'fetchTime': true,
-                'fetchTrades': true,
+                'fetchTrades': false,
                 'fetchTradingFee': false,
                 'fetchTradingFees': true,
                 'fetchTransactionFee': false,
@@ -94,15 +124,19 @@ export default class onetrading extends Exchange {
                 'fetchTransactions': false,
                 'fetchTransfer': false,
                 'fetchTransfers': false,
+                'fetchUnderlyingAssets': false,
+                'fetchVolatilityHistory': false,
                 'fetchWithdrawal': false,
-                'fetchWithdrawals': true,
+                'fetchWithdrawals': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
                 'setLeverage': false,
                 'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
                 'transfer': false,
-                'withdraw': true,
+                'withdraw': false,
             },
             'timeframes': {
                 '1m': '1/MINUTES',
@@ -116,10 +150,10 @@ export default class onetrading extends Exchange {
                 '1M': '1/MONTHS',
             },
             'urls': {
-                'logo': 'https://github.com/ccxt/ccxt/assets/43336371/bdbc26fd-02f2-4ca7-9f1e-17333690bb1c',
+                'logo': 'https://github.com/user-attachments/assets/341a1b01-7660-402a-9a2b-876391e52f15',
                 'api': {
-                    'public': 'https://api.onetrading.com/public',
-                    'private': 'https://api.onetrading.com/public',
+                    'public': 'https://api.onetrading.com/fast',
+                    'private': 'https://api.onetrading.com/fast',
                 },
                 'www': 'https://onetrading.com/',
                 'doc': [
@@ -129,47 +163,46 @@ export default class onetrading extends Exchange {
             },
             'api': {
                 'public': {
-                    'get': [
-                        'currencies',
-                        'candlesticks/{instrument_code}',
-                        'fees',
-                        'instruments',
-                        'order-book/{instrument_code}',
-                        'market-ticker',
-                        'market-ticker/{instrument_code}',
-                        'price-ticks/{instrument_code}',
-                        'time',
-                    ],
+                    'get': {
+                        'currencies': { 'cost': 1 } as Endpoint<List>,
+                        'candlesticks/{instrument_code}': { 'cost': 1 } as Endpoint<Dict>,
+                        'fees': { 'cost': 1 } as Endpoint<List>,
+                        'instruments': { 'cost': 1 } as Endpoint<List>,
+                        'order-book/{instrument_code}': { 'cost': 1 } as Endpoint<Dict>,
+                        'market-ticker': { 'cost': 1 } as Endpoint<List>,
+                        'market-ticker/{instrument_code}': { 'cost': 1 } as Endpoint<Dict>,
+                        'time': { 'cost': 1 } as Endpoint<Dict>,
+                        'funding-rate': { 'cost': 1 } as Endpoint<List>,
+                        'funding-rate/history': { 'cost': 1 } as Endpoint<Dict>,
+                        'funding-rate/settings': { 'cost': 1 } as Endpoint<List>,
+                    },
                 },
                 'private': {
-                    'get': [
-                        'account/balances',
-                        'account/deposit/crypto/{currency_code}',
-                        'account/deposit/fiat/EUR',
-                        'account/deposits',
-                        'account/deposits/bitpanda',
-                        'account/withdrawals',
-                        'account/withdrawals/bitpanda',
-                        'account/fees',
-                        'account/orders',
-                        'account/orders/{order_id}',
-                        'account/orders/{order_id}/trades',
-                        'account/trades',
-                        'account/trades/{trade_id}',
-                        'account/trading-volume',
-                    ],
-                    'post': [
-                        'account/deposit/crypto',
-                        'account/withdraw/crypto',
-                        'account/withdraw/fiat',
-                        'account/fees',
-                        'account/orders',
-                    ],
-                    'delete': [
-                        'account/orders',
-                        'account/orders/{order_id}',
-                        'account/orders/client/{client_id}',
-                    ],
+                    'get': {
+                        'account/balances': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/fees': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/orders': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/orders/{order_id}': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/orders/client/{client_id}': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/orders/{order_id}/trades': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/trades': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/trade/{trade_id}': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/futures/summary': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/futures/positions': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/futures/positions-history': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/futures/positions/{position_id}/trades': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/futures/positions/{position_id}/funding-payments': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/futures/funding-payments': { 'cost': 1 } as Endpoint<Dict>,
+                    },
+                    'post': {
+                        'account/orders': { 'cost': 1 } as Endpoint<Dict>,
+                        'subaccounts/transfers': { 'cost': 1 } as Endpoint<Dict>,
+                    },
+                    'delete': {
+                        'account/orders': { 'cost': 1 } as Endpoint<List>,
+                        'account/orders/{order_id}': { 'cost': 1 } as Endpoint<Dict>,
+                        'account/orders/client/{client_id}': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
             },
             'fees': {
@@ -289,6 +322,7 @@ export default class onetrading extends Exchange {
                     'INTERNAL_SERVER_ERROR': ExchangeError,
                 },
                 'broad': {
+                    'Order not found.': OrderNotFound,
                 },
             },
             'commonCurrencies': {
@@ -296,22 +330,95 @@ export default class onetrading extends Exchange {
             },
             // exchange-specific options
             'options': {
+                'mica': true,
                 'fetchTradingFees': {
                     'method': 'fetchPrivateTradingFees', // or 'fetchPublicTradingFees'
                 },
                 'fiat': [ 'EUR', 'CHF' ],
             },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': false,
+                        'triggerDirection': false,
+                        'triggerPriceType': undefined,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': true,
+                            'FOK': true,
+                            'PO': true,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'trailing': false,
+                        'leverage': false,
+                        'marketBuyByCost': false,
+                        'marketBuyRequiresPrice': false,
+                        'selfTradePrevention': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': 100000, // todo
+                        'untilDays': 30, // days between start-end
+                        'symbolRequired': false,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'untilDays': 30, // days between start-end
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrders': undefined, // todo
+                    'fetchClosedOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': 100000, // todo
+                        'daysBackCanceled': 1 / 12, // todo
+                        'untilDays': 30, // days between start-end
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOHLCV': {
+                        'limit': 5000,
+                    },
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+            },
         });
     }
 
-    async fetchTime (params = {}) {
-        /**
-         * @method
-         * @name onetrading#fetchTime
-         * @description fetches the current integer timestamp in milliseconds from the exchange server
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int} the current integer timestamp in milliseconds from the exchange server
-         */
+    /**
+     * @method
+     * @name onetrading#fetchTime
+     * @description fetches the current integer timestamp in milliseconds from the exchange server
+     * @see https://docs.onetrading.com/rest/public/time
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int} the current integer timestamp in milliseconds from the exchange server
+     */
+    override async fetchTime (params: Dict = {}): Promise<Int> {
         const response = await this.publicGetTime (params);
         //
         //     {
@@ -322,56 +429,60 @@ export default class onetrading extends Exchange {
         return this.safeInteger (response, 'epoch_millis');
     }
 
-    async fetchCurrencies (params = {}): Promise<Currencies> {
-        /**
-         * @method
-         * @name onetrading#fetchCurrencies
-         * @description fetches all available currencies on an exchange
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an associative dictionary of currencies
-         */
+    /**
+     * @method
+     * @name onetrading#fetchCurrencies
+     * @description fetches all available currencies on an exchange
+     * @see https://docs.onetrading.com/rest/public/currencies
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an associative dictionary of currencies
+     */
+    override async fetchCurrencies (params: Dict = {}): Promise<Currencies> {
         const response = await this.publicGetCurrencies (params);
         //
         //     [
         //         {
-        //             "code":"BEST",
-        //             "precision":8
-        //         }
+        //             "code": "USDT",
+        //             "precision": 6,
+        //             "unified_cryptoasset_id": 825,
+        //             "name": "Tether USDt",
+        //             "collateral_percentage": 0
+        //         },
         //     ]
         //
-        const result: Dict = {};
-        for (let i = 0; i < response.length; i++) {
-            const currency = response[i];
-            const id = this.safeString (currency, 'code');
-            const code = this.safeCurrencyCode (id);
-            result[code] = {
-                'id': id,
-                'code': code,
-                'name': undefined,
-                'info': currency, // the original payload
-                'active': undefined,
-                'fee': undefined,
-                'precision': this.parseNumber (this.parsePrecision (this.safeString (currency, 'precision'))),
-                'withdraw': undefined,
-                'deposit': undefined,
-                'limits': {
-                    'amount': { 'min': undefined, 'max': undefined },
-                    'withdraw': { 'min': undefined, 'max': undefined },
-                },
-                'networks': {},
-            };
-        }
-        return result;
+        return this.parseCurrencies (response);
     }
 
-    async fetchMarkets (params = {}): Promise<Market[]> {
-        /**
-         * @method
-         * @name onetrading#fetchMarkets
-         * @description retrieves data on all markets for onetrading
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
+    override parseCurrency (rawCurrency: Dict): CurrencyInterface {
+        const id = this.safeString (rawCurrency, 'code');
+        const code = this.safeCurrencyCode (id);
+        return this.safeCurrencyStructure ({
+            'id': id,
+            'code': code,
+            'name': this.safeString (rawCurrency, 'name'),
+            'info': rawCurrency,
+            'active': undefined,
+            'fee': undefined,
+            'precision': this.parseNumber (this.parsePrecision (this.safeString (rawCurrency, 'precision'))),
+            'withdraw': undefined,
+            'deposit': undefined,
+            'limits': {
+                'amount': { 'min': undefined, 'max': undefined },
+                'withdraw': { 'min': undefined, 'max': undefined },
+            },
+            'networks': {},
+        });
+    }
+
+    /**
+     * @method
+     * @name onetrading#fetchMarkets
+     * @description retrieves data on all markets for onetrading
+     * @see https://docs.onetrading.com/rest/public/instruments
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
+    override async fetchMarkets (params: Dict = {}): Promise<Market[]> {
         const response = await this.publicGetInstruments (params);
         //
         //     [
@@ -388,37 +499,121 @@ export default class onetrading extends Exchange {
         return this.parseMarkets (response);
     }
 
-    parseMarket (market: Dict): Market {
-        const baseAsset = this.safeValue (market, 'base', {});
-        const quoteAsset = this.safeValue (market, 'quote', {});
+    override parseMarket (market: Dict): Market {
+        //
+        //   {
+        //      "base":{
+        //         "code":"BTC",
+        //         "precision":"5"
+        //      },
+        //      "quote":{
+        //         "code":"USDC",
+        //         "precision":"2"
+        //      },
+        //      "amount_precision":"5",
+        //      "market_precision":"2",
+        //      "min_size":"10.0",
+        //      "min_price":"1000",
+        //      "max_price":"10000000",
+        //      "id":"BTC_USDC",
+        //      "type":"SPOT",
+        //      "state":"ACTIVE"
+        //   }
+        //
+        //
+        //  {
+        //      "base": {
+        //          "code": "BTC",
+        //          "precision": 5
+        //      },
+        //      "quote": {
+        //          "code": "EUR",
+        //          "precision": 2
+        //      },
+        //      "amount_precision": 5,
+        //      "market_precision": 2,
+        //      "min_size": "10.0",
+        //      "min_price": "1000",
+        //      "max_price": "10000000",
+        //      "id": "BTC_EUR_P",
+        //      "type": "PERP",
+        //      "state": "ACTIVE"
+        //  }
+        //
+        //  {
+        //      "base": { "code": "BTC", "precision": 8 },
+        //      "quote": { "code": "USD", "precision": 8 },
+        //      "amount_precision": 5,
+        //      "market_precision": 2,
+        //      "min_size": "10.0",
+        //      "min_price": "1000",
+        //      "max_price": "10000000",
+        //      "id": "BTC_USD_P",
+        //      "price_collar_percentage": "10",
+        //      "type": "DATED_FUTURE", // or EQUITY_FUTURE
+        //      "state": "ACTIVE",
+        //      "funding_period": 240,
+        //      "market_offset": 0,
+        //      "funding_schedule": { "type": "FIXED_INTERVAL", "period_minutes": 240 },
+        //      "contract_expiry_date": "2031-04-20",
+        //      "contract_duration": "5Y"
+        //  }
+        //
+        const baseAsset = this.safeDict (market, 'base', {});
+        const quoteAsset = this.safeDict (market, 'quote', {});
         const baseId = this.safeString (baseAsset, 'code');
         const quoteId = this.safeString (quoteAsset, 'code');
-        const id = baseId + '_' + quoteId;
+        const id = this.safeString (market, 'id');
         const base = this.safeCurrencyCode (baseId);
         const quote = this.safeCurrencyCode (quoteId);
+        if ((base === undefined) || (quote === undefined)) {
+            return undefined;
+        }
         const state = this.safeString (market, 'state');
-        return {
+        const type = this.safeString (market, 'type');
+        const isPerp = type === 'PERP';
+        const isFuture = (type === 'DATED_FUTURE') || (type === 'EQUITY_FUTURE');
+        const isContract = isPerp || isFuture;
+        let expiry: Int = undefined;
+        const expiryDate = this.safeString (market, 'contract_expiry_date');
+        if (expiryDate !== undefined) {
+            expiry = this.parse8601 (expiryDate + 'T00:00:00Z');
+        }
+        let symbol = base + '/' + quote;
+        if (isContract) {
+            symbol = symbol + ':' + quote;
+            if (isFuture && (expiry !== undefined)) {
+                symbol = symbol + '-' + this.yymmdd (expiry);
+            }
+        }
+        let marketType = 'spot';
+        if (isPerp) {
+            marketType = 'swap';
+        } else if (isFuture) {
+            marketType = 'future';
+        }
+        return this.safeMarketStructure ({
             'id': id,
-            'symbol': base + '/' + quote,
+            'symbol': symbol,
             'base': base,
             'quote': quote,
-            'settle': undefined,
+            'settle': isContract ? quote : undefined,
             'baseId': baseId,
             'quoteId': quoteId,
-            'settleId': undefined,
-            'type': 'spot',
-            'spot': true,
+            'settleId': isContract ? quoteId : undefined,
+            'type': marketType,
+            'spot': !isContract,
             'margin': false,
-            'swap': false,
-            'future': false,
+            'swap': isPerp,
+            'future': isFuture,
             'option': false,
-            'active': (state === 'ACTIVE'),
-            'contract': false,
-            'linear': undefined,
-            'inverse': undefined,
-            'contractSize': undefined,
-            'expiry': undefined,
-            'expiryDatetime': undefined,
+            'active': (state === 'ACTIVE') || (state === 'POST_ONLY'), // POST_ONLY markets accept maker orders and reject taker orders — deliberately flagged tradeable rather than hidden, ccxt has no partial-trading flag
+            'contract': isContract,
+            'linear': isContract ? true : undefined,
+            'inverse': isContract ? false : undefined,
+            'contractSize': isContract ? this.parseNumber ('1') : undefined,
+            'expiry': expiry,
+            'expiryDatetime': this.iso8601 (expiry),
             'strike': undefined,
             'optionType': undefined,
             'precision': {
@@ -445,102 +640,165 @@ export default class onetrading extends Exchange {
             },
             'created': undefined,
             'info': market,
-        };
+        });
     }
 
-    async fetchTradingFees (params = {}): Promise<TradingFees> {
-        /**
-         * @method
-         * @name onetrading#fetchTradingFees
-         * @description fetch the trading fees for multiple markets
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [fee structures]{@link https://docs.ccxt.com/#/?id=fee-structure} indexed by market symbols
-         */
+    /**
+     * @method
+     * @name onetrading#fetchTradingFees
+     * @description fetch the trading fees for multiple markets
+     * @see https://docs.onetrading.com/rest/public/fee-groups
+     * @see https://docs.onetrading.com/rest/trading/fees
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.method] fetchPrivateTradingFees or fetchPublicTradingFees
+     * @returns {object} a dictionary of [fee structures]{@link https://docs.ccxt.com/?id=fee-structure} indexed by market symbols
+     */
+    override async fetchTradingFees (params: Dict = {}): Promise<TradingFees> {
         let method = this.safeString (params, 'method');
-        params = this.omit (params, 'method');
+        const paramsOmitted: Dict = this.omit (params, 'method');
         if (method === undefined) {
-            const options = this.safeValue (this.options, 'fetchTradingFees', {});
+            const options = this.safeDict (this.options, 'fetchTradingFees', {});
             method = this.safeString (options, 'method', 'fetchPrivateTradingFees');
         }
-        return await this[method] (params);
+        if (method === 'fetchPrivateTradingFees') {
+            return await this.fetchPrivateTradingFees (paramsOmitted);
+        } else if (method === 'fetchPublicTradingFees') {
+            return await this.fetchPublicTradingFees (paramsOmitted);
+        } else {
+            throw new NotSupported (this.id + ' fetchTradingFees() does not support ' + method + ', fetchPrivateTradingFees and fetchPublicTradingFees are supported');
+        }
     }
 
-    async fetchPublicTradingFees (params = {}) {
-        await this.loadMarkets ();
+    async fetchPublicTradingFees (params: Dict = {}): Promise<Dict> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.publicGetFees (params);
         //
-        //     [
-        //         {
-        //             "fee_group_id":"default",
-        //             "display_text":"The standard fee plan.",
-        //             "fee_tiers":[
-        //                 {"volume":"0.0","fee_group_id":"default","maker_fee":"0.1","taker_fee":"0.15"},
-        //                 {"volume":"100.0","fee_group_id":"default","maker_fee":"0.1","taker_fee":"0.13"},
-        //                 {"volume":"250.0","fee_group_id":"default","maker_fee":"0.09","taker_fee":"0.13"},
-        //                 {"volume":"1000.0","fee_group_id":"default","maker_fee":"0.075","taker_fee":"0.1"},
-        //                 {"volume":"5000.0","fee_group_id":"default","maker_fee":"0.06","taker_fee":"0.09"},
-        //                 {"volume":"10000.0","fee_group_id":"default","maker_fee":"0.05","taker_fee":"0.075"},
-        //                 {"volume":"20000.0","fee_group_id":"default","maker_fee":"0.05","taker_fee":"0.065"}
-        //             ],
-        //             "fee_discount_rate":"25.0",
-        //             "minimum_price_value":"0.12"
-        //         }
-        //     ]
+        // [
+        //     {
+        //         'fee_group_id': 'SPOT',
+        //         'display_text': 'The fee plan for spot trading.',
+        //         'volume_currency': 'EUR',
+        //         'fee_tiers': [
+        //             {
+        //                 'volume': '0',
+        //                 'fee_group_id': 'SPOT',
+        //                 'maker_fee': '0.1000',
+        //                 'taker_fee': '0.2000',
+        //             },
+        //             {
+        //                 'volume': '10000',
+        //                 'fee_group_id': 'SPOT',
+        //                 'maker_fee': '0.0400',
+        //                 'taker_fee': '0.0800',
+        //             },
+        //         ],
+        //     },
+        //     {
+        //         'fee_group_id': 'FUTURES',
+        //         'display_text': 'The fee plan for futures trading.',
+        //         'volume_currency': 'EUR',
+        //         'fee_tiers': [
+        //             {
+        //                 'volume': '0',
+        //                 'fee_group_id': 'FUTURES',
+        //                 'maker_fee': '0.1000',
+        //                 'taker_fee': '0.2000',
+        //             },
+        //             {
+        //                 'volume': '10000',
+        //                 'fee_group_id': 'FUTURES',
+        //                 'maker_fee': '0.0400',
+        //                 'taker_fee': '0.0800',
+        //             },
+        //         ],
+        //     },
+        // ];
         //
-        const first = this.safeValue (response, 0, {});
-        const feeTiers = this.safeValue (first, 'fee_tiers');
-        const tiers = this.parseFeeTiers (feeTiers);
-        const firstTier = this.safeValue (feeTiers, 0, {});
+        const spotFees = this.safeDict (response, 0, {});
+        const futuresFees = this.safeDict (response, 1, {});
+        const spotFeeTiers = this.safeList (spotFees, 'fee_tiers', []);
+        const futuresFeeTiers = this.safeList (futuresFees, 'fee_tiers', []);
+        const spotTiers = this.parseFeeTiers (spotFeeTiers);
+        const futuresTiers = this.parseFeeTiers (futuresFeeTiers);
+        const firstSpotTier = this.safeDict (spotTiers, 0, {});
+        const firstFuturesTier = this.safeDict (futuresTiers, 0, {});
         const result: Dict = {};
-        for (let i = 0; i < this.symbols.length; i++) {
-            const symbol = this.symbols[i];
+        const symbols = this.symbols;
+        for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
+            const market = this.market (symbol);
+            const tierObject = (this.safeBool (market, 'spot', false)) ? firstSpotTier : firstFuturesTier;
             result[symbol] = {
-                'info': first,
+                'info': spotFees,
                 'symbol': symbol,
-                'maker': this.safeNumber (firstTier, 'maker_fee'),
-                'taker': this.safeNumber (firstTier, 'taker_fee'),
+                'maker': this.safeNumber (tierObject, 'maker_fee'),
+                'taker': this.safeNumber (tierObject, 'taker_fee'),
                 'percentage': true,
                 'tierBased': true,
-                'tiers': tiers,
+                'tiers': spotTiers,
             };
         }
         return result;
     }
 
-    async fetchPrivateTradingFees (params = {}) {
-        await this.loadMarkets ();
+    async fetchPrivateTradingFees (params: Dict = {}): Promise<Dict> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privateGetAccountFees (params);
         //
-        //     {
-        //         "account_id": "ed524d00-820a-11e9-8f1e-69602df16d85",
-        //         "running_trading_volume": "0.0",
-        //         "fee_group_id": "default",
-        //         "collect_fees_in_best": false,
-        //         "fee_discount_rate": "25.0",
-        //         "minimum_price_value": "0.12",
-        //         "fee_tiers": [
-        //             { "volume": "0.0", "fee_group_id": "default", "maker_fee": "0.1", "taker_fee": "0.1" },
-        //             { "volume": "100.0", "fee_group_id": "default", "maker_fee": "0.09", "taker_fee": "0.1" },
-        //             { "volume": "250.0", "fee_group_id": "default", "maker_fee": "0.08", "taker_fee": "0.1" },
-        //             { "volume": "1000.0", "fee_group_id": "default", "maker_fee": "0.07", "taker_fee": "0.09" },
-        //             { "volume": "5000.0", "fee_group_id": "default", "maker_fee": "0.06", "taker_fee": "0.08" },
-        //             { "volume": "10000.0", "fee_group_id": "default", "maker_fee": "0.05", "taker_fee": "0.07" },
-        //             { "volume": "20000.0", "fee_group_id": "default", "maker_fee": "0.05", "taker_fee": "0.06" },
-        //             { "volume": "50000.0", "fee_group_id": "default", "maker_fee": "0.05", "taker_fee": "0.05" }
-        //         ],
-        //         "active_fee_tier": { "volume": "0.0", "fee_group_id": "default", "maker_fee": "0.1", "taker_fee": "0.1" }
-        //     }
+        // {
+        //    "account_id":"b7f4e27e-b34a-493a-b0d4-4bd341a3f2e0",
+        //    "running_volumes":[
+        //       {
+        //          "fee_group_id":"SPOT",
+        //          "volume":"0",
+        //          "currency":"EUR"
+        //       },
+        //       {
+        //          "fee_group_id":"FUTURES",
+        //          "volume":"0",
+        //          "currency":"EUR"
+        //       }
+        //    ],
+        //    "active_fee_tiers":[
+        //       {
+        //          "fee_group_id":"SPOT",
+        //          "volume":"0",
+        //          "maker_fee":"0.1000",
+        //          "taker_fee":"0.2000"
+        //       },
+        //       {
+        //          "fee_group_id":"FUTURES",
+        //          "volume":"0",
+        //          "maker_fee":"0.1000",
+        //          "taker_fee":"0.2000"
+        //       }
+        //    ]
+        // }
         //
-        const activeFeeTier = this.safeValue (response, 'active_fee_tier', {});
-        let makerFee = this.safeString (activeFeeTier, 'maker_fee');
-        let takerFee = this.safeString (activeFeeTier, 'taker_fee');
-        makerFee = Precise.stringDiv (makerFee, '100');
-        takerFee = Precise.stringDiv (takerFee, '100');
-        const feeTiers = this.safeValue (response, 'fee_tiers');
+        const activeFeeTier = this.safeList (response, 'active_fee_tiers');
+        const spotFees = this.safeDict (activeFeeTier, 0, {});
+        const futuresFees = this.safeDict (activeFeeTier, 1, {});
+        let spotMakerFee = this.safeString (spotFees, 'maker_fee');
+        let spotTakerFee = this.safeString (spotFees, 'taker_fee');
+        spotMakerFee = Precise.stringDiv (spotMakerFee, '100');
+        spotTakerFee = Precise.stringDiv (spotTakerFee, '100');
+        // const feeTiers = this.safeValue (response, 'fee_tiers');
+        let futuresMakerFee = this.safeString (futuresFees, 'maker_fee');
+        let futuresTakerFee = this.safeString (futuresFees, 'taker_fee');
+        futuresMakerFee = Precise.stringDiv (futuresMakerFee, '100');
+        futuresTakerFee = Precise.stringDiv (futuresTakerFee, '100');
         const result: Dict = {};
-        const tiers = this.parseFeeTiers (feeTiers);
-        for (let i = 0; i < this.symbols.length; i++) {
-            const symbol = this.symbols[i];
+        // const tiers = this.parseFeeTiers (feeTiers);
+        const symbols = this.symbols;
+        for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
+            const market = this.market (symbol);
+            const makerFee = (this.safeBool (market, 'spot', false)) ? spotMakerFee : futuresMakerFee;
+            const takerFee = (this.safeBool (market, 'spot', false)) ? spotTakerFee : futuresTakerFee;
             result[symbol] = {
                 'info': response,
                 'symbol': symbol,
@@ -548,17 +806,17 @@ export default class onetrading extends Exchange {
                 'taker': this.parseNumber (takerFee),
                 'percentage': true,
                 'tierBased': true,
-                'tiers': tiers,
+                'tiers': undefined,
             };
         }
         return result;
     }
 
-    parseFeeTiers (feeTiers, market: Market = undefined) {
-        const takerFees = [];
-        const makerFees = [];
+    parseFeeTiers (feeTiers: Dict[], market: Market = undefined): Dict {
+        const takerFees: List = [];
+        const makerFees: List = [];
         for (let i = 0; i < feeTiers.length; i++) {
-            const tier = feeTiers[i];
+            const tier = this.safeDict (feeTiers, i);
             const volume = this.safeNumber (tier, 'volume');
             let taker = this.safeString (tier, 'taker_fee');
             let maker = this.safeString (tier, 'maker_fee');
@@ -573,7 +831,7 @@ export default class onetrading extends Exchange {
         };
     }
 
-    parseTicker (ticker: Dict, market: Market = undefined): Ticker {
+    override parseTicker (ticker: Dict, market: Market = undefined): Ticker {
         //
         // fetchTicker, fetchTickers
         //
@@ -626,16 +884,19 @@ export default class onetrading extends Exchange {
         }, market);
     }
 
-    async fetchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name onetrading#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://docs.onetrading.com/rest/public/market-ticker-instrument
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'instrument_code': market['id'],
@@ -662,17 +923,20 @@ export default class onetrading extends Exchange {
         return this.parseTicker (response, market);
     }
 
-    async fetchTickers (symbols: Strings = undefined, params = {}): Promise<Tickers> {
-        /**
-         * @method
-         * @name onetrading#fetchTickers
-         * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-         * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
-        symbols = this.marketSymbols (symbols);
+    /**
+     * @method
+     * @name onetrading#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
+     * @see https://docs.onetrading.com/rest/public/market-ticker
+     * @param {string[]} [symbols] unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTickers (symbols: Strings = undefined, params: Dict = {}): Promise<Tickers> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: Strings = this.marketSymbols (symbols);
         const response = await this.publicGetMarketTicker (params);
         //
         //     [
@@ -695,25 +959,31 @@ export default class onetrading extends Exchange {
         //     ]
         //
         const result: Dict = {};
-        for (let i = 0; i < response.length; i++) {
-            const ticker = this.parseTicker (response[i]);
+        const rawTickers: List = this.toArray (response);
+        for (let i = 0; i < rawTickers.length; i++) {
+            const ticker = this.parseTicker (rawTickers[i]);
             const symbol = ticker['symbol'];
-            result[symbol] = ticker;
+            if (symbol !== undefined) {
+                result[symbol] = ticker;
+            }
         }
-        return this.filterByArrayTickers (result, 'symbol', symbols);
+        return this.filterByArrayTickers (result, 'symbol', symbolsNormalized);
     }
 
-    async fetchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name onetrading#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://docs.onetrading.com/rest/public/orderbook
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async fetchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'instrument_code': market['id'],
@@ -787,7 +1057,7 @@ export default class onetrading extends Exchange {
         return this.parseOrderBook (response, market['symbol'], timestamp, 'bids', 'asks', 'price', 'amount');
     }
 
-    parseOHLCV (ohlcv, market: Market = undefined): OHLCV {
+    override parseOHLCV (ohlcv: any, market: Market = undefined): OHLCV {
         //
         //     {
         //         "instrument_code":"BTC_EUR",
@@ -802,7 +1072,7 @@ export default class onetrading extends Exchange {
         //         "last_sequence":461123
         //     }
         //
-        const granularity = this.safeValue (ohlcv, 'granularity');
+        const granularity = this.safeDict (ohlcv, 'granularity');
         const unit = this.safeString (granularity, 'unit');
         const period = this.safeString (granularity, 'period');
         const units: Dict = {
@@ -813,12 +1083,19 @@ export default class onetrading extends Exchange {
             'MONTHS': 'M',
         };
         const lowercaseUnit = this.safeString (units, unit);
+        if ((period === undefined) || (lowercaseUnit === undefined)) {
+            throw new ExchangeError (this.id + ' parseOHLCV() missing period/unit');
+        }
         const timeframe = period + lowercaseUnit;
         const durationInSeconds = this.parseTimeframe (timeframe);
         const duration = durationInSeconds * 1000;
         const timestamp = this.parse8601 (this.safeString (ohlcv, 'time'));
-        const alignedTimestamp = duration * this.parseToInt (timestamp / duration);
-        const options = this.safeValue (this.options, 'fetchOHLCV', {});
+        if (timestamp === undefined) {
+            throw new ExchangeError (this.id + ' parseOHLCV() missing timestamp');
+        }
+        const periods = this.parseToInt (timestamp / duration);
+        const alignedTimestamp = duration * periods;
+        const options = this.safeDict (this.options, 'fetchOHLCV', {});
         const volumeField = this.safeString (options, 'volume', 'total_amount');
         return [
             alignedTimestamp,
@@ -830,27 +1107,33 @@ export default class onetrading extends Exchange {
         ];
     }
 
-    async fetchOHLCV (symbol: string, timeframe = '1m', since: Int = undefined, limit: Int = undefined, params = {}): Promise<OHLCV[]> {
-        /**
-         * @method
-         * @name onetrading#fetchOHLCV
-         * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#fetchOHLCV
+     * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://docs.onetrading.com/rest/public/candlesticks
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    override async fetchOHLCV (symbol: string, timeframe: string = '1m', since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<OHLCV[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const periodUnit = this.safeString (this.timeframes, timeframe);
-        const [ period, unit ] = periodUnit.split ('/');
+        if (periodUnit === undefined) {
+            throw new ExchangeError (this.id + ' fetchOHLCV() missing periodUnit');
+        }
+        const periodUnitParts = periodUnit.split ('/');
+        const period = periodUnitParts[0];
+        const unit = periodUnitParts[1];
         const durationInSeconds = this.parseTimeframe (timeframe);
         const duration = durationInSeconds * 1000;
-        if (limit === undefined) {
-            limit = 1500;
-        }
+        const limitResolved = (limit === undefined) ? 1500 : limit;
         const request: Dict = {
             'instrument_code': market['id'],
             // 'from': this.iso8601 (since),
@@ -861,10 +1144,10 @@ export default class onetrading extends Exchange {
         if (since === undefined) {
             const now = this.milliseconds ();
             request['to'] = this.iso8601 (now);
-            request['from'] = this.iso8601 (now - limit * duration);
+            request['from'] = this.iso8601 (now - limitResolved * duration);
         } else {
             request['from'] = this.iso8601 (since);
-            request['to'] = this.iso8601 (this.sum (since, limit * duration));
+            request['to'] = this.iso8601 (this.sum (since, limitResolved * duration));
         }
         const response = await this.publicGetCandlesticksInstrumentCode (this.extend (request, params));
         //
@@ -874,10 +1157,11 @@ export default class onetrading extends Exchange {
         //         {"instrument_code":"BTC_EUR","granularity":{"unit":"HOURS","period":1},"high":"9135.7","low":"9002.59","open":"9055.45","close":"9133.98","total_amount":"26.21919","volume":"238278.8724959","time":"2020-05-09T00:59:59.999Z","last_sequence":461521},
         //     ]
         //
-        return this.parseOHLCVs (response, market, timeframe, since, limit);
+        const ohlcv = this.safeList (response, 'candlesticks') as List;
+        return this.parseOHLCVs (ohlcv, market, timeframe, since, limitResolved);
     }
 
-    parseTrade (trade: Dict, market: Market = undefined): Trade {
+    override parseTrade (trade: Dict, market: Market = undefined): Trade {
         //
         // fetchTrades (public)
         //
@@ -916,21 +1200,21 @@ export default class onetrading extends Exchange {
         //         }
         //     }
         //
-        const feeInfo = this.safeValue (trade, 'fee', {});
-        trade = this.safeValue (trade, 'trade', trade);
-        let timestamp = this.safeInteger (trade, 'trade_timestamp');
+        const feeInfo = this.safeDict (trade, 'fee', {});
+        const tradeValue: Dict = this.safeDict (trade, 'trade', trade);
+        let timestamp = this.safeInteger (tradeValue, 'trade_timestamp');
         if (timestamp === undefined) {
-            timestamp = this.parse8601 (this.safeString (trade, 'time'));
+            timestamp = this.parse8601 (this.safeString (tradeValue, 'time'));
         }
-        const side = this.safeStringLower2 (trade, 'side', 'taker_side');
-        const priceString = this.safeString (trade, 'price');
-        const amountString = this.safeString (trade, 'amount');
-        const costString = this.safeString (trade, 'volume');
-        const marketId = this.safeString (trade, 'instrument_code');
+        const side = this.safeStringLower2 (tradeValue, 'side', 'taker_side');
+        const priceString = this.safeString (tradeValue, 'price');
+        const amountString = this.safeString (tradeValue, 'amount');
+        const costString = this.safeString (tradeValue, 'volume');
+        const marketId = this.safeString (tradeValue, 'instrument_code');
         const symbol = this.safeSymbol (marketId, market, '_');
         const feeCostString = this.safeString (feeInfo, 'fee_amount');
-        let takerOrMaker = undefined;
-        let fee = undefined;
+        let takerOrMaker: Str = undefined;
+        let fee: FeeString = undefined;
         if (feeCostString !== undefined) {
             const feeCurrencyId = this.safeString (feeInfo, 'fee_currency');
             const feeCurrencyCode = this.safeCurrencyCode (feeCurrencyId);
@@ -943,8 +1227,8 @@ export default class onetrading extends Exchange {
             takerOrMaker = this.safeStringLower (feeInfo, 'fee_type');
         }
         return this.safeTrade ({
-            'id': this.safeString2 (trade, 'trade_id', 'sequence'),
-            'order': this.safeString (trade, 'order_id'),
+            'id': this.safeString2 (tradeValue, 'trade_id', 'sequence'),
+            'order': this.safeString (tradeValue, 'order_id'),
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
             'symbol': symbol,
@@ -955,76 +1239,39 @@ export default class onetrading extends Exchange {
             'cost': costString,
             'takerOrMaker': takerOrMaker,
             'fee': fee,
-            'info': trade,
+            'info': tradeValue,
         }, market);
     }
 
-    async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name onetrading#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
-        const market = this.market (symbol);
-        const request: Dict = {
-            'instrument_code': market['id'],
-            // 'from': this.iso8601 (since),
-            // 'to': this.iso8601 (this.milliseconds ()),
-        };
-        if (since !== undefined) {
-            // returns price ticks for a specific market with an interval of maximum of 4 hours
-            // sorted by latest first
-            request['from'] = this.iso8601 (since);
-            request['to'] = this.iso8601 (this.sum (since, 14400000));
-        }
-        const response = await this.publicGetPriceTicksInstrumentCode (this.extend (request, params));
-        //
-        //     [
-        //         {
-        //             "instrument_code":"BTC_EUR",
-        //             "price":"8137.28",
-        //             "amount":"0.22269",
-        //             "taker_side":"BUY",
-        //             "volume":"1812.0908832",
-        //             "time":"2020-07-10T14:44:32.299Z",
-        //             "trade_timestamp":1594392272299,
-        //             "sequence":603047
-        //         }
-        //     ]
-        //
-        return this.parseTrades (response, market, since, limit);
-    }
-
-    parseBalance (response): Balances {
-        const balances = this.safeValue (response, 'balances', []);
+    override parseBalance (response: Dict): Balances {
+        const balances: Dict[] = this.safeList (response, 'balances', []);
         const result: Dict = { 'info': response };
         for (let i = 0; i < balances.length; i++) {
-            const balance = balances[i];
+            const balance = this.safeDict (balances, i);
             const currencyId = this.safeString (balance, 'currency_code');
             const code = this.safeCurrencyCode (currencyId);
             const account = this.account ();
             account['free'] = this.safeString (balance, 'available');
             account['used'] = this.safeString (balance, 'locked');
-            result[code] = account;
+            if (code !== undefined) {
+                result[code] = account;
+            }
         }
         return this.safeBalance (result);
     }
 
-    async fetchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name onetrading#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://docs.onetrading.com/rest/trading/balances
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async fetchBalance (params: Dict = {}): Promise<Balances> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privateGetAccountBalances (params);
         //
         //     {
@@ -1045,363 +1292,24 @@ export default class onetrading extends Exchange {
         return this.parseBalance (response);
     }
 
-    parseDepositAddress (depositAddress, currency: Currency = undefined) {
-        let code = undefined;
-        if (currency !== undefined) {
-            code = currency['code'];
-        }
-        const address = this.safeString (depositAddress, 'address');
-        const tag = this.safeString (depositAddress, 'destination_tag');
-        this.checkAddress (address);
-        return {
-            'currency': code,
-            'address': address,
-            'tag': tag,
-            'network': undefined,
-            'info': depositAddress,
-        };
-    }
-
-    async createDepositAddress (code: string, params = {}) {
-        /**
-         * @method
-         * @name onetrading#createDepositAddress
-         * @description create a currency deposit address
-         * @param {string} code unified currency code of the currency for the deposit address
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [address structure]{@link https://docs.ccxt.com/#/?id=address-structure}
-         */
-        await this.loadMarkets ();
-        const currency = this.currency (code);
-        const request: Dict = {
-            'currency': currency['id'],
-        };
-        const response = await this.privatePostAccountDepositCrypto (this.extend (request, params));
-        //
-        //     {
-        //         "address":"rBnNhk95FrdNisZtXcStzriFS8vEzz53DM",
-        //         "destination_tag":"865690307",
-        //         "enabled":true,
-        //         "is_smart_contract":false
-        //     }
-        //
-        return this.parseDepositAddress (response, currency);
-    }
-
-    async fetchDepositAddress (code: string, params = {}) {
-        /**
-         * @method
-         * @name onetrading#fetchDepositAddress
-         * @description fetch the deposit address for a currency associated with this account
-         * @param {string} code unified currency code
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [address structure]{@link https://docs.ccxt.com/#/?id=address-structure}
-         */
-        await this.loadMarkets ();
-        const currency = this.currency (code);
-        const request: Dict = {
-            'currency_code': currency['id'],
-        };
-        const response = await this.privateGetAccountDepositCryptoCurrencyCode (this.extend (request, params));
-        //
-        //     {
-        //         "address":"rBnNhk95FrdNisZtXcStzriFS8vEzz53DM",
-        //         "destination_tag":"865690307",
-        //         "enabled":true,
-        //         "is_smart_contract":false,
-        //         "can_create_more":false
-        //     }
-        //
-        return this.parseDepositAddress (response, currency);
-    }
-
-    async fetchDeposits (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Transaction[]> {
-        /**
-         * @method
-         * @name onetrading#fetchDeposits
-         * @description fetch all deposits made to an account
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch deposits for
-         * @param {int} [limit] the maximum number of deposits structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets ();
-        const request: Dict = {
-            // 'cursor': 'string', // pointer specifying the position from which the next pages should be returned
-        };
-        let currency = undefined;
-        if (code !== undefined) {
-            currency = this.currency (code);
-            request['currency_code'] = currency['id'];
-        }
-        if (limit !== undefined) {
-            request['max_page_size'] = limit;
-        }
-        if (since !== undefined) {
-            const to = this.safeString (params, 'to');
-            if (to === undefined) {
-                throw new ArgumentsRequired (this.id + ' fetchDeposits() requires a "to" iso8601 string param with the since argument is specified');
-            }
-            request['from'] = this.iso8601 (since);
-        }
-        const response = await this.privateGetAccountDeposits (this.extend (request, params));
-        //
-        //     {
-        //         "deposit_history": [
-        //             {
-        //                 "transaction_id": "e5342efcd-d5b7-4a56-8e12-b69ffd68c5ef",
-        //                 "account_id": "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
-        //                 "amount": "100",
-        //                 "type": "CRYPTO",
-        //                 "funds_source": "INTERNAL",
-        //                 "time": "2020-04-22T09:57:47Z",
-        //                 "currency": "BTC",
-        //                 "fee_amount": "0.0",
-        //                 "fee_currency": "BTC"
-        //             },
-        //             {
-        //                 "transaction_id": "79793d00-2899-4a4d-95b7-73ae6b31384f",
-        //                 "account_id": "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
-        //                 "time": "2020-05-05T11:22:07.925Z",
-        //                 "currency": "EUR",
-        //                 "funds_source": "EXTERNAL",
-        //                 "type": "FIAT",
-        //                 "amount": "50.0",
-        //                 "fee_amount": "0.01",
-        //                 "fee_currency": "EUR"
-        //             }
-        //         ],
-        //         "max_page_size": 2,
-        //         "cursor": "eyJhY2NvdW50X2lkIjp7InMiOiJlMzY5YWM4MC00NTc3LTExZTktYWUwOC05YmVkYzQ3OTBiODQiLCJzcyI6W10sIm5zIjpbXSwiYnMiOltdLCJtIjp7fSwibCI6W119LCJpdGVtX2tleSI6eyJzIjoiV0lUSERSQVdBTDo6MmFlMjYwY2ItOTk3MC00YmNiLTgxNmEtZGY4MDVmY2VhZTY1Iiwic3MiOltdLCJucyI6W10sImJzIjpbXSwibSI6e30sImwiOltdfSwiZ2xvYmFsX3dpdGhkcmF3YWxfaW5kZXhfaGFzaF9rZXkiOnsicyI6ImUzNjlhYzgwLTQ1NzctMTFlOS1hZTA4LTliZWRjNDc5MGI4NCIsInNzIjpbXSwibnMiOltdLCJicyI6W10sIm0iOnt9LCJsIjpbXX0sInRpbWVzdGFtcCI6eyJuIjoiMTU4ODA1ODc2Nzk0OCIsInNzIjpbXSwibnMiOltdLCJicyI6W10sIm0iOnt9LCJsIjpbXX19"
-        //     }
-        //
-        const depositHistory = this.safeList (response, 'deposit_history', []);
-        return this.parseTransactions (depositHistory, currency, since, limit, { 'type': 'deposit' });
-    }
-
-    async fetchWithdrawals (code: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Transaction[]> {
-        /**
-         * @method
-         * @name onetrading#fetchWithdrawals
-         * @description fetch all withdrawals made from an account
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch withdrawals for
-         * @param {int} [limit] the maximum number of withdrawals structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets ();
-        const request: Dict = {
-            // 'cursor': 'string', // pointer specifying the position from which the next pages should be returned
-        };
-        let currency = undefined;
-        if (code !== undefined) {
-            currency = this.currency (code);
-            request['currency_code'] = currency['id'];
-        }
-        if (limit !== undefined) {
-            request['max_page_size'] = limit;
-        }
-        if (since !== undefined) {
-            const to = this.safeString (params, 'to');
-            if (to === undefined) {
-                throw new ArgumentsRequired (this.id + ' fetchWithdrawals() requires a "to" iso8601 string param with the since argument is specified');
-            }
-            request['from'] = this.iso8601 (since);
-        }
-        const response = await this.privateGetAccountWithdrawals (this.extend (request, params));
-        //
-        //     {
-        //         "withdrawal_history": [
-        //             {
-        //                 "account_id": "e369ac80-4577-11e9-ae08-9bedc4790b84",
-        //                 "amount": "0.1",
-        //                 "currency": "BTC",
-        //                 "fee_amount": "0.00002",
-        //                 "fee_currency": "BTC",
-        //                 "funds_source": "EXTERNAL",
-        //                 "related_transaction_id": "e298341a-3855-405e-bce3-92db368a3157",
-        //                 "time": "2020-05-05T11:11:32.110Z",
-        //                 "transaction_id": "6693ff40-bb10-4dcf-ada7-3b287727c882",
-        //                 "type": "CRYPTO"
-        //             },
-        //             {
-        //                 "account_id": "e369ac80-4577-11e9-ae08-9bedc4790b84",
-        //                 "amount": "0.1",
-        //                 "currency": "BTC",
-        //                 "fee_amount": "0.0",
-        //                 "fee_currency": "BTC",
-        //                 "funds_source": "INTERNAL",
-        //                 "time": "2020-05-05T10:29:53.464Z",
-        //                 "transaction_id": "ec9703b1-954b-4f76-adea-faac66eabc0b",
-        //                 "type": "CRYPTO"
-        //             }
-        //         ],
-        //         "cursor": "eyJhY2NvdW50X2lkIjp7InMiOiJlMzY5YWM4MC00NTc3LTExZTktYWUwOC05YmVkYzQ3OTBiODQiLCJzcyI6W10sIm5zIjpbXSwiYnMiOltdLCJtIjp7fSwibCI6W119LCJpdGVtX2tleSI6eyJzIjoiV0lUSERSQVdBTDo6ZWM5NzAzYjEtOTU0Yi00Zjc2LWFkZWEtZmFhYzY2ZWFiYzBiIiwic3MiOltdLCJucyI6W10sImJzIjpbXSwibSI6e30sImwiOltdfSwiZ2xvYmFsX3dpdGhkcmF3YWxfaW5kZXhfaGFzaF9rZXkiOnsicyI6ImUzNjlhYzgwLTQ1NzctMTFlOS1hZTA4LTliZWRjNDc5MGI4NCIsInNzIjpbXSwibnMiOltdLCJicyI6W10sIm0iOnt9LCJsIjpbXX0sInRpbWVzdGFtcCI6eyJuIjoiMTU4ODY3NDU5MzQ2NCIsInNzIjpbXSwibnMiOltdLCJicyI6W10sIm0iOnt9LCJsIjpbXX19",
-        //         "max_page_size": 2
-        //     }
-        //
-        const withdrawalHistory = this.safeList (response, 'withdrawal_history', []);
-        return this.parseTransactions (withdrawalHistory, currency, since, limit, { 'type': 'withdrawal' });
-    }
-
-    async withdraw (code: string, amount: number, address: string, tag = undefined, params = {}) {
-        /**
-         * @method
-         * @name onetrading#withdraw
-         * @description make a withdrawal
-         * @param {string} code unified currency code
-         * @param {float} amount the amount to withdraw
-         * @param {string} address the address to withdraw to
-         * @param {string} tag
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        [ tag, params ] = this.handleWithdrawTagAndParams (tag, params);
-        this.checkAddress (address);
-        await this.loadMarkets ();
-        const currency = this.currency (code);
-        const request: Dict = {
-            'currency': code,
-            'amount': this.currencyToPrecision (code, amount),
-            // 'payout_account_id': '66756a10-3e86-48f4-9678-b634c4b135b2', // fiat only
-            // 'recipient': { // crypto only
-            //     'address': address,
-            //     // 'destination_tag': '',
-            // },
-        };
-        const options = this.safeValue (this.options, 'fiat', []);
-        const isFiat = this.inArray (code, options);
-        const method = isFiat ? 'privatePostAccountWithdrawFiat' : 'privatePostAccountWithdrawCrypto';
-        if (isFiat) {
-            const payoutAccountId = this.safeString (params, 'payout_account_id');
-            if (payoutAccountId === undefined) {
-                throw new ArgumentsRequired (this.id + ' withdraw() requires a payout_account_id param for fiat ' + code + ' withdrawals');
-            }
-        } else {
-            const recipient: Dict = { 'address': address };
-            if (tag !== undefined) {
-                recipient['destination_tag'] = tag;
-            }
-            request['recipient'] = recipient;
-        }
-        const response = await this[method] (this.extend (request, params));
-        //
-        // crypto
-        //
-        //     {
-        //         "amount": "1234.5678",
-        //         "fee": "1234.5678",
-        //         "recipient": "3NacQ7rzZdhfyAtfJ5a11k8jFPdcMP2Bq7",
-        //         "destination_tag": "",
-        //         "transaction_id": "d0f8529f-f832-4e6a-9dc5-b8d5797badb2"
-        //     }
-        //
-        // fiat
-        //
-        //     {
-        //         "transaction_id": "54236cd0-4413-11e9-93fb-5fea7e5b5df6"
-        //     }
-        //
-        return this.parseTransaction (response, currency);
-    }
-
-    parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
-        //
-        // fetchDeposits, fetchWithdrawals
-        //
-        //     {
-        //         "transaction_id": "C2b42efcd-d5b7-4a56-8e12-b69ffd68c5ef",
-        //         "type": "FIAT",
-        //         "account_id": "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
-        //         "amount": "1234.5678",
-        //         "time": "2019-08-24T14:15:22Z",
-        //         "funds_source": "INTERNAL",
-        //         "currency": "BTC",
-        //         "fee_amount": "1234.5678",
-        //         "fee_currency": "BTC",
-        //         "blockchain_transaction_id": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16",
-        //         "related_transaction_id": "e298341a-3855-405e-bce3-92db368a3157"
-        //     }
-        //
-        // withdraw
-        //
-        //
-        //     crypto
-        //
-        //     {
-        //         "amount": "1234.5678",
-        //         "fee": "1234.5678",
-        //         "recipient": "3NacQ7rzZdhfyAtfJ5a11k8jFPdcMP2Bq7",
-        //         "destination_tag": "",
-        //         "transaction_id": "d0f8529f-f832-4e6a-9dc5-b8d5797badb2"
-        //     }
-        //
-        //     fiat
-        //
-        //     {
-        //         "transaction_id": "54236cd0-4413-11e9-93fb-5fea7e5b5df6"
-        //     }
-        //
-        const id = this.safeString (transaction, 'transaction_id');
-        const amount = this.safeNumber (transaction, 'amount');
-        const timestamp = this.parse8601 (this.safeString (transaction, 'time'));
-        const currencyId = this.safeString (transaction, 'currency');
-        currency = this.safeCurrency (currencyId, currency);
-        const status = 'ok'; // the exchange returns cleared transactions only
-        const feeCost = this.safeNumber2 (transaction, 'fee_amount', 'fee');
-        let fee = undefined;
-        const addressTo = this.safeString (transaction, 'recipient');
-        const tagTo = this.safeString (transaction, 'destination_tag');
-        if (feeCost !== undefined) {
-            const feeCurrencyId = this.safeString (transaction, 'fee_currency', currencyId);
-            const feeCurrencyCode = this.safeCurrencyCode (feeCurrencyId);
-            fee = {
-                'cost': feeCost,
-                'currency': feeCurrencyCode,
-            };
-        }
-        return {
-            'info': transaction,
-            'id': id,
-            'currency': currency['code'],
-            'amount': amount,
-            'network': undefined,
-            'address': addressTo,
-            'addressFrom': undefined,
-            'addressTo': addressTo,
-            'tag': tagTo,
-            'tagFrom': undefined,
-            'tagTo': tagTo,
-            'status': status,
-            'type': undefined,
-            'updated': undefined,
-            'txid': this.safeString (transaction, 'blockchain_transaction_id'),
-            'comment': undefined,
-            'internal': undefined,
-            'timestamp': timestamp,
-            'datetime': this.iso8601 (timestamp),
-            'fee': fee,
-        };
-    }
-
-    parseOrderStatus (status: Str) {
+    parseOrderStatus (status: Str): Str {
         const statuses: Dict = {
-            'FILLED': 'open',
+            'OPEN': 'open',
+            'BOOKED': 'open',
+            'FILL': 'open',
+            'MOVED': 'open',
             'FILLED_FULLY': 'closed',
             'FILLED_CLOSED': 'canceled',
             'FILLED_REJECTED': 'rejected',
-            'OPEN': 'open',
-            'REJECTED': 'rejected',
-            'CLOSED': 'canceled',
-            'FAILED': 'failed',
-            'STOP_TRIGGERED': 'triggered',
+            'CANCELLED': 'canceled',
+            'INSUFFICIENT_FUNDS': 'rejected',
+            'INSUFFICIENT_LIQUIDITY': 'rejected',
+            'RISK_FAILED_OVER_MAX_POSITION': 'rejected',
         };
         return this.safeString (statuses, status, status);
     }
 
-    parseOrder (order: Dict, market: Market = undefined): Order {
+    override parseOrder (order: Dict, market: Market = undefined): Order {
         //
         // createOrder
         //
@@ -1468,12 +1376,11 @@ export default class onetrading extends Exchange {
         //         ]
         //     }
         //
-        const rawOrder = this.safeValue (order, 'order', order);
+        const rawOrder = this.safeDict (order, 'order', order);
         const id = this.safeString (rawOrder, 'order_id');
         const clientOrderId = this.safeString (rawOrder, 'client_id');
         const timestamp = this.parse8601 (this.safeString (rawOrder, 'time'));
-        const rawStatus = this.parseOrderStatus (this.safeString (rawOrder, 'status'));
-        const status = this.parseOrderStatus (rawStatus);
+        const status = this.parseOrderStatus (this.safeString (rawOrder, 'status'));
         const marketId = this.safeString (rawOrder, 'instrument_code');
         const symbol = this.safeSymbol (marketId, market, '_');
         const price = this.safeString (rawOrder, 'price');
@@ -1482,9 +1389,8 @@ export default class onetrading extends Exchange {
         const side = this.safeStringLower (rawOrder, 'side');
         const type = this.safeStringLower (rawOrder, 'type');
         const timeInForce = this.parseTimeInForce (this.safeString (rawOrder, 'time_in_force'));
-        const stopPrice = this.safeNumber (rawOrder, 'trigger_price');
-        const postOnly = this.safeValue (rawOrder, 'is_post_only');
-        const rawTrades = this.safeValue (order, 'trades', []);
+        const postOnly = this.safeBool (rawOrder, 'is_post_only');
+        const rawTrades = this.safeList (order, 'trades', []);
         return this.safeOrder ({
             'id': id,
             'clientOrderId': clientOrderId,
@@ -1498,8 +1404,7 @@ export default class onetrading extends Exchange {
             'postOnly': postOnly,
             'side': side,
             'price': price,
-            'stopPrice': stopPrice,
-            'triggerPrice': stopPrice,
+            'triggerPrice': this.safeNumber (rawOrder, 'trigger_price'),
             'amount': amount,
             'cost': undefined,
             'average': undefined,
@@ -1511,34 +1416,38 @@ export default class onetrading extends Exchange {
         }, market);
     }
 
-    parseTimeInForce (timeInForce: Str) {
+    parseTimeInForce (timeInForce: Str): Str {
         const timeInForces: Dict = {
             'GOOD_TILL_CANCELLED': 'GTC',
             'GOOD_TILL_TIME': 'GTT',
             'IMMEDIATE_OR_CANCELLED': 'IOC',
             'FILL_OR_KILL': 'FOK',
+            'POST_ONLY': 'PO',
         };
         return this.safeString (timeInForces, timeInForce, timeInForce);
     }
 
-    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
-        /**
-         * @method
-         * @name onetrading#createOrder
-         * @description create a trade order
-         * @see https://docs.onetrading.com/#create-order
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {float} [params.triggerPrice] onetrading only does stop limit orders and does not do stop market
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#createOrder
+     * @description create a trade order
+     * @see https://docs.onetrading.com/rest/trading/create-order
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {float} [params.triggerPrice] onetrading only does stop limit orders and does not do stop market
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const uppercaseType = type.toUpperCase ();
+        this.checkRequiredArgument ('createOrder', side, 'side');
         const request: Dict = {
             'instrument_code': market['id'],
             'type': uppercaseType, // LIMIT, MARKET, STOP
@@ -1562,7 +1471,6 @@ export default class onetrading extends Exchange {
             }
             request['trigger_price'] = this.priceToPrecision (symbol, triggerPrice);
             request['type'] = 'STOP';
-            params = this.omit (params, [ 'triggerPrice', 'trigger_price', 'stopPrice' ]);
         } else if (uppercaseType === 'STOP') {
             throw new ArgumentsRequired (this.id + ' createOrder() requires a triggerPrice param for ' + type + ' orders');
         }
@@ -1572,9 +1480,13 @@ export default class onetrading extends Exchange {
         const clientOrderId = this.safeString2 (params, 'clientOrderId', 'client_id');
         if (clientOrderId !== undefined) {
             request['client_id'] = clientOrderId;
-            params = this.omit (params, [ 'clientOrderId', 'client_id' ]);
         }
-        const response = await this.privatePostAccountOrders (this.extend (request, params));
+        const triggerKeys: string[] = (triggerPrice !== undefined) ? [ 'triggerPrice', 'trigger_price', 'stopPrice' ] : [];
+        const clientOrderIdKeys: string[] = (clientOrderId !== undefined) ? [ 'clientOrderId', 'client_id' ] : [];
+        const paramsOmitted: Dict = this.omit (params, this.arrayConcat (this.arrayConcat (triggerKeys, clientOrderIdKeys), [ 'timeInForce' ]));
+        const timeInForce = this.safeString2 (params, 'timeInForce', 'time_in_force', 'GOOD_TILL_CANCELLED');
+        request['time_in_force'] = timeInForce;
+        const response = await this.privatePostAccountOrders (this.extend (request, paramsOmitted));
         //
         //     {
         //         "order_id": "d5492c24-2995-4c18-993a-5b8bf8fffc0d",
@@ -1593,19 +1505,23 @@ export default class onetrading extends Exchange {
         return this.parseOrder (response, market);
     }
 
-    async cancelOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name onetrading#cancelOrder
-         * @description cancels an open order
-         * @param {string} id order id
-         * @param {string} symbol not used by bitmex cancelOrder ()
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#cancelOrder
+     * @description cancels an open order
+     * @see https://docs.onetrading.com/rest/trading/cancel-order-order-id
+     * @see https://docs.onetrading.com/rest/trading/cancel-order-client-id
+     * @param {string} id order id
+     * @param {string} symbol not used by cancelOrder ()
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const clientOrderId = this.safeString2 (params, 'clientOrderId', 'client_id');
-        params = this.omit (params, [ 'clientOrderId', 'client_id' ]);
+        const paramsOmitted: Dict = this.omit (params, [ 'clientOrderId', 'client_id' ]);
         let method = 'privateDeleteAccountOrdersOrderId';
         const request: Dict = {};
         if (clientOrderId !== undefined) {
@@ -1614,23 +1530,31 @@ export default class onetrading extends Exchange {
         } else {
             request['order_id'] = id;
         }
-        const response = await this[method] (this.extend (request, params));
+        let response: NullableDict = undefined;
+        if (method === 'privateDeleteAccountOrdersOrderId') {
+            response = await this.privateDeleteAccountOrdersOrderId (this.extend (request, paramsOmitted));
+        } else {
+            response = await this.privateDeleteAccountOrdersClientClientId (this.extend (request, paramsOmitted));
+        }
         //
         // responds with an empty body
         //
-        return response;
+        return this.parseOrder (response as Dict);
     }
 
-    async cancelAllOrders (symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name onetrading#cancelAllOrders
-         * @description cancel all open orders
-         * @param {string} symbol unified market symbol, only orders in the market of this symbol are cancelled when symbol is not undefined
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#cancelAllOrders
+     * @description cancel all open orders
+     * @see https://docs.onetrading.com/rest/trading/cancel-all-orders
+     * @param {string} [symbol] unified market symbol, only orders in the market of this symbol are cancelled when symbol is not undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelAllOrders (symbol: Str = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {};
         if (symbol !== undefined) {
             const market = this.market (symbol);
@@ -1642,20 +1566,23 @@ export default class onetrading extends Exchange {
         //         "a10e9bd1-8f72-4cfe-9f1b-7f1c8a9bd8ee"
         //     ]
         //
-        return response;
+        return [ this.safeOrder ({ 'info': response }) ];
     }
 
-    async cancelOrders (ids, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name onetrading#cancelOrders
-         * @description cancel multiple orders
-         * @param {string[]} ids order ids
-         * @param {string} symbol unified market symbol, default is undefined
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#cancelOrders
+     * @description cancel multiple orders
+     * @see https://docs.onetrading.com/rest/trading/cancel-all-orders
+     * @param {string[]} ids order ids
+     * @param {string} symbol unified market symbol, default is undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrders (ids: string[], symbol: Str = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             'ids': ids.join (','),
         };
@@ -1665,23 +1592,28 @@ export default class onetrading extends Exchange {
         //         "a10e9bd1-8f72-4cfe-9f1b-7f1c8a9bd8ee"
         //     ]
         //
-        return response;
+        const order = this.safeOrder ({ 'info': response });
+        return [ order ];
     }
 
-    async fetchOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name onetrading#fetchOrder
-         * @description fetches information on an order made by the user
-         * @param {string} symbol not used by onetrading fetchOrder
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://docs.onetrading.com/rest/trading/get-order-order-id
+     * @param {string} id the order id
+     * @param {string} symbol not used by onetrading fetchOrder
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             'order_id': id,
         };
-        const response = await this.privateGetAccountOrdersOrderId (this.extend (request, params));
+        const response: NullableDict = await this.privateGetAccountOrdersOrderId (this.extend (request, params));
         //
         //     {
         //         "order": {
@@ -1723,47 +1655,52 @@ export default class onetrading extends Exchange {
         //         ]
         //     }
         //
-        return this.parseOrder (response);
+        return this.parseOrder (response as Dict);
     }
 
-    async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name onetrading#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://docs.onetrading.com/rest/trading/get-orders
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for, the maximum window between since and until is 30 days
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] timestamp in ms of the latest entry to fetch
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             // 'from': this.iso8601 (since),
-            // 'to': this.iso8601 (this.milliseconds ()), // max range is 100 days
+            // 'to': this.iso8601 (this.milliseconds ()), // max range is 30 days
             // 'instrument_code': market['id'],
             // 'with_cancelled_and_rejected': false, // default is false, orders which have been cancelled by the user before being filled or rejected by the system as invalid, additionally, all inactive filled orders which would return with "with_just_filled_inactive"
             // 'with_just_filled_inactive': false, // orders which have been filled and are no longer open, use of "with_cancelled_and_rejected" extends "with_just_filled_inactive" and in case both are specified the latter is ignored
-            // 'with_just_orders': false, // do not return any trades corresponsing to the orders, it may be significanly faster and should be used if user is not interesting in trade information
+            // 'with_just_orders': false, // do not return any trades corresponding to the orders, it may be significantly faster and should be used if user is not interesting in trade information
             // 'max_page_size': 100,
             // 'cursor': 'string', // pointer specifying the position from which the next pages should be returned
         };
-        let market = undefined;
+        let market: Market = undefined;
         if (symbol !== undefined) {
             market = this.market (symbol);
             request['instrument_code'] = market['id'];
         }
         if (since !== undefined) {
-            const to = this.safeString (params, 'to');
-            if (to === undefined) {
-                throw new ArgumentsRequired (this.id + ' fetchOpenOrders() requires a "to" iso8601 string param with the since argument is specified, max range is 100 days');
-            }
             request['from'] = this.iso8601 (since);
+        }
+        const until = this.safeInteger (params, 'until');
+        const paramsOmitted: Dict = (until !== undefined) ? this.omit (params, 'until') : params;
+        if (until !== undefined) {
+            request['to'] = this.iso8601 (until);
         }
         if (limit !== undefined) {
             request['max_page_size'] = limit;
         }
-        const response = await this.privateGetAccountOrders (this.extend (request, params));
+        const response = await this.privateGetAccountOrders (this.extend (request, paramsOmitted));
         //
         //     {
         //         "order_history": [
@@ -1843,40 +1780,45 @@ export default class onetrading extends Exchange {
         //         "max_page_size": 100
         //     }
         //
-        const orderHistory = this.safeList (response, 'order_history', []);
+        const orderHistory = this.safeList (response, 'order_history', []) as List;
         return this.parseOrders (orderHistory, market, since, limit);
     }
 
-    async fetchClosedOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name onetrading#fetchClosedOrders
-         * @description fetches information on multiple closed orders made by the user
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
+    /**
+     * @method
+     * @name onetrading#fetchClosedOrders
+     * @description fetches information on multiple closed orders made by the user
+     * @see https://docs.onetrading.com/rest/trading/get-orders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for, the maximum window between since and until is 30 days
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] timestamp in ms of the latest entry to fetch
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchClosedOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
         const request: Dict = {
             'with_cancelled_and_rejected': true, // default is false, orders which have been cancelled by the user before being filled or rejected by the system as invalid, additionally, all inactive filled orders which would return with "with_just_filled_inactive"
         };
         return await this.fetchOpenOrders (symbol, since, limit, this.extend (request, params));
     }
 
-    async fetchOrderTrades (id: string, symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}) {
-        /**
-         * @method
-         * @name onetrading#fetchOrderTrades
-         * @description fetch all the trades made from a single order
-         * @param {string} id order id
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#fetchOrderTrades
+     * @description fetch all the trades made from a single order
+     * @see https://docs.onetrading.com/rest/trading/get-trades-for-order
+     * @param {string} id order id
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async fetchOrderTrades (id: string, symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             'order_id': id,
             // 'max_page_size': 100,
@@ -1916,49 +1858,54 @@ export default class onetrading extends Exchange {
         //         "cursor": "string"
         //     }
         //
-        const tradeHistory = this.safeValue (response, 'trade_history', []);
-        let market = undefined;
+        const tradeHistory: Dict[] = this.safeList (response, 'trade_history', []);
+        let market: Market = undefined;
         if (symbol !== undefined) {
             market = this.market (symbol);
         }
         return this.parseTrades (tradeHistory, market, since, limit);
     }
 
-    async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}) {
-        /**
-         * @method
-         * @name onetrading#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name onetrading#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://docs.onetrading.com/rest/trading/get-trades
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for, the maximum window between since and until is 30 days, when until is omitted the exchange defaults to 7 days after since
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] timestamp in ms of the latest entry to fetch
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {
             // 'from': this.iso8601 (since),
-            // 'to': this.iso8601 (this.milliseconds ()), // max range is 100 days
+            // 'to': this.iso8601 (this.milliseconds ()), // max range is 30 days
             // 'instrument_code': market['id'],
             // 'max_page_size': 100,
             // 'cursor': 'string', // pointer specifying the position from which the next pages should be returned
         };
-        let market = undefined;
+        let market: Market = undefined;
         if (symbol !== undefined) {
             market = this.market (symbol);
             request['instrument_code'] = market['id'];
         }
         if (since !== undefined) {
-            const to = this.safeString (params, 'to');
-            if (to === undefined) {
-                throw new ArgumentsRequired (this.id + ' fetchMyTrades() requires a "to" iso8601 string param with the since argument is specified, max range is 100 days');
-            }
             request['from'] = this.iso8601 (since);
+        }
+        const until = this.safeInteger (params, 'until');
+        const paramsOmitted: Dict = (until !== undefined) ? this.omit (params, 'until') : params;
+        if (until !== undefined) {
+            request['to'] = this.iso8601 (until);
         }
         if (limit !== undefined) {
             request['max_page_size'] = limit;
         }
-        const response = await this.privateGetAccountTrades (this.extend (request, params));
+        const response = await this.privateGetAccountTrades (this.extend (request, paramsOmitted));
         //
         //     {
         //         "trade_history": [
@@ -1989,36 +1936,42 @@ export default class onetrading extends Exchange {
         //         "cursor": "string"
         //     }
         //
-        const tradeHistory = this.safeList (response, 'trade_history', []);
+        const tradeHistory = this.safeList (response, 'trade_history', []) as List;
         return this.parseTrades (tradeHistory, market, since, limit);
     }
 
-    sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let url = this.urls['api'][api] + '/' + this.version + '/' + this.implodeParams (path, params);
+    override sign (path: string, api: string[] = [ 'public' ], method: string = 'GET', params: Dict = {}): Dict {
+        const apiName = api[0];
+        const apiUrl = this.safeString (this.urls['api'], apiName);
+        if (apiUrl === undefined) {
+            throw new ExchangeError (this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + '/' + this.version + '/' + this.implodeParams (path, params);
         const query = this.omit (params, this.extractParams (path));
-        if (api === 'public') {
-            if (Object.keys (query).length) {
+        if (apiName === 'public') {
+            if (Object.keys (query).length > 0) {
                 url += '?' + this.urlencode (query);
             }
-        } else if (api === 'private') {
+        } else if (apiName === 'private') {
             this.checkRequiredCredentials ();
-            headers = {
+            const headersSigned: NullableDict = {
                 'Accept': 'application/json',
                 'Authorization': 'Bearer ' + this.apiKey,
             };
+            const bodyJson = (method === 'POST') ? this.json (query) : undefined;
             if (method === 'POST') {
-                body = this.json (query);
-                headers['Content-Type'] = 'application/json';
+                headersSigned['Content-Type'] = 'application/json';
             } else {
-                if (Object.keys (query).length) {
+                if (Object.keys (query).length > 0) {
                     url += '?' + this.urlencode (query);
                 }
             }
+            return { 'url': url, 'method': method, 'body': bodyJson, 'headers': headersSigned };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        return { 'url': url, 'method': method, 'body': undefined, 'headers': undefined };
     }
 
-    handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response, requestHeaders, requestBody) {
+    override handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response: any, requestHeaders: NullableDict, requestBody: Str) {
         if (response === undefined) {
             return undefined;
         }

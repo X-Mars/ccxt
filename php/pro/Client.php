@@ -3,6 +3,7 @@
 namespace ccxt\pro;
 
 use Ratchet\Client\Connector;
+use Ratchet\Client\WebSocket;
 use React;
 use React\EventLoop\Loop;
 use React\Promise\Timer;
@@ -18,6 +19,7 @@ use Ratchet\RFC6455\Messaging\Message;
 use Exception;
 use RuntimeException;
 
+
 class NoOriginHeaderConnector extends Connector {
     public function generateRequest($url, array $subProtocols, array $headers) {
         return parent::generateRequest($url, $subProtocols, $headers)->withoutHeader('Origin');
@@ -32,17 +34,19 @@ class Client {
     public $rejections = array();
     public $options = array();
 
+    public $cookies = array();
+
     public $on_message_callback;
     public $on_error_callback;
     public $on_close_callback;
     public $on_connected_callback;
 
     public $error;
-    public $connectionStarted;
-    public $connectionEstablished;
+    public $connecting;
     // public $connection_timer; // ?
     public $connectionTimeout = 30000;
     public $pingInterval;
+    public $connectionInterval;
     public $keepAlive = 30000;
     public $maxPingPongMisses = 2.0;
     public $lastPong = null;
@@ -54,11 +58,18 @@ class Client {
     public $throttle = null;
     public $connection = null;
     public $connected; // connection-related Future
-    public $isConnected = false;
+    public $closed = false;
     public $noOriginHeader = true;
     public $log = null;
     public $heartbeat = null;
-    public $cost = 1;
+    public int $cost = 1;
+    public $timeframes = null;
+    public $listenKeyRefreshRate = null;
+    public $watchTradesForSymbols = null;
+    public $watchOrderBook = null;
+    public $watchOrderBookForSymbols = null;
+
+    public $decompressBinary = true;
 
     // ratchet/pawl/reactphp stuff
     public $connector = null;
@@ -78,6 +89,13 @@ class Client {
         return $future;
     }
 
+    public function reusable_future($message_hash) {
+        return $this->future($message_hash);  // only used in go
+    }
+
+    public function reusableFuture($message_hash) {
+        return $this->future($message_hash);  // only used in go
+    }
     public function resolve($result, $message_hash) {
         if ($this->verbose && ($message_hash === null)) {
             $this->log(date('c'), 'resolve received null messageHash');
@@ -109,13 +127,13 @@ class Client {
     }
 
     public function __construct(
-            $url,
-            callable $on_message_callback,
-            callable $on_error_callback,
-            callable $on_close_callback,
-            callable $on_connected_callback,
-            $config
-        ) {
+        $url,
+        callable $on_message_callback,
+        callable $on_error_callback,
+        callable $on_close_callback,
+        callable $on_connected_callback,
+        $config
+    ) {
 
         $this->url = $url;
         $this->futures = array();
@@ -130,10 +148,9 @@ class Client {
         foreach ($config as $key => $value) {
             $this->{$key} =
                 (property_exists($this, $key) && is_array($this->{$key}) && is_array($value)) ?
-                    array_replace_recursive($this->{$key}, $value) :
-                    $value;
+                array_replace_recursive($this->{$key}, $value) :
+                $value;
         }
-
         $this->connected = new Future();
     }
 
@@ -162,9 +179,16 @@ class Client {
                 echo date('c'), ' connecting to ', $this->url, "\n";
             }
             $headers = property_exists($this, 'options') && array_key_exists('headers', $this->options) ? $this->options['headers'] : [];
+            if (is_array($this->cookies) && count($this->cookies)) {
+                $cookie_string = '';
+                foreach ($this->cookies as $key => $value) {
+                    $cookie_string .= $key . '=' . $value . '; ';
+                }
+                $headers['Cookie'] = rtrim($cookie_string, '; ');
+            }
             $promise = call_user_func($this->connector, $this->url, [], $headers);
             Timer\timeout($promise, $timeout, Loop::get())->then(
-                function($connection) {
+                function (WebSocket $connection) {
                     if ($this->verbose) {
                         echo date('c'), " connected\n";
                     }
@@ -173,14 +197,12 @@ class Client {
                     $this->connection->on('close', array($this, 'on_close'));
                     $this->connection->on('error', array($this, 'on_error'));
                     $this->connection->on('pong', array($this, 'on_pong'));
-                    $this->isConnected = true;
-                    $this->connectionEstablished = $this->milliseconds();
                     $this->connected->resolve($this->url);
                     $this->set_ping_interval();
                     $on_connected_callback = $this->on_connected_callback;
                     $on_connected_callback($this);
                 },
-                function(\Exception $error) {
+                function (\Exception $error) {
                     // echo date('c'), ' connection failed ', get_class($error), ' ', $error->getMessage(), "\n";
                     // the ordering of these exceptions is important
                     // since one inherits another
@@ -197,8 +219,8 @@ class Client {
     }
 
     public function connect($backoff_delay = 0) {
-        if (!$this->connection) {
-            $this->connection = true;
+        if (($this->connection == null) && !$this->connecting) {
+            $this->connecting = true;
             if ($backoff_delay) {
                 if ($this->verbose) {
                     echo date('c'), ' backoff delay ', $backoff_delay, " seconds\n";
@@ -226,7 +248,14 @@ class Client {
     }
 
     public function close() {
-        $this->connection->close();
+        foreach ($this->futures as $future) {
+            $future->cancel();
+        }
+        $this->clear_ping_interval();
+        if ($this->connection !== null) {
+            $this->connection->removeListener('close', array($this, 'on_close'));
+            $this->connection->close();
+        }
     }
 
     public function on_pong($message) {
@@ -254,14 +283,50 @@ class Client {
             // todo: exception types for server-side disconnects
             $this->reset(new NetworkError($message));
         }
-        if ($this->error) {
-            $this->reset($this->error);
+    }
+
+    public $messageQueue = array();
+    public $processingQueue = false;
+    public $isNewPacket = true;
+
+    public function on_message(Message $message) {
+        if ($this->isNewPacket) {
+            // If the queue still has unprocessed messages from a previous packet, we flush them 
+            // synchronously to prevent the backlog from growing infinitely (memory leak).
+            while (count($this->messageQueue) > 0) {
+                $msg = array_shift($this->messageQueue);
+                $this->handle_message($msg);
+            }
+            $this->isNewPacket = false;
+            // futureTick schedules this closure to run on the next event loop tick, 
+            // which runs after the current TCP packet has finished synchronously parsing.
+            Loop::futureTick(function () {
+                $this->isNewPacket = true;
+            });
+        }
+
+        $this->messageQueue[] = $message;
+        if (!$this->processingQueue) {
+            $this->processingQueue = true;
+            $callback_loop = function () use (&$callback_loop) {
+                if (count($this->messageQueue) > 0) {
+                    $msg = array_shift($this->messageQueue);
+                    $this->handle_message($msg);
+                    Loop::futureTick($callback_loop);
+                } else {
+                    $this->processingQueue = false;
+                }
+            };
+            Loop::futureTick($callback_loop);
         }
     }
 
-    public function on_message(Message $message) {
-        if (preg_match('~[^\x20-\x7E\t\r\n]~', $message) > 0) { // only decompress if the message is a binary
-            if ($this->gunzip) {
+    public function handle_message(Message $message) {
+        $is_binary = preg_match('~[^\x20-\x7E\t\r\n]~', $message) > 0;
+        if ($is_binary) { // only decompress if the message is a binary
+            if (!$this->decompressBinary) {
+                // do nothing, we need it as is
+            } else if ($this->gunzip) {
                 $message = \ccxt\pro\gunzip($message);
             } else if ($this->inflate) {
                 $message = \ccxt\pro\inflate($message);
@@ -270,6 +335,11 @@ class Client {
 
         try {
             $message = (string) $message;
+            // if (!$is_binary) {
+            //     $message = (string) $message;
+            // } else {
+            //     $message = $message->getContents();
+            // }
             if ($this->verbose) {
                 echo date('c'), ' on_message ', $message, "\n";
             }
@@ -312,11 +382,21 @@ class Client {
     }
 
     public function on_ping_interval() {
-        if ($this->keepAlive && $this->isConnected) {
+        if ($this->keepAlive && !$this->closed) {
             $now = $this->milliseconds();
-            $this->lastPong = isset ($this->lastPong) ? $this->lastPong : $now;
+            $this->lastPong = isset($this->lastPong) ? $this->lastPong : $now;
             if (($this->lastPong + $this->keepAlive * $this->maxPingPongMisses) < $now) {
                 $this->on_error(new RequestTimeout('Connection to ' . $this->url . ' timed out due to a ping-pong keepalive missing on time'));
+                // on_error rejects the pending futures and the exchange drops
+                // this client from its registry, but the socket itself is
+                // still open: nothing above tears it down, and the server
+                // never asked for a close. left alone it keeps receiving
+                // frames and dispatching them into the exchange caches next
+                // to the replacement connection the next watch call opens.
+                // close the transport here so the timeout ends the connection
+                // and not only the futures waiting on it, mirroring
+                // ts/src/base/ws/Client.ts onPingInterval (ccxt/ccxt#30293)
+                $this->close();
             } else {
                 if ($this->ping) {
                     try {

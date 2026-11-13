@@ -9,33 +9,38 @@ namespace ccxt;
 // -----------------------------------------------------------------------------
 use React\Async;
 use React\Promise;
-include_once PATH_TO_CCXT . '/test/base/test_trade.php';
-include_once PATH_TO_CCXT . '/test/base/test_shared_methods.php';
+include_once PATH_TO_CCXT . '/test/exchange/base/test_trade.php';
 
 function test_watch_trades($exchange, $skipped_properties, $symbol) {
     return Async\async(function () use ($exchange, $skipped_properties, $symbol) {
         $method = 'watchTrades';
         $now = $exchange->milliseconds();
         $ends = $now + 15000;
-        while ($now < $ends) {
-            $response = null;
+        $max_idle_time = 5000;
+        $idle = false;
+        while (($now < $ends) && !$idle) {
+            $response = [];
+            $success = true;
+            $start_time = $exchange->milliseconds();
             try {
-                $response = Async\await($exchange->watch_trades($symbol));
+                $response = \React\Async\await($exchange->watch_trades($symbol));
             } catch(\Throwable $e) {
                 if (!is_temporary_failure($e)) {
                     throw $e;
                 }
-                $now = $exchange->milliseconds();
-                continue;
+                $success = false;
             }
-            assert_non_emtpy_array($exchange, $skipped_properties, $method, $response);
             $now = $exchange->milliseconds();
-            for ($i = 0; $i < count($response); $i++) {
-                test_trade($exchange, $skipped_properties, $method, $response[$i], $symbol, $now);
-            }
-            if (!(is_array($skipped_properties) && array_key_exists('timestamp', $skipped_properties))) {
-                assert_timestamp_order($exchange, $method, $symbol, $response);
+            if ($success) {
+                assert_non_emtpy_array($exchange, $skipped_properties, $method, $response);
+                for ($i = 0; $i < count($response); $i++) {
+                    test_trade($exchange, $skipped_properties, $method, $response[$i], $symbol, $now, true);
+                }
+                if (($now - $start_time) > $max_idle_time) {
+                    $idle = true;
+                }
             }
         }
+        return true;
     }) ();
 }

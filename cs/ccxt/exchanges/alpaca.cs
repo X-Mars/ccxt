@@ -5,7 +5,7 @@ namespace ccxt;
 
 public partial class alpaca : Exchange
 {
-    public override object describe()
+    public override Dictionary<string, object> describe()
     {
         return this.deepExtend(base.describe(), new Dictionary<string, object>() {
             { "id", "alpaca" },
@@ -15,7 +15,7 @@ public partial class alpaca : Exchange
             { "hostname", "alpaca.markets" },
             { "pro", true },
             { "urls", new Dictionary<string, object>() {
-                { "logo", "https://user-images.githubusercontent.com/1294454/187234005-b864db3d-f1e3-447a-aaf9-a9fc7b955d07.jpg" },
+                { "logo", "https://github.com/user-attachments/assets/e9476df8-a450-4c3e-ab9a-1a7794219e1b" },
                 { "www", "https://alpaca.markets" },
                 { "api", new Dictionary<string, object>() {
                     { "broker", "https://broker-api.{hostname}" },
@@ -25,7 +25,7 @@ public partial class alpaca : Exchange
                 { "test", new Dictionary<string, object>() {
                     { "broker", "https://broker-api.sandbox.{hostname}" },
                     { "trader", "https://paper-api.{hostname}" },
-                    { "market", "https://data.sandbox.{hostname}" },
+                    { "market", "https://data.{hostname}" },
                 } },
                 { "doc", "https://alpaca.markets/docs/" },
                 { "fees", "https://docs.alpaca.markets/docs/crypto-fees" },
@@ -37,29 +37,78 @@ public partial class alpaca : Exchange
                 { "swap", false },
                 { "future", false },
                 { "option", false },
+                { "addMargin", false },
+                { "borrowCrossMargin", false },
+                { "borrowIsolatedMargin", false },
+                { "borrowMargin", false },
                 { "cancelAllOrders", true },
                 { "cancelOrder", true },
                 { "closeAllPositions", false },
                 { "closePosition", false },
+                { "createMarketBuyOrder", true },
+                { "createMarketBuyOrderWithCost", true },
+                { "createMarketOrderWithCost", true },
+                { "createMarketSellOrderWithCost", true },
                 { "createOrder", true },
-                { "fetchBalance", false },
+                { "createOrderWithTakeProfitAndStopLoss", false },
+                { "createOrderWithTakeProfitAndStopLossWs", false },
+                { "createReduceOnlyOrder", false },
+                { "createStopOrder", true },
+                { "createTriggerOrder", true },
+                { "editOrder", true },
+                { "fetchBalance", true },
                 { "fetchBidsAsks", false },
+                { "fetchBorrowInterest", false },
+                { "fetchBorrowRate", false },
+                { "fetchBorrowRateHistories", false },
+                { "fetchBorrowRateHistory", false },
+                { "fetchBorrowRates", false },
+                { "fetchBorrowRatesPerSymbol", false },
                 { "fetchClosedOrders", true },
+                { "fetchCrossBorrowRate", false },
+                { "fetchCrossBorrowRates", false },
                 { "fetchCurrencies", false },
-                { "fetchDepositAddress", false },
+                { "fetchDepositAddress", true },
                 { "fetchDepositAddressesByNetwork", false },
-                { "fetchDeposits", false },
-                { "fetchDepositsWithdrawals", false },
+                { "fetchDeposits", true },
+                { "fetchDepositsWithdrawals", true },
                 { "fetchFundingHistory", false },
+                { "fetchFundingInterval", false },
+                { "fetchFundingIntervals", false },
                 { "fetchFundingRate", false },
+                { "fetchFundingRateHistory", false },
                 { "fetchFundingRates", false },
+                { "fetchGreeks", false },
+                { "fetchIndexOHLCV", false },
+                { "fetchIsolatedBorrowRate", false },
+                { "fetchIsolatedBorrowRates", false },
+                { "fetchIsolatedPositions", false },
                 { "fetchL1OrderBook", true },
                 { "fetchL2OrderBook", false },
+                { "fetchLeverage", false },
+                { "fetchLeverages", false },
+                { "fetchLeverageTiers", false },
+                { "fetchLiquidations", false },
+                { "fetchLongShortRatio", false },
+                { "fetchLongShortRatioHistory", false },
+                { "fetchMarginAdjustmentHistory", false },
+                { "fetchMarginMode", false },
+                { "fetchMarginModes", false },
+                { "fetchMarketLeverageTiers", false },
                 { "fetchMarkets", true },
-                { "fetchMyTrades", false },
+                { "fetchMarkOHLCV", false },
+                { "fetchMarkPrices", false },
+                { "fetchMyLiquidations", false },
+                { "fetchMySettlementHistory", false },
+                { "fetchMyTrades", true },
                 { "fetchOHLCV", true },
+                { "fetchOpenInterest", false },
+                { "fetchOpenInterestHistory", false },
+                { "fetchOpenInterests", false },
                 { "fetchOpenOrder", false },
                 { "fetchOpenOrders", true },
+                { "fetchOption", false },
+                { "fetchOptionChain", false },
                 { "fetchOrder", true },
                 { "fetchOrderBook", true },
                 { "fetchOrders", true },
@@ -70,9 +119,11 @@ public partial class alpaca : Exchange
                 { "fetchPositionsForSymbol", false },
                 { "fetchPositionsHistory", false },
                 { "fetchPositionsRisk", false },
+                { "fetchPremiumIndexOHLCV", false },
+                { "fetchSettlementHistory", false },
                 { "fetchStatus", false },
-                { "fetchTicker", false },
-                { "fetchTickers", false },
+                { "fetchTicker", true },
+                { "fetchTickers", true },
                 { "fetchTime", true },
                 { "fetchTrades", true },
                 { "fetchTradingFee", false },
@@ -80,30 +131,340 @@ public partial class alpaca : Exchange
                 { "fetchTransactionFees", false },
                 { "fetchTransactions", false },
                 { "fetchTransfers", false },
-                { "fetchWithdrawals", false },
+                { "fetchVolatilityHistory", false },
+                { "fetchWithdrawals", true },
+                { "reduceMargin", false },
+                { "repayCrossMargin", false },
+                { "repayIsolatedMargin", false },
                 { "sandbox", true },
                 { "setLeverage", false },
+                { "setMargin", false },
                 { "setMarginMode", false },
+                { "setPositionMode", false },
                 { "transfer", false },
-                { "withdraw", false },
+                { "withdraw", true },
             } },
             { "api", new Dictionary<string, object>() {
-                { "broker", new Dictionary<string, object>() {} },
+                { "broker", new Dictionary<string, object>() {
+                    { "private", new Dictionary<string, object>() {
+                        { "get", new Dictionary<string, object>() {
+                            { "v1/accounts/{account_id}/tokenization/requests", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/accounts/{account_id}/tokenization/requests/{tokenization_request_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/accounts/{account_id}/tokenization/requests:by_client_request_id", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/accounts/{account_id}/tokenization/requests:by_issuer_request_id", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/fpsl/analytics/{account_id}/loans", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/ipos", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/ipos/{offering_reference}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/wallets/travel-rule/vasps", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/acats", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/acats/contrabrokers", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/acats/{account_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/acats/{account_id}/{acats_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/acats/{account_id}/{acats_id}/assets", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
+                        { "post", new Dictionary<string, object>() {
+                            { "v1beta1/acats/{account_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
+                        { "patch", new Dictionary<string, object>() {
+                            { "v1/accounts/{account_id}/wallets/whitelists/{whitelisted_address_id}/travel-rule-info", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
+                    } },
+                } },
                 { "trader", new Dictionary<string, object>() {
                     { "private", new Dictionary<string, object>() {
-                        { "get", new List<object>() {"v2/account", "v2/orders", "v2/orders/{order_id}", "v2/positions", "v2/positions/{symbol_or_asset_id}", "v2/account/portfolio/history", "v2/watchlists", "v2/watchlists/{watchlist_id}", "v2/watchlists:by_name", "v2/account/configurations", "v2/account/activities", "v2/account/activities/{activity_type}", "v2/calendar", "v2/clock", "v2/assets", "v2/assets/{symbol_or_asset_id}", "v2/corporate_actions/announcements/{id}", "v2/corporate_actions/announcements"} },
-                        { "post", new List<object>() {"v2/orders", "v2/watchlists", "v2/watchlists/{watchlist_id}", "v2/watchlists:by_name"} },
-                        { "put", new List<object>() {"v2/watchlists/{watchlist_id}", "v2/watchlists:by_name"} },
-                        { "patch", new List<object>() {"v2/orders/{order_id}", "v2/account/configurations"} },
-                        { "delete", new List<object>() {"v2/orders", "v2/orders/{order_id}", "v2/positions", "v2/positions/{symbol_or_asset_id}", "v2/watchlists/{watchlist_id}", "v2/watchlists:by_name", "v2/watchlists/{watchlist_id}/{symbol}"} },
+                        { "get", new Dictionary<string, object>() {
+                            { "v2/account", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/orders", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/orders/{order_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/positions", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/positions/{symbol_or_asset_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/account/portfolio/history", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists/{watchlist_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists:by_name", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/account/configurations", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/account/activities", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/account/activities/{activity_type}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/calendar", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/clock", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/assets", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/assets/{symbol_or_asset_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/corporate_actions/announcements/{id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/corporate_actions/announcements", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/wallets", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/wallets/transfers", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/locates", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/locates/{locate_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/locates/quotes", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/tokenization/requests", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/tokenization/requests/{tokenization_request_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/tokenization/requests:by_client_request_id", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/wallets/travel-rule/vasps", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
+                        { "post", new Dictionary<string, object>() {
+                            { "v2/orders", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists/{watchlist_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists:by_name", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/wallets/transfers", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1/locates", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
+                        { "put", new Dictionary<string, object>() {
+                            { "v2/orders/{order_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists/{watchlist_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists:by_name", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
+                        { "patch", new Dictionary<string, object>() {
+                            { "v2/orders/{order_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/account/configurations", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/wallets/whitelists/{whitelisted_address_id}/travel-rule-info", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
+                        { "delete", new Dictionary<string, object>() {
+                            { "v2/orders", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/orders/{order_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/positions", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/positions/{symbol_or_asset_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists/{watchlist_id}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists:by_name", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/watchlists/{watchlist_id}/{symbol}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
                     } },
                 } },
                 { "market", new Dictionary<string, object>() {
                     { "public", new Dictionary<string, object>() {
-                        { "get", new List<object>() {"v1beta3/crypto/{loc}/bars", "v1beta3/crypto/{loc}/latest/bars", "v1beta3/crypto/{loc}/latest/orderbooks", "v1beta3/crypto/{loc}/latest/quotes", "v1beta3/crypto/{loc}/latest/trades", "v1beta3/crypto/{loc}/quotes", "v1beta3/crypto/{loc}/snapshots", "v1beta3/crypto/{loc}/trades"} },
+                        { "get", new Dictionary<string, object>() {
+                            { "v1beta3/crypto/{loc}/bars", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta3/crypto/{loc}/latest/bars", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta3/crypto/{loc}/latest/orderbooks", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta3/crypto/{loc}/latest/quotes", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta3/crypto/{loc}/latest/trades", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta3/crypto/{loc}/quotes", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta3/crypto/{loc}/snapshots", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta3/crypto/{loc}/trades", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
                     } },
                     { "private", new Dictionary<string, object>() {
-                        { "get", new List<object>() {"v1beta1/corporate-actions", "v1beta1/forex/latest/rates", "v1beta1/forex/rates", "v1beta1/logos/{symbol}", "v1beta1/news", "v1beta1/screener/stocks/most-actives", "v1beta1/screener/{market_type}/movers", "v2/stocks/auctions", "v2/stocks/bars", "v2/stocks/bars/latest", "v2/stocks/meta/conditions/{ticktype}", "v2/stocks/meta/exchanges", "v2/stocks/quotes", "v2/stocks/quotes/latest", "v2/stocks/snapshots", "v2/stocks/trades", "v2/stocks/trades/latest", "v2/stocks/{symbol}/auctions", "v2/stocks/{symbol}/bars", "v2/stocks/{symbol}/bars/latest", "v2/stocks/{symbol}/quotes", "v2/stocks/{symbol}/quotes/latest", "v2/stocks/{symbol}/snapshot", "v2/stocks/{symbol}/trades", "v2/stocks/{symbol}/trades/latest"} },
+                        { "get", new Dictionary<string, object>() {
+                            { "v1beta1/corporate-actions", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/fixed_income/latest/prices", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/fixed_income/latest/quotes", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/forex/latest/rates", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/forex/rates", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/logos/{symbol}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/news", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/screener/stocks/most-actives", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v1beta1/screener/{market_type}/movers", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/auctions", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/bars", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/bars/latest", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/meta/conditions/{ticktype}", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/meta/exchanges", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/quotes", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/quotes/latest", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/snapshots", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/trades", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/trades/latest", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/{symbol}/auctions", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/{symbol}/bars", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/{symbol}/bars/latest", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/{symbol}/quotes", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/{symbol}/quotes/latest", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/{symbol}/snapshot", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/{symbol}/trades", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                            { "v2/stocks/{symbol}/trades/latest", new Dictionary<string, object>() {
+                                { "cost", 1 },
+                            } },
+                        } },
                     } },
                 } },
             } },
@@ -145,10 +506,98 @@ public partial class alpaca : Exchange
                 { "APCA-PARTNER-ID", "ccxt" },
             } },
             { "options", new Dictionary<string, object>() {
+                { "minCostUSD", 10 },
                 { "defaultExchange", "CBSE" },
                 { "exchanges", new List<object>() {"CBSE", "FTX", "GNSS", "ERSX"} },
-                { "defaultTimeInForce", "gtc" },
+                { "createOrder", new Dictionary<string, object>() {
+                    { "timeInForce", "gtc" },
+                } },
                 { "clientOrderId", "ccxt_{id}" },
+            } },
+            { "features", new Dictionary<string, object>() {
+                { "spot", new Dictionary<string, object>() {
+                    { "sandbox", true },
+                    { "createOrder", new Dictionary<string, object>() {
+                        { "marginMode", false },
+                        { "triggerPrice", true },
+                        { "triggerPriceType", null },
+                        { "triggerDirection", false },
+                        { "stopLossPrice", false },
+                        { "takeProfitPrice", false },
+                        { "attachedStopLossTakeProfit", new Dictionary<string, object>() {
+                            { "triggerPriceType", new Dictionary<string, object>() {
+                                { "last", true },
+                                { "mark", true },
+                                { "index", true },
+                            } },
+                            { "price", true },
+                        } },
+                        { "timeInForce", new Dictionary<string, object>() {
+                            { "IOC", true },
+                            { "FOK", false },
+                            { "PO", false },
+                            { "GTD", false },
+                        } },
+                        { "hedged", false },
+                        { "trailing", true },
+                        { "leverage", false },
+                        { "marketBuyRequiresPrice", false },
+                        { "marketBuyByCost", false },
+                        { "selfTradePrevention", false },
+                        { "iceberg", false },
+                    } },
+                    { "createOrders", null },
+                    { "fetchMyTrades", new Dictionary<string, object>() {
+                        { "marginMode", false },
+                        { "limit", 100 },
+                        { "daysBack", 100000 },
+                        { "untilDays", 100000 },
+                        { "symbolRequired", false },
+                    } },
+                    { "fetchOrder", new Dictionary<string, object>() {
+                        { "marginMode", false },
+                        { "trigger", false },
+                        { "trailing", false },
+                        { "symbolRequired", false },
+                    } },
+                    { "fetchOpenOrders", new Dictionary<string, object>() {
+                        { "marginMode", false },
+                        { "limit", 500 },
+                        { "trigger", false },
+                        { "trailing", false },
+                        { "symbolRequired", false },
+                    } },
+                    { "fetchOrders", new Dictionary<string, object>() {
+                        { "marginMode", false },
+                        { "limit", 500 },
+                        { "daysBack", 100000 },
+                        { "untilDays", 100000 },
+                        { "trigger", false },
+                        { "trailing", false },
+                        { "symbolRequired", false },
+                    } },
+                    { "fetchClosedOrders", new Dictionary<string, object>() {
+                        { "marginMode", false },
+                        { "limit", 500 },
+                        { "daysBack", 100000 },
+                        { "daysBackCanceled", null },
+                        { "untilDays", 100000 },
+                        { "trigger", false },
+                        { "trailing", false },
+                        { "symbolRequired", false },
+                    } },
+                    { "fetchOHLCV", new Dictionary<string, object>() {
+                        { "limit", 1000 },
+                    } },
+                } },
+                { "swap", new Dictionary<string, object>() {
+                    { "linear", null },
+                    { "inverse", null },
+                } },
+                { "future", new Dictionary<string, object>() {
+                    { "linear", null },
+                    { "inverse", null },
+                } },
             } },
             { "exceptions", new Dictionary<string, object>() {
                 { "exact", new Dictionary<string, object>() {
@@ -156,28 +605,31 @@ public partial class alpaca : Exchange
                     { "40410000", typeof(InvalidOrder) },
                     { "40010001", typeof(BadRequest) },
                     { "40110000", typeof(PermissionDenied) },
-                    { "40310000", typeof(InsufficientFunds) },
+                    { "42210000", typeof(BadRequest) },
                     { "42910000", typeof(RateLimitExceeded) },
                 } },
                 { "broad", new Dictionary<string, object>() {
                     { "Invalid format for parameter", typeof(BadRequest) },
                     { "Invalid symbol", typeof(BadSymbol) },
+                    { "cost basis must be", typeof(InvalidOrder) },
+                    { "insufficient balance for", typeof(InsufficientFunds) },
+                    { "orders are rejected by user request", typeof(PermissionDenied) },
                 } },
             } },
         });
     }
 
-    public async override Task<object> fetchTime(object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchTime
+     * @description fetches the current integer timestamp in milliseconds from the exchange server
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int} the current integer timestamp in milliseconds from the exchange server
+     */
+    public async override Task<Int64> FetchTime(object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchTime
-        * @description fetches the current integer timestamp in milliseconds from the exchange server
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @returns {int} the current integer timestamp in milliseconds from the exchange server
-        */
         parameters ??= new Dictionary<string, object>();
-        object response = await this.traderPrivateGetV2Clock(parameters);
+        Dictionary<string, object> response = await this.traderPrivateGetV2Clock(parameters);
         //
         //     {
         //         timestamp: '2023-11-22T08:07:57.654738097-05:00',
@@ -186,31 +638,30 @@ public partial class alpaca : Exchange
         //         next_close: '2023-11-22T16:00:00-05:00'
         //     }
         //
-        object timestamp = this.safeString(response, "timestamp");
-        object localTime = slice(timestamp, 0, 23);
-        object jetlagStrStart = subtract(((string)timestamp).Length, 6);
-        object jetlagStrEnd = subtract(((string)timestamp).Length, 3);
-        object jetlag = slice(timestamp, jetlagStrStart, jetlagStrEnd);
-        object iso = subtract(this.parse8601(localTime), multiply(multiply(this.parseToNumeric(jetlag), 3600), 1000));
-        return iso;
+        Int64? timestamp = this.parse8601(this.safeString(response, "timestamp"));
+        if ((timestamp == null))
+        {
+            throw new ExchangeError ((this.id + " fetchTime() missing timestamp")) ;
+        }
+        return timestamp ?? 0;
     }
 
-    public async override Task<object> fetchMarkets(object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchMarkets
+     * @description retrieves data on all markets for alpaca
+     * @see https://docs.alpaca.markets/reference/get-v2-assets
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
+    public async override Task<List<ccxt.MarketInterface>> FetchMarkets(object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchMarkets
-        * @description retrieves data on all markets for alpaca
-        * @see https://docs.alpaca.markets/reference/get-v2-assets
-        * @param {object} [params] extra parameters specific to the exchange api endpoint
-        * @returns {object[]} an array of objects representing market data
-        */
         parameters ??= new Dictionary<string, object>();
-        object request = new Dictionary<string, object>() {
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "asset_class", "crypto" },
             { "status", "active" },
         };
-        object assets = await this.traderPrivateGetV2Assets(this.extend(request, parameters));
+        List<object> assets = await this.traderPrivateGetV2Assets(this.extend(request, parameters));
         //
         //     [
         //         {
@@ -233,10 +684,10 @@ public partial class alpaca : Exchange
         //         }
         //     ]
         //
-        return this.parseMarkets(assets);
+        return ccxt.BaseExchange.ToMarketInterfaceList(this.parseMarkets(assets));
     }
 
-    public override object parseMarket(object asset)
+    public override Dictionary<string, object> parseMarket(object asset)
     {
         //
         //     {
@@ -248,7 +699,7 @@ public partial class alpaca : Exchange
         //         "status": "active",
         //         "tradable": true,
         //         "marginable": false,
-        //         "maintenance_margin_requirement": 100,
+        //         "maintenance_margin_requirement": 101,
         //         "shortable": false,
         //         "easy_to_borrow": false,
         //         "fractionable": true,
@@ -258,26 +709,41 @@ public partial class alpaca : Exchange
         //         "price_increment": "1"
         //     }
         //
-        object marketId = this.safeString(asset, "symbol");
-        object parts = ((string)marketId).Split(new [] {((string)"/")}, StringSplitOptions.None).ToList<object>();
-        object assetClass = this.safeString(asset, "class");
-        object baseId = this.safeString(parts, 0);
-        object quoteId = this.safeString(parts, 1);
-        object bs = this.safeCurrencyCode(baseId);
-        object quote = this.safeCurrencyCode(quoteId);
+        string? marketId = this.safeString(asset, "symbol");
+        if ((marketId == null))
+        {
+            throw new ExchangeError ((this.id + " parseMarket() missing marketId")) ;
+        }
+        List<object> parts = marketId.Split(new [] {"/"}, StringSplitOptions.None).ToList<object>();
+        string? assetClass = this.safeString(asset, "class");
+        string? baseId = this.safeString(parts, 0);
+        string? quoteId = this.safeString(parts, 1);
+        string? bs = this.safeCurrencyCode(baseId);
+        string? quote = this.safeCurrencyCode(quoteId);
         // Us equity markets do not include quote in symbol.
         // We can safely coerce us_equity quote to USD
-        if (isTrue(isTrue(isEqual(quote, null)) && isTrue(isEqual(assetClass, "us_equity"))))
+        if ((quote == null) && assetClass == "us_equity")
         {
             quote = "USD";
         }
-        object symbol = add(add(bs, "/"), quote);
-        object status = this.safeString(asset, "status");
-        object active = (isEqual(status, "active"));
-        object minAmount = this.safeNumber(asset, "min_order_size");
-        object amount = this.safeNumber(asset, "min_trade_increment");
-        object price = this.safeNumber(asset, "price_increment");
-        return new Dictionary<string, object>() {
+        if (((bs == null)) || ((quote == null)))
+        {
+            return null;
+        }
+        string symbol = ((bs + "/") + quote);
+        string? status = this.safeString(asset, "status");
+        bool active = (status == "active");
+        double? minAmount = this.safeNumber(asset, "min_order_size");
+        double? amount = this.safeNumber(asset, "min_trade_increment");
+        double? price = this.safeNumber(asset, "price_increment");
+        double? minCost = null;
+        if ((assetClass == "crypto") && (quote == "USD"))
+        {
+            // alpaca rejects USD-quoted crypto buy orders below 10 USD notional: {"code":40310000,"message":"cost basis must be >= minimal amount of order 10"}
+            // USDT-, USDC- and BTC-quoted pairs accept smaller orders, and sell orders are not floored — verified live 2026-08-25
+            minCost = this.safeNumber(this.options, "minCostUSD", this.parseNumber("10"));
+        }
+        return this.safeMarketStructure(new Dictionary<string, object>() {
             { "id", marketId },
             { "symbol", symbol },
             { "base", bs },
@@ -319,54 +785,57 @@ public partial class alpaca : Exchange
                     { "max", null },
                 } },
                 { "cost", new Dictionary<string, object>() {
-                    { "min", null },
+                    { "min", minCost },
                     { "max", null },
                 } },
             } },
             { "created", null },
             { "info", asset },
-        };
+        });
     }
 
-    public async override Task<object> fetchTrades(object symbol, object since = null, object limit = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://docs.alpaca.markets/reference/cryptotrades
+     * @see https://docs.alpaca.markets/reference/cryptolatesttrades
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.loc] crypto location, default: us
+     * @param {string} [params.method] method, default: marketPublicGetV1beta3CryptoLocTrades
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    public async override Task<List<ccxt.Trade>> FetchTrades(string symbol, Int64? since = null, Int64? limit = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchTrades
-        * @description get the list of most recent trades for a particular symbol
-        * @see https://docs.alpaca.markets/reference/cryptotrades
-        * @see https://docs.alpaca.markets/reference/cryptolatesttrades
-        * @param {string} symbol unified symbol of the market to fetch trades for
-        * @param {int} [since] timestamp in ms of the earliest trade to fetch
-        * @param {int} [limit] the maximum amount of trades to fetch
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @param {string} [params.loc] crypto location, default: us
-        * @param {string} [params.method] method, default: marketPublicGetV1beta3CryptoLocTrades
-        * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-        */
         parameters ??= new Dictionary<string, object>();
-        await this.loadMarkets();
-        object market = this.market(symbol);
-        object marketId = getValue(market, "id");
-        object loc = this.safeString(parameters, "loc", "us");
-        object method = this.safeString(parameters, "method", "marketPublicGetV1beta3CryptoLocTrades");
-        object request = new Dictionary<string, object>() {
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> market = this.market(symbol);
+        string? marketId = this.safeString(market, "id");
+        string? loc = this.safeString(parameters, "loc", "us");
+        string? method = this.safeString(parameters, "method", "marketPublicGetV1beta3CryptoLocTrades");
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "symbols", marketId },
             { "loc", loc },
         };
-        parameters = this.omit(parameters, new List<object>() {"loc", "method"});
-        object symbolTrades = null;
-        if (isTrue(isEqual(method, "marketPublicGetV1beta3CryptoLocTrades")))
+        IDictionary<string, object> paramsOmitted = ((IDictionary<string, object>)this.omit(parameters, new List<object>() {"loc", "method"}));
+        List<object> symbolTrades = null;
+        if (method == "marketPublicGetV1beta3CryptoLocTrades")
         {
-            if (isTrue(!isEqual(since, null)))
+            if ((since != null))
             {
-                ((IDictionary<string,object>)request)["start"] = this.iso8601(since);
+                request["start"] = this.iso8601(since);
             }
-            if (isTrue(!isEqual(limit, null)))
+            if ((limit != null))
             {
-                ((IDictionary<string,object>)request)["limit"] = limit;
+                request["limit"] = limit;
             }
-            object response = await this.marketPublicGetV1beta3CryptoLocTrades(this.extend(request, parameters));
+            Dictionary<string, object> response = await this.marketPublicGetV1beta3CryptoLocTrades(this.extend(request, paramsOmitted));
             //
             //    {
             //        "next_page_token": null,
@@ -383,11 +852,11 @@ public partial class alpaca : Exchange
             //        }
             //    }
             //
-            object trades = this.safeDict(response, "trades", new Dictionary<string, object>() {});
+            IDictionary<string, object> trades = this.safeDict(response, "trades", new Dictionary<string, object>() {});
             symbolTrades = this.safeList(trades, marketId, new List<object>() {});
-        } else if (isTrue(isEqual(method, "marketPublicGetV1beta3CryptoLocLatestTrades")))
+        } else if (method == "marketPublicGetV1beta3CryptoLocLatestTrades")
         {
-            object response = await this.marketPublicGetV1beta3CryptoLocLatestTrades(this.extend(request, parameters));
+            Dictionary<string, object> response = await this.marketPublicGetV1beta3CryptoLocLatestTrades(this.extend(request, paramsOmitted));
             //
             //    {
             //       "trades": {
@@ -401,39 +870,47 @@ public partial class alpaca : Exchange
             //        }
             //    }
             //
-            object trades = this.safeDict(response, "trades", new Dictionary<string, object>() {});
-            symbolTrades = this.safeDict(trades, marketId, new Dictionary<string, object>() {});
-            symbolTrades = new List<object>() {symbolTrades};
+            IDictionary<string, object> trades = this.safeDict(response, "trades", new Dictionary<string, object>() {});
+            IDictionary<string, object> symbolTrade = this.safeDict(trades, marketId, new Dictionary<string, object>() {});
+            symbolTrades = new List<object>() {symbolTrade};
         } else
         {
-            throw new NotSupported ((string)add(add(add(this.id, " fetchTrades() does not support "), method), ", marketPublicGetV1beta3CryptoLocTrades and marketPublicGetV1beta3CryptoLocLatestTrades are supported")) ;
+            throw new NotSupported ((((this.id + " fetchTrades() does not support ") + method) + ", marketPublicGetV1beta3CryptoLocTrades and marketPublicGetV1beta3CryptoLocLatestTrades are supported")) ;
         }
-        return this.parseTrades(symbolTrades, market, since, limit);
+        List<object> symbolTradesList = new List<object>() {};
+        if ((symbolTrades != null))
+        {
+            symbolTradesList = symbolTrades;
+        }
+        return this.parseTrades(symbolTradesList, market, since, limit);
     }
 
-    public async override Task<object> fetchOrderBook(object symbol, object limit = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://docs.alpaca.markets/reference/cryptolatestorderbooks
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.loc] crypto location, default: us
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    public async override Task<ccxt.OrderBook> FetchOrderBook(string symbol, Int64? limit = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchOrderBook
-        * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-        * @see https://docs.alpaca.markets/reference/cryptolatestorderbooks
-        * @param {string} symbol unified symbol of the market to fetch the order book for
-        * @param {int} [limit] the maximum amount of order book entries to return
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @param {string} [params.loc] crypto location, default: us
-        * @returns {object} A dictionary of [order book structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-book-structure} indexed by market symbols
-        */
         parameters ??= new Dictionary<string, object>();
-        await this.loadMarkets();
-        object market = this.market(symbol);
-        object id = getValue(market, "id");
-        object loc = this.safeString(parameters, "loc", "us");
-        object request = new Dictionary<string, object>() {
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> market = this.market(symbol);
+        string? id = this.safeString(market, "id");
+        string? loc = this.safeString(parameters, "loc", "us");
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "symbols", id },
             { "loc", loc },
         };
-        object response = await this.marketPublicGetV1beta3CryptoLocLatestOrderbooks(this.extend(request, parameters));
+        Dictionary<string, object> response = await this.marketPublicGetV1beta3CryptoLocLatestOrderbooks(this.extend(request, parameters));
         //
         //   {
         //       "orderbooks":{
@@ -471,54 +948,76 @@ public partial class alpaca : Exchange
         //       }
         //   }
         //
-        object orderbooks = this.safeValue(response, "orderbooks", new Dictionary<string, object>() {});
-        object rawOrderbook = this.safeValue(orderbooks, id, new Dictionary<string, object>() {});
-        object timestamp = this.parse8601(this.safeString(rawOrderbook, "t"));
-        return this.parseOrderBook(rawOrderbook, getValue(market, "symbol"), timestamp, "b", "a", "p", "s");
+        IDictionary<string, object> orderbooks = this.safeDict(response, "orderbooks", new Dictionary<string, object>() {});
+        IDictionary<string, object> rawOrderbook = this.safeDict(orderbooks, id, new Dictionary<string, object>() {});
+        Int64? timestamp = this.parse8601(this.safeString(rawOrderbook, "t"));
+        return this.parseOrderBook(rawOrderbook, (market.ContainsKey("symbol") ? market["symbol"] : null), timestamp, "b", "a", "p", "s");
     }
 
-    public async override Task<object> fetchOHLCV(object symbol, object timeframe = null, object since = null, object limit = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchOHLCV
+     * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://docs.alpaca.markets/reference/cryptobars
+     * @see https://docs.alpaca.markets/reference/cryptolatestbars
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] timestamp in ms of the latest candle to fetch
+     * @param {boolean} [params.paginate] default false, when true will automatically paginate by calling this endpoint multiple times. See in the docs all the [available parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
+     * @param {int} [params.paginationCalls] the maximum number of requests while following next_page_token, default 10 — when the cap is reached the result is silently truncated to the pages already fetched, so raise it for long ranges, 10 requests cover roughly 30 days of 1h candles
+     * @param {string} [params.loc] crypto location, default: us
+     * @param {string} [params.method] method, default: marketPublicGetV1beta3CryptoLocBars
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    public async override Task<List<ccxt.OHLCV>> FetchOHLCV(string symbol, string timeframe = null, Int64? since = null, Int64? limit = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchOHLCV
-        * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-        * @see https://docs.alpaca.markets/reference/cryptobars
-        * @see https://docs.alpaca.markets/reference/cryptolatestbars
-        * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-        * @param {string} timeframe the length of time each candle represents
-        * @param {int} [since] timestamp in ms of the earliest candle to fetch
-        * @param {int} [limit] the maximum amount of candles to fetch
-        * @param {object} [params] extra parameters specific to the alpha api endpoint
-        * @param {string} [params.loc] crypto location, default: us
-        * @param {string} [params.method] method, default: marketPublicGetV1beta3CryptoLocBars
-        * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-        */
-        timeframe ??= "1m";
+        string timeframeVar = timeframe;
+        timeframeVar ??= "1m";
         parameters ??= new Dictionary<string, object>();
-        await this.loadMarkets();
-        object market = this.market(symbol);
-        object marketId = getValue(market, "id");
-        object loc = this.safeString(parameters, "loc", "us");
-        object method = this.safeString(parameters, "method", "marketPublicGetV1beta3CryptoLocBars");
-        object request = new Dictionary<string, object>() {
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> market = this.market(symbol);
+        string? marketId = this.safeString(market, "id");
+        string? loc = this.safeString(parameters, "loc", "us");
+        string? method = this.safeString(parameters, "method", "marketPublicGetV1beta3CryptoLocBars");
+        bool? paginate = false;
+        object query = null;
+        (bool?, object) paginatequeryVariable = this.handleOptionBoolAndParams(parameters, "fetchOHLCV", "paginate", false);
+        paginate = paginatequeryVariable.Item1;
+        query = paginatequeryVariable.Item2;
+        (Int64?, object) paginationCallsqueryPaginationVariable = this.handleOptionIntegerAndParams(query, "fetchOHLCV", "paginationCalls", 10);
+        Int64? paginationCalls = paginationCallsqueryPaginationVariable.Item1;
+        IDictionary<string, object> queryPagination = ((IDictionary<string, object>)paginationCallsqueryPaginationVariable.Item2);
+        query = queryPagination;
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "symbols", marketId },
             { "loc", loc },
         };
-        parameters = this.omit(parameters, new List<object>() {"loc", "method"});
-        object ohlcvs = null;
-        if (isTrue(isEqual(method, "marketPublicGetV1beta3CryptoLocBars")))
+        query = this.omit(query, new List<object>() {"loc", "method"});
+        List<object> ohlcvs = null;
+        if (method == "marketPublicGetV1beta3CryptoLocBars")
         {
-            if (isTrue(!isEqual(limit, null)))
+            if ((limit != null))
             {
-                ((IDictionary<string,object>)request)["limit"] = limit;
+                request["limit"] = limit;
             }
-            if (isTrue(!isEqual(since, null)))
+            if ((since != null))
             {
-                ((IDictionary<string,object>)request)["start"] = this.yyyymmdd(since);
+                request["start"] = this.iso8601(since);
             }
-            ((IDictionary<string,object>)request)["timeframe"] = this.safeString(this.timeframes, timeframe, timeframe);
-            object response = await this.marketPublicGetV1beta3CryptoLocBars(this.extend(request, parameters));
+            Int64? until = this.safeInteger(query, "until");
+            if ((until != null))
+            {
+                query = this.omit(query, "until");
+                request["end"] = this.iso8601(until);
+            }
+            request["timeframe"] = this.safeString(this.timeframes, timeframeVar, timeframeVar);
+            Dictionary<string, object> response = await this.marketPublicGetV1beta3CryptoLocBars(this.extend(request, query));
             //
             //    {
             //        "bars": {
@@ -548,11 +1047,35 @@ public partial class alpaca : Exchange
             //        "next_page_token": "QlRDL1VTRHxNfDIwMjItMDctMjFUMDU6MDE6MDAuMDAwMDAwMDAwWg=="
             //     }
             //
-            object bars = this.safeDict(response, "bars", new Dictionary<string, object>() {});
+            IDictionary<string, object> bars = this.safeDict(response, "bars", new Dictionary<string, object>() {});
             ohlcvs = this.safeList(bars, marketId, new List<object>() {});
-        } else if (isTrue(isEqual(method, "marketPublicGetV1beta3CryptoLocLatestBars")))
+            if ((paginate == true))
+            {
+                // the endpoint answers with a server-sized page plus a next_page_token regardless of the requested limit
+                string? pageToken = this.safeString(response, "next_page_token");
+                for (int i = 1; (i < paginationCalls); i++)
+                {
+                    int ohlcvsLength = (ohlcvs?.Count ?? 0);
+                    if (((pageToken == null)) || (((limit != null)) && ((limit == null || ohlcvsLength >= limit))))
+                    {
+                        break;
+                    }
+                    request["page_token"] = pageToken;
+                    response = await this.marketPublicGetV1beta3CryptoLocBars(this.extend(request, query));
+                    bars = this.safeDict(response, "bars", new Dictionary<string, object>() {});
+                    List<object> page = this.safeList(bars, marketId, new List<object>() {});
+                    int pageLength = page.Count;
+                    if ((pageLength == 0))
+                    {
+                        break;
+                    }
+                    ohlcvs = this.arrayConcat(ohlcvs, page);
+                    pageToken = this.safeString(response, "next_page_token");
+                }
+            }
+        } else if (method == "marketPublicGetV1beta3CryptoLocLatestBars")
         {
-            object response = await this.marketPublicGetV1beta3CryptoLocLatestBars(this.extend(request, parameters));
+            Dictionary<string, object> response = await this.marketPublicGetV1beta3CryptoLocLatestBars(this.extend(request, query));
             //
             //    {
             //        "bars": {
@@ -569,17 +1092,17 @@ public partial class alpaca : Exchange
             //        }
             //     }
             //
-            object bars = this.safeDict(response, "bars", new Dictionary<string, object>() {});
-            ohlcvs = this.safeDict(bars, marketId, new Dictionary<string, object>() {});
-            ohlcvs = new List<object>() {ohlcvs};
+            IDictionary<string, object> bars = this.safeDict(response, "bars", new Dictionary<string, object>() {});
+            IDictionary<string, object> bar = this.safeDict(bars, marketId, new Dictionary<string, object>() {});
+            ohlcvs = new List<object>() {bar};
         } else
         {
-            throw new NotSupported ((string)add(add(add(this.id, " fetchOHLCV() does not support "), method), ", marketPublicGetV1beta3CryptoLocBars and marketPublicGetV1beta3CryptoLocLatestBars are supported")) ;
+            throw new NotSupported ((((this.id + " fetchOHLCV() does not support ") + method) + ", marketPublicGetV1beta3CryptoLocBars and marketPublicGetV1beta3CryptoLocLatestBars are supported")) ;
         }
-        return this.parseOHLCVs(ohlcvs, market, timeframe, since, limit);
+        return ccxt.BaseExchange.ToOHLCVList(this.parseOHLCVs(ohlcvs, market,timeframeVar, since, limit));
     }
 
-    public override object parseOHLCV(object ohlcv, object market = null)
+    public override IList<object> parseOHLCV(object ohlcv, object market = null)
     {
         //
         //     {
@@ -593,69 +1116,303 @@ public partial class alpaca : Exchange
         //        "vw":22889.5
         //     }
         //
-        object datetime = this.safeString(ohlcv, "t");
-        object timestamp = this.parse8601(datetime);
+        string? datetime = this.safeString(ohlcv, "t");
+        Int64? timestamp = this.parse8601(datetime);
         return new List<object>() {timestamp, this.safeNumber(ohlcv, "o"), this.safeNumber(ohlcv, "h"), this.safeNumber(ohlcv, "l"), this.safeNumber(ohlcv, "c"), this.safeNumber(ohlcv, "v")};
     }
 
-    public async override Task<object> createOrder(object symbol, object type, object side, object amount, object price = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://docs.alpaca.markets/reference/cryptosnapshots-1
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.loc] crypto location, default: us
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    public async override Task<ccxt.Ticker> FetchTicker(string symbol, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#createOrder
-        * @description create a trade order
-        * @see https://docs.alpaca.markets/reference/postorder
-        * @param {string} symbol unified symbol of the market to create an order in
-        * @param {string} type 'market', 'limit' or 'stop_limit'
-        * @param {string} side 'buy' or 'sell'
-        * @param {float} amount how much of currency you want to trade in units of base currency
-        * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @param {float} [params.triggerPrice] The price at which a trigger order is triggered at
-        * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-        */
         parameters ??= new Dictionary<string, object>();
-        await this.loadMarkets();
-        object market = this.market(symbol);
-        object id = getValue(market, "id");
-        object request = new Dictionary<string, object>() {
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        string? symbolValue = this.symbol(symbol);
+        Dictionary<string, object> tickers = ccxt.BaseExchange.FromTickers(await this.FetchTickers(new List<object>() {symbolValue}, parameters));
+        IDictionary<string, object> ticker = this.safeDict(tickers, symbolValue);
+        return ccxt.BaseExchange.ToTicker(ticker);
+    }
+
+    /**
+     * @method
+     * @name alpaca#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
+     * @see https://docs.alpaca.markets/reference/cryptosnapshots-1
+     * @param {string[]} [symbols] unified symbols of the markets to fetch tickers for, defaults to all markets
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.loc] crypto location, default: us
+     * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    public async override Task<ccxt.Tickers> FetchTickers(IList<object> symbols = null, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        // every listed market is a crypto market because fetchMarkets requests asset_class=crypto, so default to all of them
+        // symbol iteration order differs per language
+        object symbolsSorted = ((symbols == null)) ? this.sort(this.symbols) : symbols;
+        IList<object> symbolsNormalized = this.marketSymbols(this.toArray(symbolsSorted));
+        string? loc = this.safeString(parameters, "loc", "us");
+        IList<object> ids = this.marketIds(symbolsNormalized);
+        Dictionary<string, object> request = new Dictionary<string, object>() {
+            { "symbols", String.Join(",", ids.ToArray()) },
+            { "loc", loc },
+        };
+        IDictionary<string, object> paramsOmitted = ((IDictionary<string, object>)this.omit(parameters, "loc"));
+        Dictionary<string, object> response = await this.marketPublicGetV1beta3CryptoLocSnapshots(this.extend(request, paramsOmitted));
+        //
+        //     {
+        //         "snapshots": {
+        //             "BTC/USD": {
+        //                 "dailyBar": {
+        //                     "c": 69403.554,
+        //                     "h": 69609.6515,
+        //                     "l": 69013.26,
+        //                     "n": 9,
+        //                     "o": 69536.7,
+        //                     "t": "2024-11-01T05:00:00Z",
+        //                     "v": 0.210809181,
+        //                     "vw": 69327.655393908
+        //                 },
+        //                 "latestQuote": {
+        //                     "ap": 69424.19,
+        //                     "as": 0.68149,
+        //                     "bp": 69366.086,
+        //                     "bs": 0.68312,
+        //                     "t": "2024-11-01T08:31:41.880246926Z"
+        //                 },
+        //                 "latestTrade": {
+        //                     "i": 5272941104897543146,
+        //                     "p": 69416.9,
+        //                     "s": 0.014017324,
+        //                     "t": "2024-11-01T08:14:28.245088803Z",
+        //                     "tks": "B"
+        //                 },
+        //                 "minuteBar": {
+        //                     "c": 69403.554,
+        //                     "h": 69403.554,
+        //                     "l": 69399.125,
+        //                     "n": 0,
+        //                     "o": 69399.125,
+        //                     "t": "2024-11-01T08:30:00Z",
+        //                     "v": 0,
+        //                     "vw": 0
+        //                 },
+        //                 "prevDailyBar": {
+        //                     "c": 69515.1415,
+        //                     "h": 72668.837,
+        //                     "l": 68796.85,
+        //                     "n": 129,
+        //                     "o": 72258.9,
+        //                     "t": "2024-10-31T05:00:00Z",
+        //                     "v": 2.217683307,
+        //                     "vw": 70782.6811608144
+        //                 }
+        //             },
+        //         }
+        //     }
+        //
+        List<object> results = new List<object>() {};
+        IDictionary<string, object> snapshots = this.safeDict(response, "snapshots", new Dictionary<string, object>() {});
+        List<object> marketIds = new List<object>(snapshots.Keys);
+        for (int i = 0; i < marketIds.Count; i++)
+        {
+            string? marketId = ((string)marketIds[i]);
+            Dictionary<string, object> market = this.safeMarket(marketId);
+            IDictionary<string, object> entry = this.safeDict(snapshots, marketId);
+            IDictionary<string, object> dailyBar = this.safeDict(entry, "dailyBar", new Dictionary<string, object>() {});
+            IDictionary<string, object> prevDailyBar = this.safeDict(entry, "prevDailyBar", new Dictionary<string, object>() {});
+            IDictionary<string, object> latestQuote = this.safeDict(entry, "latestQuote", new Dictionary<string, object>() {});
+            IDictionary<string, object> latestTrade = this.safeDict(entry, "latestTrade", new Dictionary<string, object>() {});
+            string? datetime = this.safeString(latestQuote, "t");
+            ccxt.Ticker ticker = this.safeTicker(new Dictionary<string, object>() {
+                { "info", entry },
+                { "symbol", (market.ContainsKey("symbol") ? market["symbol"] : null) },
+                { "timestamp", this.parse8601(datetime) },
+                { "datetime", datetime },
+                { "high", this.safeString(dailyBar, "h") },
+                { "low", this.safeString(dailyBar, "l") },
+                { "bid", this.safeString(latestQuote, "bp") },
+                { "bidVolume", this.safeString(latestQuote, "bs") },
+                { "ask", this.safeString(latestQuote, "ap") },
+                { "askVolume", this.safeString(latestQuote, "as") },
+                { "vwap", this.safeString(dailyBar, "vw") },
+                { "open", this.safeString(dailyBar, "o") },
+                { "close", this.safeString(dailyBar, "c") },
+                { "last", this.safeString(latestTrade, "p") },
+                { "previousClose", this.safeString(prevDailyBar, "c") },
+                { "change", null },
+                { "percentage", null },
+                { "average", null },
+                { "baseVolume", this.safeString(dailyBar, "v") },
+                { "quoteVolume", Precise.stringMul(this.safeString(dailyBar, "v"), this.safeString(dailyBar, "vw")) },
+            }, market);
+            results.Add(ccxt.BaseExchange.FromTicker(ticker));
+        }
+        return ccxt.BaseExchange.ToTickers(this.filterByArrayTickers(results, "symbol", symbolsNormalized));
+    }
+
+    public virtual string? generateClientOrderId(object parameters)
+    {
+        string? clientOrderIdprefix = this.safeString(this.options, "clientOrderId");
+        string uuid = this.uuid();
+        List<object> parts = uuid.Split(new [] {"-"}, StringSplitOptions.None).ToList<object>();
+        string random_id = String.Join("", parts.ToArray());
+        string? defaultClientId = this.implodeParams(clientOrderIdprefix, new Dictionary<string, object>() {
+            { "id", random_id },
+        });
+        string? clientOrderId = this.safeString(parameters, "clientOrderId", defaultClientId);
+        return clientOrderId;
+    }
+
+    /**
+     * @method
+     * @name alpaca#createMarketOrderWithCost
+     * @description create a market order by providing the symbol, side and cost
+     * @see https://docs.alpaca.markets/reference/postorder
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} cost how much you want to trade in units of the quote currency
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<ccxt.Order> CreateMarketOrderWithCost(string symbol, string side, double cost, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> req = new Dictionary<string, object>() {
+            { "cost", cost },
+        };
+        return await this.CreateOrder(symbol, "market",side, 0d, null, this.extend(req, parameters));
+    }
+
+    /**
+     * @method
+     * @name alpaca#createMarketBuyOrderWithCost
+     * @description create a market buy order by providing the symbol and cost
+     * @see https://docs.alpaca.markets/reference/postorder
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {float} cost how much you want to trade in units of the quote currency
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<ccxt.Order> CreateMarketBuyOrderWithCost(string symbol, double cost, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> req = new Dictionary<string, object>() {
+            { "cost", cost },
+        };
+        return await this.CreateOrder(symbol, "market", "buy", 0d, null, this.extend(req, parameters));
+    }
+
+    /**
+     * @method
+     * @name alpaca#createMarketSellOrderWithCost
+     * @description create a market sell order by providing the symbol and cost
+     * @see https://docs.alpaca.markets/reference/postorder
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {float} cost how much you want to trade in units of the quote currency
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<ccxt.Order> CreateMarketSellOrderWithCost(string symbol, double cost, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> req = new Dictionary<string, object>() {
+            { "cost", cost },
+        };
+        return await this.CreateOrder(symbol, "market", "sell", cost, null, this.extend(req, parameters));
+    }
+
+    /**
+     * @method
+     * @name alpaca#createOrder
+     * @description create a trade order
+     * @see https://docs.alpaca.markets/reference/postorder
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market', 'limit' or 'stop_limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {float} [params.triggerPrice] The price at which a trigger order is triggered at
+     * @param {string} [params.timeInForce] 'GTC' or 'IOC', the venue supports only these two for crypto orders, defaults to 'GTC'
+     * @param {float} [params.cost] *market orders only* the cost of the order in units of the quote currency
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<ccxt.Order> CreateOrder(string symbol, string type, string side, double amount, double? price = null, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> market = this.market(symbol);
+        string? id = this.safeString(market, "id");
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "symbol", id },
-            { "qty", this.amountToPrecision(symbol, amount) },
             { "side", side },
             { "type", type },
         };
-        object triggerPrice = this.safeStringN(parameters, new List<object>() {"triggerPrice", "stop_price"});
-        if (isTrue(!isEqual(triggerPrice, null)))
+        string? triggerPrice = this.safeString2(parameters, "triggerPrice", "stop_price");
+        if ((triggerPrice != null))
         {
-            object newType = null;
-            if (isTrue(isGreaterThanOrEqual(getIndexOf(type, "limit"), 0)))
+            string? newType = null;
+            if (type.IndexOf("limit", StringComparison.Ordinal) >= 0)
             {
                 newType = "stop_limit";
             } else
             {
-                throw new NotSupported ((string)add(add(add(this.id, " createOrder() does not support stop orders for "), type), " orders, only stop_limit orders are supported")) ;
+                throw new NotSupported ((((this.id + " createOrder() does not support stop orders for ") + type) + " orders, only stop_limit orders are supported")) ;
             }
-            ((IDictionary<string,object>)request)["stop_price"] = this.priceToPrecision(symbol, triggerPrice);
-            ((IDictionary<string,object>)request)["type"] = newType;
+            request["stop_price"] = this.priceToPrecision(symbol, triggerPrice);
+            request["type"] = newType;
         }
-        if (isTrue(isGreaterThanOrEqual(getIndexOf(type, "limit"), 0)))
+        if (type.IndexOf("limit", StringComparison.Ordinal) >= 0)
         {
-            ((IDictionary<string,object>)request)["limit_price"] = this.priceToPrecision(symbol, price);
+            request["limit_price"] = this.priceToPrecision(symbol, price);
         }
-        object defaultTIF = this.safeString(this.options, "defaultTimeInForce");
-        ((IDictionary<string,object>)request)["time_in_force"] = this.safeString(parameters, "timeInForce", defaultTIF);
-        parameters = this.omit(parameters, new List<object>() {"timeInForce", "triggerPrice"});
-        object clientOrderIdprefix = this.safeString(this.options, "clientOrderId");
-        object uuid = this.uuid();
-        object parts = ((string)uuid).Split(new [] {((string)"-")}, StringSplitOptions.None).ToList<object>();
-        object random_id = String.Join("", ((IList<object>)parts).ToArray());
-        object defaultClientId = this.implodeParams(clientOrderIdprefix, new Dictionary<string, object>() {
-            { "id", random_id },
-        });
-        object clientOrderId = this.safeString(parameters, "clientOrderId", defaultClientId);
-        ((IDictionary<string,object>)request)["client_order_id"] = clientOrderId;
-        parameters = this.omit(parameters, new List<object>() {"clientOrderId"});
-        object order = await this.traderPrivatePostV2Orders(this.extend(request, parameters));
+        string? cost = this.safeString(parameters, "cost");
+        if ((cost != null))
+        {
+            request["notional"] = this.costToPrecision(symbol, cost);
+        } else
+        {
+            request["qty"] = this.amountToPrecision(symbol, amount);
+        }
+        object paramsCost = ((cost != null)) ? this.omit(parameters, "cost") : parameters;
+        (string?, object) defaultTIFparamsTimeInForceVariable = this.handleOptionStringAndParams(paramsCost, "createOrder", "timeInForce");
+        string? defaultTIF = defaultTIFparamsTimeInForceVariable.Item1;
+        IDictionary<string, object> paramsTimeInForce = ((IDictionary<string, object>)defaultTIFparamsTimeInForceVariable.Item2);
+        // the venue only accepts lowercase values, normalize the unified uppercase spellings
+        request["time_in_force"] = ((defaultTIF != null)) ? defaultTIF.ToLower() : defaultTIF;
+        Dictionary<string, object> paramsOmitted = this.omit(paramsTimeInForce, new List<object>() {"timeInForce", "triggerPrice"});
+        request["client_order_id"] = this.generateClientOrderId(paramsOmitted);
+        Dictionary<string, object> order = await this.traderPrivatePostV2Orders(this.extend(request, this.omit(paramsOmitted, new List<object>() {"clientOrderId"})));
         //
         //   {
         //      "id": "61e69015-8549-4bfd-b9c3-01e75843f47d",
@@ -695,23 +1452,23 @@ public partial class alpaca : Exchange
         return this.parseOrder(order, market);
     }
 
-    public async override Task<object> cancelOrder(object id, object symbol = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#cancelOrder
+     * @description cancels an open order
+     * @see https://docs.alpaca.markets/reference/deleteorderbyorderid
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<ccxt.Order> CancelOrder(string id, string symbol = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#cancelOrder
-        * @description cancels an open order
-        * @see https://docs.alpaca.markets/reference/deleteorderbyorderid
-        * @param {string} id order id
-        * @param {string} symbol unified symbol of the market the order was made in
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-        */
         parameters ??= new Dictionary<string, object>();
-        object request = new Dictionary<string, object>() {
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "order_id", id },
         };
-        object response = await this.traderPrivateDeleteV2OrdersOrderId(this.extend(request, parameters));
+        Dictionary<string, object> response = await this.traderPrivateDeleteV2OrdersOrderId(this.extend(request, parameters));
         //
         //   {
         //       "code": 40410000,
@@ -721,91 +1478,108 @@ public partial class alpaca : Exchange
         return this.parseOrder(response);
     }
 
-    public async override Task<object> cancelAllOrders(object symbol = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#cancelAllOrders
+     * @description cancel all open orders in a market
+     * @see https://docs.alpaca.markets/reference/deleteallorders
+     * @param {string} [symbol] alpaca cancelAllOrders cannot setting symbol, it will cancel all open orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<List<ccxt.Order>> CancelAllOrders(string symbol = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#cancelAllOrders
-        * @description cancel all open orders in a market
-        * @see https://docs.alpaca.markets/reference/deleteallorders
-        * @param {string} symbol alpaca cancelAllOrders cannot setting symbol, it will cancel all open orders
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-        */
         parameters ??= new Dictionary<string, object>();
-        await this.loadMarkets();
-        object response = await this.traderPrivateDeleteV2Orders(parameters);
-        if (isTrue(((response is IList<object>) || (response.GetType().IsGenericType && response.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>))))))
+        if ((this.markets == null))
         {
-            return this.parseOrders(response, null);
+            await this.loadMarkets();
+        }
+        List<object> response = await this.traderPrivateDeleteV2Orders(parameters);
+        if (((response is IList<object>) || (response.GetType().IsGenericType && response.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>)))))
+        {
+            return this.parseOrders(response);
         } else
         {
-            return response;
+            return ccxt.BaseExchange.ToOrderList(new List<object> {ccxt.BaseExchange.FromOrder(this.safeOrder(new Dictionary<string, object>() {     { "info", response }, }))});
         }
     }
 
-    public async override Task<object> fetchOrder(object id, object symbol = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://docs.alpaca.markets/reference/getorderbyorderid
+     * @param {string} id the order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<ccxt.Order> FetchOrder(string id, string symbol = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchOrder
-        * @description fetches information on an order made by the user
-        * @see https://docs.alpaca.markets/reference/getorderbyorderid
-        * @param {string} symbol unified symbol of the market the order was made in
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-        */
         parameters ??= new Dictionary<string, object>();
-        await this.loadMarkets();
-        object request = new Dictionary<string, object>() {
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "order_id", id },
         };
-        object order = await this.traderPrivateGetV2OrdersOrderId(this.extend(request, parameters));
-        object marketId = this.safeString(order, "symbol");
-        object market = this.safeMarket(marketId);
+        Dictionary<string, object> order = await this.traderPrivateGetV2OrdersOrderId(this.extend(request, parameters));
+        string? marketId = this.safeString(order, "symbol");
+        Dictionary<string, object> market = this.safeMarket(marketId);
         return this.parseOrder(order, market);
     }
 
-    public async override Task<object> fetchOrders(object symbol = null, object since = null, object limit = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://docs.alpaca.markets/reference/getallorders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] the latest time in ms to fetch orders for
+     * @param {string} [params.direction] the ordering of the results, 'asc' or 'desc', defaults to 'asc' when since is set
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<List<ccxt.Order>> FetchOrders(string symbol = null, Int64? since = null, Int64? limit = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchOrders
-        * @description fetches information on multiple orders made by the user
-        * @see https://docs.alpaca.markets/reference/getallorders
-        * @param {string} symbol unified market symbol of the market orders were made in
-        * @param {int} [since] the earliest time in ms to fetch orders for
-        * @param {int} [limit] the maximum number of order structures to retrieve
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @param {int} [params.until] the latest time in ms to fetch orders for
-        * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-        */
         parameters ??= new Dictionary<string, object>();
-        await this.loadMarkets();
-        object request = new Dictionary<string, object>() {
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "status", "all" },
         };
-        object market = null;
-        if (isTrue(!isEqual(symbol, null)))
+        IDictionary<string, object> market = null;
+        if ((symbol != null))
         {
             market = this.market(symbol);
-            ((IDictionary<string,object>)request)["symbols"] = getValue(market, "id");
+            request["symbols"] = (market.ContainsKey("id") ? market["id"] : null);
         }
-        object until = this.safeInteger(parameters, "until");
-        if (isTrue(!isEqual(until, null)))
+        Int64? until = this.safeInteger(parameters, "until");
+        if ((until != null))
         {
-            parameters = this.omit(parameters, "until");
-            ((IDictionary<string,object>)request)["endTime"] = until;
+            request["until"] = this.iso8601(until);
         }
-        if (isTrue(!isEqual(since, null)))
+        object paramsOmitted = ((until != null)) ? this.omit(parameters, "until") : parameters;
+        if ((since != null))
         {
-            ((IDictionary<string,object>)request)["after"] = since;
+            request["after"] = this.iso8601(since);
+            string? direction = this.safeString(paramsOmitted, "direction");
+            if ((direction == null))
+            {
+                // the server default is desc, so a limit would truncate the newest window instead of the range starting at since — request oldest-first like krakenfutures does
+                request["direction"] = "asc";
+            }
         }
-        if (isTrue(!isEqual(limit, null)))
+        if ((limit != null))
         {
-            ((IDictionary<string,object>)request)["limit"] = limit;
+            request["limit"] = limit;
         }
-        object response = await this.traderPrivateGetV2Orders(this.extend(request, parameters));
+        List<object> response = await this.traderPrivateGetV2Orders(this.extend(request, paramsOmitted));
         //
         //     [
         //         {
@@ -849,49 +1623,110 @@ public partial class alpaca : Exchange
         return this.parseOrders(response, market, since, limit);
     }
 
-    public async override Task<object> fetchOpenOrders(object symbol = null, object since = null, object limit = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://docs.alpaca.markets/reference/getallorders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] the latest time in ms to fetch orders for
+     * @param {string} [params.direction] the ordering of the results, 'asc' or 'desc', defaults to 'asc' when since is set
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<List<ccxt.Order>> FetchOpenOrders(string symbol = null, Int64? since = null, Int64? limit = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchOpenOrders
-        * @description fetch all unfilled currently open orders
-        * @see https://docs.alpaca.markets/reference/getallorders
-        * @param {string} symbol unified market symbol of the market orders were made in
-        * @param {int} [since] the earliest time in ms to fetch orders for
-        * @param {int} [limit] the maximum number of order structures to retrieve
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @param {int} [params.until] the latest time in ms to fetch orders for
-        * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-        */
         parameters ??= new Dictionary<string, object>();
-        object request = new Dictionary<string, object>() {
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "status", "open" },
         };
-        return await this.fetchOrders(symbol, since, limit, this.extend(request, parameters));
+        return await this.FetchOrders(symbol, since, limit, this.extend(request, parameters));
     }
 
-    public async override Task<object> fetchClosedOrders(object symbol = null, object since = null, object limit = null, object parameters = null)
+    /**
+     * @method
+     * @name alpaca#fetchClosedOrders
+     * @description fetches information on multiple closed orders made by the user
+     * @see https://docs.alpaca.markets/reference/getallorders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] the latest time in ms to fetch orders for
+     * @param {string} [params.direction] the ordering of the results, 'asc' or 'desc', defaults to 'asc' when since is set
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<List<ccxt.Order>> FetchClosedOrders(string symbol = null, Int64? since = null, Int64? limit = null, object parameters = null)
     {
-        /**
-        * @method
-        * @name alpaca#fetchClosedOrders
-        * @description fetches information on multiple closed orders made by the user
-        * @see https://docs.alpaca.markets/reference/getallorders
-        * @param {string} symbol unified market symbol of the market orders were made in
-        * @param {int} [since] the earliest time in ms to fetch orders for
-        * @param {int} [limit] the maximum number of order structures to retrieve
-        * @param {object} [params] extra parameters specific to the exchange API endpoint
-        * @param {int} [params.until] the latest time in ms to fetch orders for
-        * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-        */
         parameters ??= new Dictionary<string, object>();
-        object request = new Dictionary<string, object>() {
+        Dictionary<string, object> request = new Dictionary<string, object>() {
             { "status", "closed" },
         };
-        return await this.fetchOrders(symbol, since, limit, this.extend(request, parameters));
+        return await this.FetchOrders(symbol, since, limit, this.extend(request, parameters));
     }
 
-    public override object parseOrder(object order, object market = null)
+    /**
+     * @method
+     * @name alpaca#editOrder
+     * @description edit a trade order
+     * @see https://docs.alpaca.markets/reference/patchorderbyorderid-1
+     * @param {string} id order id
+     * @param {string} [symbol] unified symbol of the market to create an order in
+     * @param {string} [type] 'market', 'limit' or 'stop_limit'
+     * @param {string} [side] 'buy' or 'sell'
+     * @param {float} [amount] how much of the currency you want to trade in units of the base currency
+     * @param {float} [price] the price for the order, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.triggerPrice] the price to trigger a stop order
+     * @param {string} [params.timeInForce] 'GTC' or 'IOC', the venue supports only these two for crypto orders, defaults to 'GTC'
+     * @param {string} [params.clientOrderId] a unique identifier for the order, automatically generated if not sent
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    public async override Task<ccxt.Order> EditOrder(string id, string symbol, string type, string side, double? amount = null, double? price = null, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> request = new Dictionary<string, object>() {
+            { "order_id", id },
+        };
+        IDictionary<string, object> market = null;
+        if ((symbol != null))
+        {
+            market = this.market(symbol);
+        }
+        if ((amount != null))
+        {
+            request["qty"] = this.amountToPrecision(symbol, amount);
+        }
+        string? triggerPrice = this.safeString2(parameters, "triggerPrice", "stop_price");
+        if ((triggerPrice != null))
+        {
+            request["stop_price"] = this.priceToPrecision(symbol, triggerPrice);
+        }
+        object paramsTrigger = ((triggerPrice != null)) ? this.omit(parameters, "triggerPrice") : parameters;
+        if ((price != null))
+        {
+            request["limit_price"] = this.priceToPrecision(symbol, price);
+        }
+        (string?, object) timeInForceparamsTimeInForceVariable = this.handleOptionStringAndParams(paramsTrigger, "editOrder", "timeInForce", "gtc");
+        string? timeInForce = timeInForceparamsTimeInForceVariable.Item1;
+        IDictionary<string, object> paramsTimeInForce = ((IDictionary<string, object>)timeInForceparamsTimeInForceVariable.Item2);
+        if ((timeInForce != null))
+        {
+            // the venue only accepts lowercase values, normalize the unified uppercase spellings
+            request["time_in_force"] = timeInForce.ToLower();
+        }
+        request["client_order_id"] = this.generateClientOrderId(paramsTimeInForce);
+        Dictionary<string, object> response = await this.traderPrivatePatchV2OrdersOrderId(this.extend(request, this.omit(paramsTimeInForce, new List<object>() {"clientOrderId"})));
+        return this.parseOrder(response, market);
+    }
+
+    public override ccxt.Order parseOrder(object order, IDictionary<string, object> market = null)
     {
         //
         //    {
@@ -931,37 +1766,37 @@ public partial class alpaca : Exchange
         //        "source":null
         //    }
         //
-        object marketId = this.safeString(order, "symbol");
-        market = this.safeMarket(marketId, market);
-        object symbol = getValue(market, "symbol");
-        object alpacaStatus = this.safeString(order, "status");
-        object status = this.parseOrderStatus(alpacaStatus);
-        object feeValue = this.safeString(order, "commission");
-        object fee = null;
-        if (isTrue(!isEqual(feeValue, null)))
+        string? marketId = this.safeString(order, "symbol");
+        Dictionary<string, object> marketResolved = this.safeMarket(marketId, market);
+        string? symbol = this.safeString(marketResolved, "symbol");
+        string? alpacaStatus = this.safeString(order, "status");
+        string? status = this.parseOrderStatus(alpacaStatus);
+        string? feeValue = this.safeString(order, "commission");
+        Dictionary<string, object> fee = null;
+        if ((feeValue != null))
         {
             fee = new Dictionary<string, object>() {
                 { "cost", feeValue },
                 { "currency", "USD" },
             };
         }
-        object orderType = this.safeString(order, "order_type");
-        if (isTrue(!isEqual(orderType, null)))
+        string? orderType = this.safeString(order, "order_type");
+        if ((orderType != null))
         {
-            if (isTrue(isGreaterThanOrEqual(getIndexOf(orderType, "limit"), 0)))
+            if (orderType.IndexOf("limit", StringComparison.Ordinal) >= 0)
             {
                 // might be limit or stop-limit
                 orderType = "limit";
             }
         }
-        object datetime = this.safeString(order, "submitted_at");
-        object timestamp = this.parse8601(datetime);
+        string? datetime = this.safeString(order, "submitted_at");
+        Int64? timestamp = this.parse8601(datetime);
         return this.safeOrder(new Dictionary<string, object>() {
             { "id", this.safeString(order, "id") },
             { "clientOrderId", this.safeString(order, "client_order_id") },
             { "timestamp", timestamp },
             { "datetime", datetime },
-            { "lastTradeTimeStamp", null },
+            { "lastTradeTimestamp", this.parse8601(this.safeString(order, "filled_at")) },
             { "status", status },
             { "symbol", symbol },
             { "type", orderType },
@@ -969,7 +1804,6 @@ public partial class alpaca : Exchange
             { "postOnly", null },
             { "side", this.safeString(order, "side") },
             { "price", this.safeNumber(order, "limit_price") },
-            { "stopPrice", this.safeNumber(order, "stop_price") },
             { "triggerPrice", this.safeNumber(order, "stop_price") },
             { "cost", null },
             { "average", this.safeNumber(order, "filled_avg_price") },
@@ -979,32 +1813,117 @@ public partial class alpaca : Exchange
             { "trades", null },
             { "fee", fee },
             { "info", order },
-        }, market);
+        }, marketResolved);
     }
 
-    public virtual object parseOrderStatus(object status)
+    public virtual string? parseOrderStatus(string? status)
     {
-        object statuses = new Dictionary<string, object>() {
+        Dictionary<string, object> statuses = new Dictionary<string, object>() {
             { "pending_new", "open" },
             { "accepted", "open" },
+            { "accepted_for_bidding", "open" },
             { "new", "open" },
             { "partially_filled", "open" },
             { "activated", "open" },
+            { "done_for_day", "open" },
+            { "stopped", "open" },
+            { "suspended", "open" },
+            { "held", "open" },
+            { "pending_replace", "open" },
+            { "pending_cancel", "canceling" },
             { "filled", "closed" },
+            { "calculated", "closed" },
+            { "canceled", "canceled" },
+            { "replaced", "canceled" },
+            { "expired", "expired" },
+            { "rejected", "rejected" },
         };
         return this.safeString(statuses, status, status);
     }
 
-    public virtual object parseTimeInForce(object timeInForce)
+    public virtual string? parseTimeInForce(string? timeInForce)
     {
-        object timeInForces = new Dictionary<string, object>() {
+        Dictionary<string, object> timeInForces = new Dictionary<string, object>() {
             { "day", "Day" },
+            { "gtc", "GTC" },
+            { "ioc", "IOC" },
+            { "fok", "FOK" },
         };
         return this.safeString(timeInForces, timeInForce, timeInForce);
     }
 
-    public override object parseTrade(object trade, object market = null)
+    /**
+     * @method
+     * @name alpaca#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://docs.alpaca.markets/reference/getaccountactivitiesbyactivitytype-1
+     * @param {string} [symbol] unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trade structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] the latest time in ms to fetch trades for
+     * @param {string} [params.page_token] page_token - used for paging
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    public async override Task<List<ccxt.Trade>> FetchMyTrades(string symbol = null, Int64? since = null, Int64? limit = null, object parameters = null)
     {
+        parameters ??= new Dictionary<string, object>();
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        IDictionary<string, object> market = null;
+        Dictionary<string, object> request = new Dictionary<string, object>() {
+            { "activity_type", "FILL" },
+        };
+        if ((symbol != null))
+        {
+            market = this.market(symbol);
+        }
+        Int64? until = this.safeInteger(parameters, "until");
+        if ((until != null))
+        {
+            request["until"] = this.iso8601(until);
+        }
+        object paramsOmitted = ((until != null)) ? this.omit(parameters, "until") : parameters;
+        if ((since != null))
+        {
+            request["after"] = this.iso8601(since);
+        }
+        if ((limit != null))
+        {
+            request["page_size"] = limit;
+        }
+        IList<object> requestUntilparamsUntilVariable = (IList<object>)this.handleUntilOption("until", request, paramsOmitted);
+        Dictionary<string, object> requestUntil = (Dictionary<string, object>)requestUntilparamsUntilVariable[0];
+        IDictionary<string, object> paramsUntil = ((IDictionary<string, object>)requestUntilparamsUntilVariable[1]);
+        List<object> response = await this.traderPrivateGetV2AccountActivitiesActivityType(this.extend(requestUntil, paramsUntil));
+        //
+        //     [
+        //         {
+        //             "id": "20221228071929579::ca2aafd0-1270-4b56-b0a9-85423b4a07c8",
+        //             "activity_type": "FILL",
+        //             "transaction_time": "2022-12-28T12:19:29.579352Z",
+        //             "type": "fill",
+        //             "price": "67.31",
+        //             "qty": "0.07",
+        //             "side": "sell",
+        //             "symbol": "LTC/USD",
+        //             "leaves_qty": "0",
+        //             "order_id": "82eebcf7-6e66-4b7e-93f8-be0df0e4f12e",
+        //             "cum_qty": "0.07",
+        //             "order_status": "filled",
+        //             "swap_rate": "1"
+        //         },
+        //     ]
+        //
+        return this.parseTrades(response, market, since, limit);
+    }
+
+    public override ccxt.Trade parseTrade(object trade, object market = null)
+    {
+        //
+        // fetchTrades
         //
         //   {
         //       "t":"2022-06-14T05:00:00.027869Z",
@@ -1015,28 +1934,46 @@ public partial class alpaca : Exchange
         //       "i":"355681339"
         //   }
         //
-        object marketId = this.safeString(trade, "S");
-        object symbol = this.safeSymbol(marketId, market);
-        object datetime = this.safeString(trade, "t");
-        object timestamp = this.parse8601(datetime);
-        object alpacaSide = this.safeString(trade, "tks");
-        object side = null;
-        if (isTrue(isEqual(alpacaSide, "B")))
+        // fetchMyTrades
+        //
+        //     {
+        //         "id": "20221228071929579::ca2aafd0-1270-4b56-b0a9-85423b4a07c8",
+        //         "activity_type": "FILL",
+        //         "transaction_time": "2022-12-28T12:19:29.579352Z",
+        //         "type": "fill",
+        //         "price": "67.31",
+        //         "qty": "0.07",
+        //         "side": "sell",
+        //         "symbol": "LTC/USD",
+        //         "leaves_qty": "0",
+        //         "order_id": "82eebcf7-6e66-4b7e-93f8-be0df0e4f12e",
+        //         "cum_qty": "0.07",
+        //         "order_status": "filled",
+        //         "swap_rate": "1"
+        //     },
+        //
+        string? marketId = this.safeString2(trade, "S", "symbol");
+        string? symbol = this.safeSymbol(marketId, market);
+        string? datetime = this.safeString2(trade, "t", "transaction_time");
+        Int64? timestamp = this.parse8601(datetime);
+        string? alpacaSide = this.safeString(trade, "tks");
+        string? side = this.safeString(trade, "side");
+        if (alpacaSide == "B")
         {
             side = "buy";
-        } else if (isTrue(isEqual(alpacaSide, "S")))
+        } else if (alpacaSide == "S")
         {
             side = "sell";
         }
-        object priceString = this.safeString(trade, "p");
-        object amountString = this.safeString(trade, "s");
+        string? priceString = this.safeString2(trade, "p", "price");
+        string? amountString = this.safeString2(trade, "s", "qty");
         return this.safeTrade(new Dictionary<string, object>() {
             { "info", trade },
-            { "id", this.safeString(trade, "i") },
+            { "id", this.safeString2(trade, "i", "id") },
             { "timestamp", timestamp },
             { "datetime", this.iso8601(timestamp) },
             { "symbol", symbol },
-            { "order", null },
+            { "order", this.safeString(trade, "order_id") },
             { "type", null },
             { "side", side },
             { "takerOrMaker", "taker" },
@@ -1047,43 +1984,610 @@ public partial class alpaca : Exchange
         }, market);
     }
 
-    public override object sign(object path, object api = null, object method = null, object parameters = null, object headers = null, object body = null)
+    /**
+     * @method
+     * @name alpaca#fetchDepositAddress
+     * @description fetch the deposit address for a currency associated with this account
+     * @see https://docs.alpaca.markets/reference/listcryptofundingwallets
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [address structure]{@link https://docs.ccxt.com/?id=address-structure}
+     */
+    public async override Task<ccxt.DepositAddress> FetchDepositAddress(string code, object parameters = null)
     {
-        api ??= "public";
-        method ??= "GET";
         parameters ??= new Dictionary<string, object>();
-        object endpoint = add("/", this.implodeParams(path, parameters));
-        object url = this.implodeHostname(getValue(getValue(this.urls, "api"), getValue(api, 0)));
-        headers = ((bool) isTrue((!isEqual(headers, null)))) ? headers : new Dictionary<string, object>() {};
-        if (isTrue(isEqual(getValue(api, 1), "private")))
+        if ((this.markets == null))
         {
-            ((IDictionary<string,object>)headers)["APCA-API-KEY-ID"] = this.apiKey;
-            ((IDictionary<string,object>)headers)["APCA-API-SECRET-KEY"] = this.secret;
+            await this.loadMarkets();
         }
-        object query = this.omit(parameters, this.extractParams(path));
-        if (isTrue(getArrayLength(new List<object>(((IDictionary<string,object>)query).Keys))))
+        Dictionary<string, object> currency = this.currency(code);
+        Dictionary<string, object> request = new Dictionary<string, object>() {
+            { "asset", (currency.ContainsKey("id") ? currency["id"] : null) },
+        };
+        Dictionary<string, object> response = await this.traderPrivateGetV2Wallets(this.extend(request, parameters));
+        //
+        //     {
+        //         "asset_id": "4fa30c85-77b7-4cbc-92dd-7b7513640aad",
+        //         "address": "bc1q2fpskfnwem3uq9z8660e4z6pfv7aqfamysk75r",
+        //         "created_at": "2024-11-03T07:30:05.609976344Z"
+        //     }
+        //
+        return ccxt.BaseExchange.ToDepositAddress(this.parseDepositAddress(response, currency));
+    }
+
+    public override Dictionary<string, object> parseDepositAddress(object depositAddress, Dictionary<string, object> currency = null)
+    {
+        //
+        //     {
+        //         "asset_id": "4fa30c85-77b7-4cbc-92dd-7b7513640aad",
+        //         "address": "bc1q2fpskfnwem3uq9z8660e4z6pfv7aqfamysk75r",
+        //         "created_at": "2024-11-03T07:30:05.609976344Z"
+        //     }
+        //
+        string? parsedCurrency = null;
+        if ((currency != null))
         {
-            if (isTrue(isTrue((isEqual(method, "GET"))) || isTrue((isEqual(method, "DELETE")))))
-            {
-                endpoint = add(endpoint, add("?", this.urlencode(query)));
-            } else
-            {
-                body = this.json(query);
-                ((IDictionary<string,object>)headers)["Content-Type"] = "application/json";
-            }
+            parsedCurrency = this.safeString(currency, "id");
         }
-        url = add(url, endpoint);
         return new Dictionary<string, object>() {
-            { "url", url },
-            { "method", method },
-            { "body", body },
-            { "headers", headers },
+            { "info", depositAddress },
+            { "currency", parsedCurrency },
+            { "network", null },
+            { "address", this.safeString(depositAddress, "address") },
+            { "tag", null },
         };
     }
 
-    public override object handleErrors(object code, object reason, object url, object method, object headers, object body, object response, object requestHeaders, object requestBody)
+    /**
+     * @method
+     * @name alpaca#withdraw
+     * @description make a withdrawal
+     * @see https://docs.alpaca.markets/reference/createcryptotransferforaccount
+     * @param {string} code unified currency code
+     * @param {float} amount the amount to withdraw
+     * @param {string} address the address to withdraw to
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.tag] memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    public async override Task<ccxt.Transaction> Withdraw(string code, double amount, string address, object parameters = null)
     {
-        if (isTrue(isEqual(response, null)))
+        parameters ??= new Dictionary<string, object>();
+        IList<object> tagWithdrawTagparamsWithdrawTagVariable = (IList<object>)this.handleParamString(parameters, "tag");
+        string? tagWithdrawTag = (string)tagWithdrawTagparamsWithdrawTagVariable[0];
+        IDictionary<string, object> paramsWithdrawTag = ((IDictionary<string, object>)tagWithdrawTagparamsWithdrawTagVariable[1]);
+        this.checkAddress(address, code, tagWithdrawTag);
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        Dictionary<string, object> currency = this.currency(code);
+        string addressValue = address;
+        string? tagSuffix = this.safeString(parameters, "tag", "");
+        if (tagSuffix != "")
+        {
+            addressValue = ((address + ":") + tagSuffix);
+        }
+        Dictionary<string, object> request = new Dictionary<string, object>() {
+            { "asset", (currency.ContainsKey("id") ? currency["id"] : null) },
+            { "address", addressValue },
+            { "amount", this.numberToString(amount) },
+        };
+        Dictionary<string, object> response = await this.traderPrivatePostV2WalletsTransfers(this.extend(request, paramsWithdrawTag));
+        //
+        //     {
+        //         "id": "e27b70a6-5610-40d7-8468-a516a284b776",
+        //         "tx_hash": null,
+        //         "direction": "OUTGOING",
+        //         "amount": "20",
+        //         "usd_value": "19.99856",
+        //         "chain": "ETH",
+        //         "asset": "USDT",
+        //         "from_address": "0x123930E4dCA196E070d39B60c644C8Aae02f23",
+        //         "to_address": "0x1232c0925196e4dcf05945f67f690153190fbaab",
+        //         "status": "PROCESSING",
+        //         "created_at": "2024-11-07T02:39:01.775495Z",
+        //         "network_fee": "4",
+        //         "fees": "0.1"
+        //     }
+        //
+        return ccxt.BaseExchange.ToTransaction(this.parseTransaction(response, currency));
+    }
+
+    public override void setSandboxMode(bool? enable)
+    {
+        base.setSandboxMode(enable);
+        this.options["sandboxMode"] = enable;
+    }
+
+    public async virtual Task<List<ccxt.Transaction>> FetchTransactionsHelper(string type, string? code, object since, object limit, object parameters)
+    {
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        IDictionary<string, object> currency = null;
+        if ((code != null))
+        {
+            currency = this.currency(code);
+        }
+        bool sandboxMode = this.isSandboxModeEnabled || (this.safeBool(this.options, "sandboxMode", false) == true);
+        if (sandboxMode)
+        {
+            // paper-trading hosts do not serve the crypto wallets api at all, so route
+            // through the account activities ledger instead, filtered to transfer-like
+            // entries, see https://github.com/ccxt/ccxt/issues/24847
+            Dictionary<string, object> request = new Dictionary<string, object>() {
+                { "activity_types", "CSD,CSW,TRANS" },
+            };
+            List<object> activities = await this.traderPrivateGetV2AccountActivities(this.extend(request, parameters));
+            //
+            //     [
+            //         {
+            //             "id": "20250110000000000::7f6cba2b-4c72-46b9-8e34-8e5b0b8d8e10",
+            //             "activity_type": "CSD",
+            //             "date": "2025-01-10",
+            //             "net_amount": "1000",
+            //             "status": "executed"
+            //         }
+            //     ]
+            //
+            List<object> filtered = new List<object>() {};
+            List<object> ledger = new List<object>() {};
+            if (((activities is IList<object>) || (activities.GetType().IsGenericType && activities.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>)))))
+            {
+                ledger = activities;
+            }
+            for (int i = 0; i < (ledger?.Count ?? 0); i++)
+            {
+                object entry = ledger[i];
+                string? activityType = this.safeString(entry, "activity_type");
+                string? amount = this.safeString(entry, "net_amount");
+                bool isIncoming = (activityType == "CSD") || ((activityType == "TRANS") && !Precise.stringLt(amount, "0"));
+                string entryDirection = "OUTGOING";
+                if (isIncoming)
+                {
+                    entryDirection = "INCOMING";
+                }
+                if (((type == "BOTH")) || ((entryDirection == type)))
+                {
+                    filtered.Add(entry);
+                }
+            }
+            return ccxt.BaseExchange.ToTransactionList(this.parseTransactions(filtered, currency, since, limit, parameters));
+        }
+        List<object> response = await this.traderPrivateGetV2WalletsTransfers(parameters);
+        //
+        //     {
+        //         "id": "e27b70a6-5610-40d7-8468-a516a284b776",
+        //         "tx_hash": null,
+        //         "direction": "OUTGOING",
+        //         "amount": "20",
+        //         "usd_value": "19.99856",
+        //         "chain": "ETH",
+        //         "asset": "USDT",
+        //         "from_address": "0x123930E4dCA196E070d39B60c644C8Aae02f23",
+        //         "to_address": "0x1232c0925196e4dcf05945f67f690153190fbaab",
+        //         "status": "PROCESSING",
+        //         "created_at": "2024-11-07T02:39:01.775495Z",
+        //         "network_fee": "4",
+        //         "fees": "0.1"
+        //     }
+        //
+        List<object> results = new List<object>() {};
+        List<object> transfers = new List<object>() {};
+        if (((response is IList<object>) || (response.GetType().IsGenericType && response.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>)))))
+        {
+            transfers = response;
+        }
+        for (int i = 0; i < (transfers?.Count ?? 0); i++)
+        {
+            object entry = transfers[i];
+            string? direction = this.safeString(entry, "direction");
+            if ((direction == type))
+            {
+                results.Add(entry);
+            } else if ((type == "BOTH"))
+            {
+                results.Add(entry);
+            }
+        }
+        return ccxt.BaseExchange.ToTransactionList(this.parseTransactions(results, currency, since, limit, parameters));
+    }
+
+    /**
+     * @method
+     * @name alpaca#fetchDepositsWithdrawals
+     * @description fetch history of deposits and withdrawals
+     * @see https://docs.alpaca.markets/reference/listcryptofundingtransfers
+     * @param {string} [code] unified currency code for the currency of the deposit/withdrawals, default is undefined
+     * @param {int} [since] timestamp in ms of the earliest deposit/withdrawal, default is undefined
+     * @param {int} [limit] max number of deposit/withdrawals to return, default is undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a list of [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    public async override Task<List<ccxt.Transaction>> FetchDepositsWithdrawals(string code = null, Int64? since = null, Int64? limit = null, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        List<object> transactions = ccxt.BaseExchange.FromTransactionList(await this.FetchTransactionsHelper("BOTH", code, since, limit, parameters));
+        return ccxt.BaseExchange.ToTransactionList(this.toArray(transactions));
+    }
+
+    /**
+     * @method
+     * @name alpaca#fetchDeposits
+     * @description fetch all deposits made to an account
+     * @see https://docs.alpaca.markets/reference/listcryptofundingtransfers
+     * @param {string} [code] unified currency code
+     * @param {int} [since] the earliest time in ms to fetch deposits for
+     * @param {int} [limit] the maximum number of deposit structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    public async override Task<List<ccxt.Transaction>> FetchDeposits(string code = null, Int64? since = null, Int64? limit = null, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        List<object> transactions = ccxt.BaseExchange.FromTransactionList(await this.FetchTransactionsHelper("INCOMING", code, since, limit, parameters));
+        return ccxt.BaseExchange.ToTransactionList(this.toArray(transactions));
+    }
+
+    /**
+     * @method
+     * @name alpaca#fetchWithdrawals
+     * @description fetch all withdrawals made from an account
+     * @see https://docs.alpaca.markets/reference/listcryptofundingtransfers
+     * @param {string} [code] unified currency code
+     * @param {int} [since] the earliest time in ms to fetch withdrawals for
+     * @param {int} [limit] the maximum number of withdrawal structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    public async override Task<List<ccxt.Transaction>> FetchWithdrawals(string code = null, Int64? since = null, Int64? limit = null, object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        List<object> transactions = ccxt.BaseExchange.FromTransactionList(await this.FetchTransactionsHelper("OUTGOING", code, since, limit, parameters));
+        return ccxt.BaseExchange.ToTransactionList(this.toArray(transactions));
+    }
+
+    public override Dictionary<string, object> parseTransaction(object transaction, object currency = null)
+    {
+        //
+        // account activities ledger entry (paper-trading path), see https://github.com/ccxt/ccxt/issues/24847
+        //
+        //     {
+        //         "id": "20250110000000000::7f6cba2b-4c72-46b9-8e34-8e5b0b8d8e10",
+        //         "activity_type": "CSD",
+        //         "date": "2025-01-10",
+        //         "net_amount": "1000",
+        //         "status": "executed"
+        //     }
+        //
+        // crypto wallets api entry
+        //
+        //     {
+        //         "id": "e27b70a6-5610-40d7-8468-a516a284b776",
+        //         "tx_hash": null,
+        //         "direction": "OUTGOING",
+        //         "amount": "20",
+        //         "usd_value": "19.99856",
+        //         "chain": "ETH",
+        //         "asset": "USDT",
+        //         "from_address": "0x123930E4dCA196E070d39B60c644C8Aae02f23",
+        //         "to_address": "0x1232c0925196e4dcf05945f67f690153190fbaab",
+        //         "status": "PROCESSING",
+        //         "created_at": "2024-11-07T02:39:01.775495Z",
+        //         "network_fee": "4",
+        //         "fees": "0.1"
+        //     }
+        //
+        string? activityType = this.safeString(transaction, "activity_type");
+        string? txid = null;
+        Int64? timestamp = null;
+        string? datetime = null;
+        string? network = null;
+        string? address = null;
+        string? addressTo = null;
+        string? addressFrom = null;
+        string? type = null;
+        double? amount = null;
+        string? code = null;
+        string? status = null;
+        string? comment = null;
+        bool? intern = null;
+        Dictionary<string, object> fee = null;
+        if ((activityType != null))
+        {
+            string? netAmount = this.safeString(transaction, "net_amount");
+            bool isIncoming = (activityType == "CSD") || ((activityType == "TRANS") && !Precise.stringLt(netAmount, "0"));
+            string date = this.safeString(transaction, "date", "");
+            timestamp = this.parse8601((date + "T00:00:00Z"));
+            datetime = this.iso8601(timestamp);
+            type = isIncoming ? "deposit" : "withdrawal";
+            amount = this.parseNumber(Precise.stringAbs(netAmount));
+            // cash ledger rows carry no per-entry asset field and are USD, while crypto
+            // TRANS entries may carry symbol/asset - never blindly adopt the caller's
+            // currency filter, see the review on https://github.com/ccxt/ccxt/pull/29580
+            string? activityCurrencyId = this.safeString2(transaction, "symbol", "asset");
+            if ((activityCurrencyId != null))
+            {
+                code = this.safeCurrencyCode(activityCurrencyId);
+            } else if ((activityType == "CSD") || (activityType == "CSW"))
+            {
+                code = "USD";
+            } else
+            {
+                code = this.safeCurrencyCode(null, currency);
+            }
+            status = this.parseTransactionStatus(this.safeString(transaction, "status"));
+            comment = activityType;
+            intern = (activityType != "TRANS");
+        } else
+        {
+            txid = this.safeString(transaction, "tx_hash");
+            datetime = this.safeString(transaction, "created_at");
+            timestamp = this.parse8601(datetime);
+            address = this.safeString(transaction, "to_address");
+            addressTo = this.safeString(transaction, "to_address");
+            addressFrom = this.safeString(transaction, "from_address");
+            type = this.parseTransactionType(this.safeString(transaction, "direction"));
+            amount = this.parseNumber(this.safeString(transaction, "amount"));
+            string? currencyId = this.safeString(transaction, "asset");
+            code = this.safeCurrencyCode(currencyId, currency);
+            network = this.networkIdToCode(this.safeString(transaction, "chain"), code);
+            status = this.parseTransactionStatus(this.safeString(transaction, "status"));
+            string? fees = this.safeString(transaction, "fees");
+            string? networkFee = this.safeString(transaction, "network_fee");
+            string? totalFee = Precise.stringAdd(fees, networkFee);
+            fee = new Dictionary<string, object>() {
+                { "cost", this.parseNumber(totalFee) },
+                { "currency", code },
+            };
+        }
+        return new Dictionary<string, object>() {
+            { "info", transaction },
+            { "id", this.safeString(transaction, "id") },
+            { "txid", txid },
+            { "timestamp", timestamp },
+            { "datetime", datetime },
+            { "network", network },
+            { "address", address },
+            { "addressTo", addressTo },
+            { "addressFrom", addressFrom },
+            { "tag", null },
+            { "tagTo", null },
+            { "tagFrom", null },
+            { "type", type },
+            { "amount", amount },
+            { "currency", code },
+            { "status", status },
+            { "updated", null },
+            { "comment", comment },
+            { "internal", intern },
+            { "fee", fee },
+        };
+    }
+
+    public virtual string? parseTransactionStatus(string? status)
+    {
+        Dictionary<string, object> statuses = new Dictionary<string, object>() {
+            { "PROCESSING", "pending" },
+            { "FAILED", "failed" },
+            { "COMPLETE", "ok" },
+            { "executed", "ok" },
+            { "canceled", "canceled" },
+            { "pending", "pending" },
+        };
+        return this.safeString(statuses, status, status);
+    }
+
+    public virtual string? parseTransactionType(string? type)
+    {
+        Dictionary<string, object> types = new Dictionary<string, object>() {
+            { "INCOMING", "deposit" },
+            { "OUTGOING", "withdrawal" },
+        };
+        return this.safeString(types, type, type);
+    }
+
+    /**
+     * @method
+     * @name alpaca#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://docs.alpaca.markets/reference/getaccount-1
+     * @see https://docs.alpaca.markets/reference/getallopenpositions
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}. note that `info` is
+     * the composite `{ account, positions }` wrapper of both raw venue payloads, not the bare account payload it was
+     * before crypto positions were included — read `info['account']['cash']` where `info['cash']` used to be read
+     */
+    public async override Task<ccxt.Balances> FetchBalance(object parameters = null)
+    {
+        parameters ??= new Dictionary<string, object>();
+        if ((this.markets == null))
+        {
+            await this.loadMarkets();
+        }
+        // the two calls stay sequential deliberately — the static request harness records one request per case,
+        // and concurrent calls make the recorded url nondeterministic per language
+        Dictionary<string, object> account = await this.traderPrivateGetV2Account(parameters);
+        List<object> positions = await this.traderPrivateGetV2Positions();
+        //
+        //     {
+        //         "id": "43a01bde-4eb1-64fssc26adb5",
+        //         "admin_configurations": {
+        //             "allow_instant_ach": true,
+        //             "max_margin_multiplier": "4"
+        //         },
+        //         "user_configurations": {
+        //             "fractional_trading": true,
+        //             "max_margin_multiplier": "4"
+        //         },
+        //         "account_number": "744873727",
+        //         "status": "ACTIVE",
+        //         "crypto_status": "ACTIVE",
+        //         "currency": "USD",
+        //         "buying_power": "5.92",
+        //         "regt_buying_power": "5.92",
+        //         "daytrading_buying_power": "0",
+        //         "effective_buying_power": "5.92",
+        //         "non_marginable_buying_power": "5.92",
+        //         "bod_dtbp": "0",
+        //         "cash": "5.92",
+        //         "accrued_fees": "0",
+        //         "portfolio_value": "48.6",
+        //         "pattern_day_trader": false,
+        //         "trading_blocked": false,
+        //         "transfers_blocked": false,
+        //         "account_blocked": false,
+        //         "created_at": "2022-06-13T14:59:18.318096Z",
+        //         "trade_suspended_by_user": false,
+        //         "multiplier": "1",
+        //         "shorting_enabled": false,
+        //         "equity": "48.6",
+        //         "last_equity": "48.8014266",
+        //         "long_market_value": "42.68",
+        //         "short_market_value": "0",
+        //         "position_market_value": "42.68",
+        //         "initial_margin": "0",
+        //         "maintenance_margin": "0",
+        //         "last_maintenance_margin": "0",
+        //         "sma": "5.92",
+        //         "daytrade_count": 0,
+        //         "balance_asof": "2024-12-10",
+        //         "crypto_tier": 1,
+        //         "intraday_adjustments": "0",
+        //         "pending_reg_taf_fees": "0"
+        //     }
+        //
+        Dictionary<string, object> response = new Dictionary<string, object>() {
+            { "account", account },
+            { "positions", positions },
+        };
+        return ccxt.BaseExchange.ToBalances(this.parseBalance(response));
+    }
+
+    public override Dictionary<string, object> parseBalance(object response)
+    {
+        //
+        // crypto holdings live on the positions endpoint, the account endpoint carries only the cash currency
+        //
+        //     "positions": [
+        //         {
+        //             "asset_id": "64bbff51-59d6-4b3c-9351-13ad85e3c752",
+        //             "symbol": "BTCUSD",
+        //             "exchange": "CRYPTO",
+        //             "asset_class": "crypto",
+        //             "asset_marginable": false,
+        //             "qty": "0.000207296",
+        //             "avg_entry_price": "80037",
+        //             "side": "long",
+        //             "market_value": "16.592345",
+        //             "cost_basis": "16.59135",
+        //             "unrealized_pl": "0.000995",
+        //             "unrealized_plpc": "0.00006",
+        //             "current_price": "80041.8",
+        //             "qty_available": "0.000207296"
+        //         }
+        //     ]
+        //
+        IDictionary<string, object> account = this.safeDict(response, "account", new Dictionary<string, object>() {});
+        List<object> positions = this.safeList(response, "positions", new List<object>() {});
+        Dictionary<string, object> result = new Dictionary<string, object>() {
+            { "info", response },
+        };
+        string? currencyId = this.safeString(account, "currency");
+        string? code = this.safeCurrencyCode(currencyId);
+        if ((code != null))
+        {
+            Dictionary<string, object> cashAccount = this.account();
+            cashAccount["free"] = this.safeString(account, "cash"); // cash already excludes the amounts held for open orders, verified live 2026-09-16
+            string? equity = this.safeString(account, "equity");
+            string? positionsValue = this.safeString(account, "position_market_value");
+            cashAccount["total"] = Precise.stringSub(equity, positionsValue); // equity minus the positions market value equals cash plus open-order holds; stringSub degrades to undefined when either field is absent and safeBalance then derives the total from free
+            result[(string)code] = cashAccount;
+        }
+        for (int i = 0; i < positions.Count; i++)
+        {
+            IDictionary<string, object> position = this.safeDict(positions, i);
+            string? positionSymbol = this.safeString(position, "symbol", "");
+            if (positionSymbol == "")
+            {
+                continue;
+            }
+            string? baseId = null;
+            if ((positionSymbol?.IndexOf("/", StringComparison.Ordinal) ?? -1) >= 0)
+            {
+                List<object> parts = positionSymbol.Split(new [] {"/"}, StringSplitOptions.None).ToList<object>();
+                baseId = this.safeString(parts, 0);
+            } else
+            {
+                // crypto position symbols come compressed with a USD tail, e.g. BTCUSD or USDTUSD
+                int baseLength = (positionSymbol.Length - 3);
+                if ((baseLength > 0) && positionSymbol.EndsWith("USD"))
+                {
+                    baseId = ((positionSymbol == null) ? null : positionSymbol.Substring(0, Math.Max(Math.Min((baseLength < 0 ? positionSymbol.Length + (baseLength) : baseLength), positionSymbol.Length), 0)));
+                }
+            }
+            if ((baseId == null))
+            {
+                continue;
+            }
+            string? positionCode = this.safeCurrencyCode(baseId);
+            if (((positionCode != null)) && !(((positionCode != null) && result.ContainsKey(positionCode))))
+            {
+                Dictionary<string, object> positionAccount = this.account();
+                positionAccount["free"] = this.safeString(position, "qty_available");
+                positionAccount["total"] = this.safeString(position, "qty");
+                result[(string)positionCode] = positionAccount;
+            }
+        }
+        return this.safeBalance(result);
+    }
+
+    public override Dictionary<string, object> sign(string path, IList<object> api = null, string method = null, object parameters = null)
+    {
+        api ??= new List<object>();
+        method ??= "GET";
+        parameters ??= new Dictionary<string, object>();
+        string endpoint = ("/" + this.implodeParams(path, parameters));
+        string? baseApiUrl = this.safeString((this.urls != null && this.urls.ContainsKey("api") ? this.urls["api"] : null), (api != null && 0 < api.Count ? api[0] : null));
+        if ((baseApiUrl == null))
+        {
+            throw new ExchangeError ((this.id + " sign() has no API URL for this endpoint")) ;
+        }
+        Dictionary<string, object> headersValue = new Dictionary<string, object>() {};
+        if (((api != null && 1 < api.Count ? api[1] : null) is "private"))
+        {
+            this.checkRequiredCredentials();
+            headersValue["APCA-API-KEY-ID"] = this.apiKey;
+            headersValue["APCA-API-SECRET-KEY"] = this.secret;
+        }
+        object query = this.omit(parameters, this.extractParams(path));
+        string? bodyJson = null;
+        if ((new List<object>(((IDictionary<string,object>)query).Keys)).Count > 0)
+        {
+            if (((method == "GET")) || ((method == "DELETE")))
+            {
+                endpoint = endpoint + ("?" + this.urlencode(query));
+            } else
+            {
+                bodyJson = this.json(query);
+                headersValue["Content-Type"] = "application/json";
+            }
+        }
+        string url = (this.implodeHostname(baseApiUrl) + endpoint);
+        string? bodyResolved = bodyJson;
+        return new Dictionary<string, object>() {
+            { "url", url },
+            { "method", method },
+            { "body", bodyResolved },
+            { "headers", headersValue },
+        };
+    }
+
+    public override object handleErrors(Int64? code, string reason, string url, string method, object headers, object body, object response, Dictionary<string, object> requestHeaders, object requestBody)
+    {
+        if ((response == null))
         {
             return null;  // default error handler
         }
@@ -1091,18 +2595,21 @@ public partial class alpaca : Exchange
         //     "code": 40110000,
         //     "message": "request is not authorized"
         // }
-        object feedback = add(add(this.id, " "), body);
-        object errorCode = this.safeString(response, "code");
-        if (isTrue(!isEqual(code, null)))
+        string feedback = ((this.id + " ") + (body));
+        string? errorCode = this.safeString(response, "code");
+        // code is an int: it is never undefined, the guard was dead
+        this.throwExactlyMatchedException((this.exceptions != null && this.exceptions.ContainsKey("exact") ? this.exceptions["exact"] : null), errorCode, feedback);
+        string? message = this.safeString(response, "message");
+        if ((message != null))
         {
-            this.throwExactlyMatchedException(getValue(this.exceptions, "exact"), errorCode, feedback);
-        }
-        object message = this.safeValue(response, "message", null);
-        if (isTrue(!isEqual(message, null)))
-        {
-            this.throwExactlyMatchedException(getValue(this.exceptions, "exact"), message, feedback);
-            this.throwBroadlyMatchedException(getValue(this.exceptions, "broad"), message, feedback);
-            throw new ExchangeError ((string)feedback) ;
+            this.throwExactlyMatchedException((this.exceptions != null && this.exceptions.ContainsKey("exact") ? this.exceptions["exact"] : null), message, feedback);
+            this.throwBroadlyMatchedException((this.exceptions != null && this.exceptions.ContainsKey("broad") ? this.exceptions["broad"] : null), message, feedback);
+            string codeAsString = ((object)code).ToString();
+            Int64? statusCode = this.parseToInt(code);
+            if ((((statusCode == null || statusCode < 400))) || !(this.httpExceptions.ContainsKey(codeAsString)))
+            {
+                throw new ExchangeError (feedback) ;
+            }
         }
         return null;
     }

@@ -1,5 +1,4 @@
-import assert from 'assert';
-import { Exchange } from "../../../ccxt";
+import { Exchange } from "../../../ccxt.js";
 import testBorrowInterest from './base/test.borrowInterest.js';
 import testSharedMethods from './base/test.sharedMethods.js';
 
@@ -10,6 +9,7 @@ async function testFetchBorrowInterest (exchange: Exchange, skippedProperties: o
     for (let i = 0; i < borrowInterest.length; i++) {
         testBorrowInterest (exchange, skippedProperties, method, borrowInterest[i], code, symbol);
     }
+    return true;
 }
 
 export default testFetchBorrowInterest;

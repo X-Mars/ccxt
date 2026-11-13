@@ -1,11 +1,11 @@
 
 //  ---------------------------------------------------------------------------
 
+import { sha256 } from '@noble/hashes/sha2.js';
 import Exchange from './abstract/bitbank.js';
 import { ExchangeError, AuthenticationError, InvalidNonce, InsufficientFunds, InvalidOrder, OrderNotFound, PermissionDenied } from './base/errors.js';
 import { TICK_SIZE } from './base/functions/number.js';
-import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import type { Balances, Currency, Dict, Int, Market, Num, OHLCV, Order, OrderBook, OrderSide, OrderType, Str, Ticker, Trade, TradingFees, Transaction, int } from './base/types.js';
+import type { Balances, Currency, Dict, Int, Market, Num, NullableDict, FeeString, OHLCV, Order, OrderBook, OrderSide, OrderType, Str, Ticker, Trade, TradingFees, Transaction, int, DepositAddress, Endpoint } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -14,12 +14,13 @@ import type { Balances, Currency, Dict, Int, Market, Num, OHLCV, Order, OrderBoo
  * @augments Exchange
  */
 export default class bitbank extends Exchange {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'id': 'bitbank',
             'name': 'bitbank',
             'countries': [ 'JP' ],
             'version': 'v1',
+            'rateLimit': 100,  // https://github.com/bitbankinc/bitbank-api-docs/blob/master/rest-api.md#rate-limit
             'has': {
                 'CORS': undefined,
                 'spot': true,
@@ -28,33 +29,64 @@ export default class bitbank extends Exchange {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelAllOrders': false,
                 'cancelOrder': true,
                 'closeAllPositions': false,
                 'closePosition': false,
                 'createOrder': true,
+                'createOrderWithTakeProfitAndStopLoss': false,
+                'createOrderWithTakeProfitAndStopLossWs': false,
                 'createReduceOnlyOrder': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
+                'fetchCurrencies': false,
                 'fetchDepositAddress': true,
+                'fetchDepositAddresses': false,
+                'fetchDepositAddressesByNetwork': false,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
                 'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
+                'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
                 'fetchOHLCV': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchPosition': false,
@@ -65,14 +97,19 @@ export default class bitbank extends Exchange {
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchTicker': true,
                 'fetchTrades': true,
                 'fetchTradingFee': false,
                 'fetchTradingFees': true,
                 'fetchTransfer': false,
                 'fetchTransfers': false,
+                'fetchVolatilityHistory': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
                 'setLeverage': false,
+                'setMargin': false,
                 'setMarginMode': false,
                 'setPositionMode': false,
                 'transfer': false,
@@ -92,7 +129,7 @@ export default class bitbank extends Exchange {
             },
             'hostname': 'bitbank.cc',
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/1294454/37808081-b87f2d9c-2e59-11e8-894d-c1900b7584fe.jpg',
+                'logo': 'https://github.com/user-attachments/assets/9d616de0-8a88-4468-8e38-d269acab0348',
                 'api': {
                     'public': 'https://public.{hostname}',
                     'private': 'https://api.{hostname}',
@@ -104,41 +141,108 @@ export default class bitbank extends Exchange {
             },
             'api': {
                 'public': {
-                    'get': [
-                        '{pair}/ticker',
-                        'tickers',
-                        'tickers_jpy',
-                        '{pair}/depth',
-                        '{pair}/transactions',
-                        '{pair}/transactions/{yyyymmdd}',
-                        '{pair}/candlestick/{candletype}/{yyyymmdd}',
-                        '{pair}/circuit_break_info',
-                    ],
+                    'get': {
+                        '{pair}/ticker': { 'cost': 1 } as Endpoint<Dict>,
+                        'tickers': { 'cost': 1 } as Endpoint<Dict>,
+                        'tickers_jpy': { 'cost': 1 } as Endpoint<Dict>,
+                        '{pair}/depth': { 'cost': 1 } as Endpoint<Dict>,
+                        '{pair}/transactions': { 'cost': 1 } as Endpoint<Dict>,
+                        '{pair}/transactions/{yyyymmdd}': { 'cost': 1 } as Endpoint<Dict>,
+                        '{pair}/candlestick/{candletype}/{yyyymmdd}': { 'cost': 1 } as Endpoint<Dict>,
+                        '{pair}/circuit_break_info': { 'cost': 1 } as Endpoint<Dict>,
+                    },
                 },
                 'private': {
-                    'get': [
-                        'user/assets',
-                        'user/spot/order',
-                        'user/spot/active_orders',
-                        'user/spot/trade_history',
-                        'user/deposit_history',
-                        'user/withdrawal_account',
-                        'user/withdrawal_history',
-                        'spot/status',
-                        'spot/pairs',
-                    ],
-                    'post': [
-                        'user/spot/order',
-                        'user/spot/cancel_order',
-                        'user/spot/cancel_orders',
-                        'user/spot/orders_info',
-                        'user/request_withdrawal',
-                    ],
+                    'get': {
+                        'user/assets': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/spot/order': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/spot/active_orders': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/margin/status': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/margin/positions': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/spot/trade_history': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/deposit_history': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/unconfirmed_deposits': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/deposit_originators': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/withdrawal_account': { 'cost': 1 } as Endpoint<Dict>,
+                        'user/withdrawal_history': { 'cost': 1 } as Endpoint<Dict>,
+                        'spot/status': { 'cost': 1 } as Endpoint<Dict>,
+                        'spot/pairs': { 'cost': 1 } as Endpoint<Dict>,
+                    },
+                    'post': {
+                        'user/spot/order': { 'cost': 1.66 } as Endpoint<Dict>,
+                        'user/spot/cancel_order': { 'cost': 1.66 } as Endpoint<Dict>,
+                        'user/spot/cancel_orders': { 'cost': 1.66 } as Endpoint<Dict>,
+                        'user/spot/orders_info': { 'cost': 1.66 } as Endpoint<Dict>,  // might be 10/s, based on docs at https://github.com/bitbankinc/bitbank-api-docs/blob/master/rest-api.md#rate-limit
+                        'user/confirm_deposits': { 'cost': 1.66 } as Endpoint<Dict>,  // might be 10/s, based on docs at https://github.com/bitbankinc/bitbank-api-docs/blob/master/rest-api.md#rate-limit
+                        'user/confirm_deposits_all': { 'cost': 1.66 } as Endpoint<Dict>,  // might be 10/s, based on docs at https://github.com/bitbankinc/bitbank-api-docs/blob/master/rest-api.md#rate-limit
+                        'user/request_withdrawal': { 'cost': 1.66 } as Endpoint<Dict>,
+                    },
                 },
                 'markets': {
-                    'get': [
-                        'spot/pairs',
-                    ],
+                    'get': {
+                        'spot/pairs': { 'cost': 1 } as Endpoint<Dict>,
+                    },
+                },
+            },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': true, // todo implement
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': false,
+                            'FOK': false,
+                            'PO': true, // todo: implement
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'trailing': false,
+                        'leverage': false,
+                        'marketBuyRequiresPrice': false,
+                        'marketBuyByCost': false,
+                        'selfTradePrevention': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrders': undefined,
+                    'fetchClosedOrders': undefined,
+                    'fetchOHLCV': {
+                        'limit': 1000,
+                    },
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
                 },
             },
             'precisionMode': TICK_SIZE,
@@ -164,15 +268,15 @@ export default class bitbank extends Exchange {
         });
     }
 
-    async fetchMarkets (params = {}): Promise<Market[]> {
-        /**
-         * @method
-         * @name bitbank#fetchMarkets
-         * @description retrieves data on all markets for bitbank
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#get-all-pairs-info
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
+    /**
+     * @method
+     * @name bitbank#fetchMarkets
+     * @description retrieves data on all markets for bitbank
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#get-all-pairs-info
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
+    override async fetchMarkets (params: Dict = {}): Promise<Market[]> {
         const response = await this.marketsGetSpotPairs (params);
         //
         //     {
@@ -201,18 +305,21 @@ export default class bitbank extends Exchange {
         //       }
         //     }
         //
-        const data = this.safeValue (response, 'data');
-        const pairs = this.safeValue (data, 'pairs', []);
+        const data = this.safeDict (response, 'data');
+        const pairs = this.safeList (data, 'pairs', []);
         return this.parseMarkets (pairs);
     }
 
-    parseMarket (entry): Market {
+    override parseMarket (entry: Dict): Market {
         const id = this.safeString (entry, 'name');
         const baseId = this.safeString (entry, 'base_asset');
         const quoteId = this.safeString (entry, 'quote_asset');
         const base = this.safeCurrencyCode (baseId);
         const quote = this.safeCurrencyCode (quoteId);
-        return {
+        if ((base === undefined) || (quote === undefined)) {
+            return undefined;
+        }
+        return this.safeMarketStructure ({
             'id': id,
             'symbol': base + '/' + quote,
             'base': base,
@@ -227,7 +334,7 @@ export default class bitbank extends Exchange {
             'swap': false,
             'future': false,
             'option': false,
-            'active': this.safeValue (entry, 'is_enabled'),
+            'active': this.safeBool (entry, 'is_enabled'),
             'contract': false,
             'linear': undefined,
             'inverse': undefined,
@@ -262,10 +369,10 @@ export default class bitbank extends Exchange {
             },
             'created': undefined,
             'info': entry,
-        };
+        });
     }
 
-    parseTicker (ticker: Dict, market: Market = undefined): Ticker {
+    override parseTicker (ticker: Dict, market: Market = undefined): Ticker {
         const symbol = this.safeSymbol (undefined, market);
         const timestamp = this.safeInteger (ticker, 'timestamp');
         const last = this.safeString (ticker, 'last');
@@ -293,17 +400,19 @@ export default class bitbank extends Exchange {
         }, market);
     }
 
-    async fetchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name bitbank#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/public-api.md#ticker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/public-api.md#ticker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async fetchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
@@ -313,29 +422,31 @@ export default class bitbank extends Exchange {
         return this.parseTicker (data, market);
     }
 
-    async fetchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name bitbank#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/public-api.md#depth
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/public-api.md#depth
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async fetchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
         };
         const response = await this.publicGetPairDepth (this.extend (request, params));
-        const orderbook = this.safeValue (response, 'data', {});
+        const orderbook = this.safeDict (response, 'data', {});
         const timestamp = this.safeInteger (orderbook, 'timestamp');
         return this.parseOrderBook (orderbook, market['symbol'], timestamp);
     }
 
-    parseTrade (trade: Dict, market: Market = undefined): Trade {
+    override parseTrade (trade: Dict, market: Market = undefined): Trade {
         //
         // fetchTrades
         //
@@ -348,16 +459,16 @@ export default class bitbank extends Exchange {
         //    }
         //
         const timestamp = this.safeInteger (trade, 'executed_at');
-        market = this.safeMarket (undefined, market);
+        const marketResolved: Market = this.safeMarket (undefined, market);
         const priceString = this.safeString (trade, 'price');
         const amountString = this.safeString (trade, 'amount');
         const id = this.safeString2 (trade, 'transaction_id', 'trade_id');
         const takerOrMaker = this.safeString (trade, 'maker_taker');
-        let fee = undefined;
+        let fee: FeeString = undefined;
         const feeCostString = this.safeString (trade, 'fee_amount_quote');
         if (feeCostString !== undefined) {
             fee = {
-                'currency': market['quote'],
+                'currency': marketResolved['quote'],
                 'cost': feeCostString,
             };
         }
@@ -367,7 +478,7 @@ export default class bitbank extends Exchange {
         return this.safeTrade ({
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'id': id,
             'order': orderId,
             'type': type,
@@ -378,42 +489,46 @@ export default class bitbank extends Exchange {
             'cost': undefined,
             'fee': fee,
             'info': trade,
-        }, market);
+        }, marketResolved);
     }
 
-    async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name bitbank#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/public-api.md#transactions
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/public-api.md#transactions
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
         };
         const response = await this.publicGetPairTransactions (this.extend (request, params));
-        const data = this.safeValue (response, 'data', {});
-        const trades = this.safeList (data, 'transactions', []);
+        const data = this.safeDict (response, 'data', {});
+        const trades: Dict[] = this.safeList (data, 'transactions', []);
         return this.parseTrades (trades, market, since, limit);
     }
 
-    async fetchTradingFees (params = {}): Promise<TradingFees> {
-        /**
-         * @method
-         * @name bitbank#fetchTradingFees
-         * @description fetch the trading fees for multiple markets
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#get-all-pairs-info
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [fee structures]{@link https://docs.ccxt.com/#/?id=fee-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchTradingFees
+     * @description fetch the trading fees for multiple markets
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#get-all-pairs-info
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [fee structures]{@link https://docs.ccxt.com/?id=fee-structure} indexed by market symbols
+     */
+    override async fetchTradingFees (params: Dict = {}): Promise<TradingFees> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.marketsGetSpotPairs (params);
         //
         //     {
@@ -443,14 +558,14 @@ export default class bitbank extends Exchange {
         //         }
         //     }
         //
-        const data = this.safeValue (response, 'data', {});
-        const pairs = this.safeValue (data, 'pairs', []);
+        const data = this.safeDict (response, 'data', {});
+        const pairs: Dict[] = this.safeList (data, 'pairs', []);
         const result: Dict = {};
         for (let i = 0; i < pairs.length; i++) {
             const pair = pairs[i];
             const marketId = this.safeString (pair, 'name');
             const market = this.safeMarket (marketId);
-            const symbol = market['symbol'];
+            const symbol = this.safeString (market, 'symbol', '');
             result[symbol] = {
                 'info': pair,
                 'symbol': symbol,
@@ -463,7 +578,7 @@ export default class bitbank extends Exchange {
         return result;
     }
 
-    parseOHLCV (ohlcv, market: Market = undefined): OHLCV {
+    override parseOHLCV (ohlcv: any, market: Market = undefined): OHLCV {
         //
         //     [
         //         "0.02501786",
@@ -484,32 +599,36 @@ export default class bitbank extends Exchange {
         ];
     }
 
-    async fetchOHLCV (symbol: string, timeframe = '1m', since: Int = undefined, limit: Int = undefined, params = {}): Promise<OHLCV[]> {
-        /**
-         * @method
-         * @name bitbank#fetchOHLCV
-         * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/public-api.md#candlestick
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        if (since === undefined) {
-            if (limit === undefined) {
-                limit = 1000; // it doesn't have any defaults, might return 200, might 2000 (i.e. https://public.bitbank.cc/btc_jpy/candlestick/4hour/2020)
-            }
-            const duration = this.parseTimeframe (timeframe);
-            since = this.milliseconds () - duration * 1000 * limit;
+    /**
+     * @method
+     * @name bitbank#fetchOHLCV
+     * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/public-api.md#candlestick
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    override async fetchOHLCV (symbol: string, timeframe: string = '1m', since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<OHLCV[]> {
+        // it doesn't have any defaults, might return 200, might 2000 (i.e. https://public.bitbank.cc/btc_jpy/candlestick/4hour/2020)
+        const windowLimit = (limit === undefined) ? 1000 : limit;
+        const limitResolved = (since === undefined) ? windowLimit : limit;
+        const duration = this.parseTimeframe (timeframe);
+        let windowMs = duration * 1000 * 1000;
+        if (limit !== undefined) {
+            windowMs = duration * 1000 * limit;
         }
-        await this.loadMarkets ();
+        const sinceResolved = (since === undefined) ? this.milliseconds () - windowMs : since;
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
             'candletype': this.safeString (this.timeframes, timeframe, timeframe),
-            'yyyymmdd': this.yyyymmdd (since, ''),
+            'yyyymmdd': this.yyyymmdd (sinceResolved, ''),
         };
         const response = await this.publicGetPairCandlestickCandletypeYyyymmdd (this.extend (request, params));
         //
@@ -530,44 +649,48 @@ export default class bitbank extends Exchange {
         //         }
         //     }
         //
-        const data = this.safeValue (response, 'data', {});
-        const candlestick = this.safeValue (data, 'candlestick', []);
-        const first = this.safeValue (candlestick, 0, {});
+        const data = this.safeDict (response, 'data', {});
+        const candlestick = this.safeList (data, 'candlestick', []);
+        const first = this.safeDict (candlestick, 0, {});
         const ohlcv = this.safeList (first, 'ohlcv', []);
-        return this.parseOHLCVs (ohlcv, market, timeframe, since, limit);
+        return this.parseOHLCVs (ohlcv, market, timeframe, sinceResolved, limitResolved);
     }
 
-    parseBalance (response): Balances {
+    override parseBalance (response: Dict): Balances {
         const result: Dict = {
             'info': response,
             'timestamp': undefined,
             'datetime': undefined,
         };
-        const data = this.safeValue (response, 'data', {});
-        const assets = this.safeValue (data, 'assets', []);
+        const data = this.safeDict (response, 'data', {});
+        const assets: Dict[] = this.safeList (data, 'assets', []);
         for (let i = 0; i < assets.length; i++) {
-            const balance = assets[i];
+            const balance = this.safeDict (assets, i);
             const currencyId = this.safeString (balance, 'asset');
             const code = this.safeCurrencyCode (currencyId);
             const account = this.account ();
             account['free'] = this.safeString (balance, 'free_amount');
             account['used'] = this.safeString (balance, 'locked_amount');
             account['total'] = this.safeString (balance, 'onhand_amount');
-            result[code] = account;
+            if (code !== undefined) {
+                result[code] = account;
+            }
         }
         return this.safeBalance (result);
     }
 
-    async fetchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name bitbank#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#assets
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#assets
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async fetchBalance (params: Dict = {}): Promise<Balances> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const response = await this.privateGetUserAssets (params);
         //
         //     {
@@ -605,7 +728,7 @@ export default class bitbank extends Exchange {
         return this.parseBalance (response);
     }
 
-    parseOrderStatus (status: Str) {
+    parseOrderStatus (status: Str): Str {
         const statuses: Dict = {
             'UNFILLED': 'open',
             'PARTIALLY_FILLED': 'open',
@@ -613,13 +736,13 @@ export default class bitbank extends Exchange {
             'CANCELED_UNFILLED': 'canceled',
             'CANCELED_PARTIALLY_FILLED': 'canceled',
         };
-        return this.safeString (statuses, status, status);
+        return this.safeString (statuses, status as string, status);
     }
 
-    parseOrder (order: Dict, market: Market = undefined): Order {
+    override parseOrder (order: NullableDict, market: Market = undefined): Order {
         const id = this.safeString (order, 'order_id');
         const marketId = this.safeString (order, 'pair');
-        market = this.safeMarket (marketId, market);
+        const marketResolved: Market = this.safeMarket (marketId, market);
         const timestamp = this.safeInteger (order, 'ordered_at');
         const price = this.safeString (order, 'price');
         const amount = this.safeString (order, 'start_amount');
@@ -636,13 +759,12 @@ export default class bitbank extends Exchange {
             'timestamp': timestamp,
             'lastTradeTimestamp': undefined,
             'status': status,
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'type': type,
             'timeInForce': undefined,
             'postOnly': undefined,
             'side': side,
             'price': price,
-            'stopPrice': undefined,
             'triggerPrice': undefined,
             'cost': undefined,
             'average': average,
@@ -652,24 +774,26 @@ export default class bitbank extends Exchange {
             'trades': undefined,
             'fee': undefined,
             'info': order,
-        }, market);
+        }, marketResolved);
     }
 
-    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitbank#createOrder
-         * @description create a trade order
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#create-new-order
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#createOrder
+     * @description create a trade order
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#create-new-order
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
@@ -682,21 +806,23 @@ export default class bitbank extends Exchange {
         }
         const response = await this.privatePostUserSpotOrder (this.extend (request, params));
         const data = this.safeDict (response, 'data');
-        return this.parseOrder (data, market);
+        return this.parseOrder (data as Dict, market);
     }
 
-    async cancelOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitbank#cancelOrder
-         * @description cancels an open order
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#cancel-order
-         * @param {string} id order id
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#cancelOrder
+     * @description cancels an open order
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#cancel-order
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async cancelOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'order_id': id,
@@ -726,21 +852,24 @@ export default class bitbank extends Exchange {
         //        }
         //    }
         //
-        const data = this.safeValue (response, 'data');
+        const data = this.safeDict (response, 'data');
         return this.parseOrder (data);
     }
 
-    async fetchOrder (id: string, symbol: Str = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitbank#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#fetch-order-information
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#fetch-order-information
+     * @param {string} id the order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOrder (id: string, symbol: Str = undefined, params: Dict = {}): Promise<Order> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'order_id': id,
@@ -770,22 +899,24 @@ export default class bitbank extends Exchange {
         //    }
         //
         const data = this.safeDict (response, 'data');
-        return this.parseOrder (data, market);
+        return this.parseOrder (data as Dict, market);
     }
 
-    async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name bitbank#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#fetch-active-orders
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#fetch-active-orders
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async fetchOpenOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
@@ -797,26 +928,28 @@ export default class bitbank extends Exchange {
             request['since'] = this.parseToInt (since / 1000);
         }
         const response = await this.privateGetUserSpotActiveOrders (this.extend (request, params));
-        const data = this.safeValue (response, 'data', {});
-        const orders = this.safeList (data, 'orders', []);
+        const data = this.safeDict (response, 'data', {});
+        const orders: Dict[] = this.safeList (data, 'orders', []);
         return this.parseOrders (orders, market, since, limit);
     }
 
-    async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitbank#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#fetch-trade-history
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#fetch-trade-history
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async fetchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const request: Dict = {};
-        let market = undefined;
+        let market: Market = undefined;
         if (symbol !== undefined) {
             market = this.market (symbol);
             request['pair'] = market['id'];
@@ -828,65 +961,72 @@ export default class bitbank extends Exchange {
             request['since'] = this.parseToInt (since / 1000);
         }
         const response = await this.privateGetUserSpotTradeHistory (this.extend (request, params));
-        const data = this.safeValue (response, 'data', {});
-        const trades = this.safeList (data, 'trades', []);
+        const data = this.safeDict (response, 'data', {});
+        const trades: Dict[] = this.safeList (data, 'trades', []);
         return this.parseTrades (trades, market, since, limit);
     }
 
-    async fetchDepositAddress (code: string, params = {}) {
-        /**
-         * @method
-         * @name bitbank#fetchDepositAddress
-         * @description fetch the deposit address for a currency associated with this account
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#get-withdrawal-accounts
-         * @param {string} code unified currency code
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [address structure]{@link https://docs.ccxt.com/#/?id=address-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name bitbank#fetchDepositAddress
+     * @description fetch the deposit address for a currency associated with this account
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#get-withdrawal-accounts
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [address structure]{@link https://docs.ccxt.com/?id=address-structure}
+     */
+    override async fetchDepositAddress (code: string, params: Dict = {}): Promise<DepositAddress> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const currency = this.currency (code);
         const request: Dict = {
             'asset': currency['id'],
         };
         const response = await this.privateGetUserWithdrawalAccount (this.extend (request, params));
-        const data = this.safeValue (response, 'data', {});
+        const data = this.safeDict (response, 'data', {});
         // Not sure about this if there could be more than one account...
-        const accounts = this.safeValue (data, 'accounts', []);
-        const firstAccount = this.safeValue (accounts, 0, {});
+        const accounts = this.safeList (data, 'accounts', []);
+        const firstAccount = this.safeDict (accounts, 0, {});
         const address = this.safeString (firstAccount, 'address');
         return {
-            'currency': currency,
+            'info': response,
+            'currency': currency['code'],
+            'network': undefined,
             'address': address,
             'tag': undefined,
-            'network': undefined,
-            'info': response,
-        };
+        } as DepositAddress;
     }
 
-    async withdraw (code: string, amount: number, address: string, tag = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitbank#withdraw
-         * @description make a withdrawal
-         * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#new-withdrawal-request
-         * @param {string} code unified currency code
-         * @param {float} amount the amount to withdraw
-         * @param {string} address the address to withdraw to
-         * @param {string} tag
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        [ tag, params ] = this.handleWithdrawTagAndParams (tag, params);
+    /**
+     * @method
+     * @name bitbank#withdraw
+     * @description make a withdrawal
+     * @see https://github.com/bitbankinc/bitbank-api-docs/blob/38d6d7c6f486c793872fd4b4087a0d090a04cd0a/rest-api.md#new-withdrawal-request
+     * @param {string} code unified currency code
+     * @param {float} amount the amount to withdraw
+     * @param {string} address the address to withdraw to
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.tag] memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    override async withdraw (code: string, amount: number, address: string, params: Dict = {}): Promise<Transaction> {
+        const tagAndParams = this.handleParamString (params, 'tag');
+        const tagWithdrawTag: Str = tagAndParams[0];
+        const paramsWithdrawTag: Dict = tagAndParams[1];
+        this.checkAddress (address, code, tagWithdrawTag);
         if (!('uuid' in params)) {
             throw new ExchangeError (this.id + ' uuid is required for withdrawal');
         }
-        await this.loadMarkets ();
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const currency = this.currency (code);
         const request: Dict = {
             'asset': currency['id'],
             'amount': amount,
         };
-        const response = await this.privatePostUserRequestWithdrawal (this.extend (request, params));
+        const response = await this.privatePostUserRequestWithdrawal (this.extend (request, paramsWithdrawTag));
         //
         //     {
         //         "success": 1,
@@ -908,7 +1048,7 @@ export default class bitbank extends Exchange {
         return this.parseTransaction (data, currency);
     }
 
-    parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
+    override parseTransaction (transaction: Dict, currency: Currency = undefined): Transaction {
         //
         // withdraw
         //
@@ -926,7 +1066,7 @@ export default class bitbank extends Exchange {
         //     }
         //
         const txid = this.safeString (transaction, 'txid');
-        currency = this.safeCurrency (undefined, currency);
+        const currencyResolved: Currency = this.safeCurrency (undefined, currency);
         return {
             'id': txid,
             'txid': txid,
@@ -938,7 +1078,7 @@ export default class bitbank extends Exchange {
             'addressTo': undefined,
             'amount': undefined,
             'type': undefined,
-            'currency': currency['code'],
+            'currency': currencyResolved['code'],
             'status': undefined,
             'updated': undefined,
             'tagFrom': undefined,
@@ -948,54 +1088,79 @@ export default class bitbank extends Exchange {
             'internal': undefined,
             'fee': undefined,
             'info': transaction,
-        };
+        } as Transaction;
     }
 
-    nonce () {
+    override nonce (): int {
         return this.milliseconds ();
     }
 
-    sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let query = this.omit (params, this.extractParams (path));
-        let url = this.implodeHostname (this.urls['api'][api]) + '/';
-        if ((api === 'public') || (api === 'markets')) {
+    override sign (path: string, api: string[] = [ 'public' ], method: string = 'GET', params: Dict = {}): Dict {
+        const apiName = api[0];
+        const query = this.extend ({}, this.omit (params, this.extractParams (path)));
+        const apiUrl = this.safeString (this.urls['api'], apiName);
+        if (apiUrl === undefined) {
+            throw new ExchangeError (this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url: string = this.implodeHostname (apiUrl) + '/';
+        let requestBody: Str = undefined;
+        let requestHeaders: NullableDict = undefined;
+        if ((apiName === 'public') || (apiName === 'markets')) {
             url += this.implodeParams (path, params);
-            if (Object.keys (query).length) {
+            if (Object.keys (query).length > 0) {
                 url += '?' + this.urlencode (query);
             }
         } else {
             this.checkRequiredCredentials ();
-            const nonce = this.nonce ().toString ();
-            let auth = nonce;
+            // bitbank supports two auth methods, see https://github.com/bitbankinc/bitbank-api-docs/blob/master/rest-api.md#authorization
+            // 'timeWindow' (default): request time + validity window, stateless and safe for concurrent use of one key
+            // 'nonce': legacy strictly-increasing nonce, kept as an escape hatch for clients with drifting clocks,
+            // since bitbank offers no server time endpoint to compensate against
+            const authMethod = this.safeString (this.options, 'authMethod', 'timeWindow');
+            const isTimeWindow = (authMethod === 'timeWindow');
+            const requestTime = this.milliseconds ().toString ();
+            const timeWindow = this.safeString (this.options, 'timeWindow', '5000');
+            const nonce = this.incrementingNonce ().toString ();
+            let auth: string = nonce;
+            if (isTimeWindow) {
+                auth = requestTime + timeWindow;
+            }
             url += this.version + '/' + this.implodeParams (path, params);
             if (method === 'POST') {
-                body = this.json (query);
-                auth += body;
+                const jsonBody = this.json (query);
+                requestBody = jsonBody;
+                auth += jsonBody;
             } else {
                 auth += '/' + this.version + '/' + path;
-                if (Object.keys (query).length) {
-                    query = this.urlencode (query);
-                    url += '?' + query;
-                    auth += '?' + query;
+                if (Object.keys (query).length > 0) {
+                    const queryString = this.urlencode (query);
+                    url += '?' + queryString;
+                    auth += '?' + queryString;
                 }
             }
-            headers = {
+            requestHeaders = {
                 'Content-Type': 'application/json',
                 'ACCESS-KEY': this.apiKey,
-                'ACCESS-NONCE': nonce,
                 'ACCESS-SIGNATURE': this.hmac (this.encode (auth), this.encode (this.secret), sha256),
             };
+            if (isTimeWindow) {
+                requestHeaders = this.extend (requestHeaders, { 'ACCESS-REQUEST-TIME': requestTime, 'ACCESS-TIME-WINDOW': timeWindow });
+            } else {
+                requestHeaders = this.extend (requestHeaders, { 'ACCESS-NONCE': nonce });
+            }
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const bodyResolved = requestBody;
+        const headersResolved = requestHeaders;
+        return { 'url': url, 'method': method, 'body': bodyResolved, 'headers': headersResolved };
     }
 
-    handleErrors (httpCode: int, reason: string, url: string, method: string, headers: Dict, body: string, response, requestHeaders, requestBody) {
+    override handleErrors (code: int, reason: string, url: string, method: string, headers: Dict, body: string, response: any, requestHeaders: NullableDict, requestBody: Str) {
         if (response === undefined) {
             return undefined;
         }
         const success = this.safeInteger (response, 'success');
-        const data = this.safeValue (response, 'data');
-        if (!success || !data) {
+        const data = this.safeDict (response, 'data');
+        if ((success === undefined || success === 0) || (data === undefined)) {
             const errorMessages: Dict = {
                 '10000': 'URL does not exist',
                 '10001': 'A system error occurred. Please contact support',
@@ -1058,9 +1223,9 @@ export default class bitbank extends Exchange {
                 '70009': 'We are currently temporarily restricting orders to be carried out. Please use the limit order.',
                 '70010': 'We are temporarily raising the minimum order quantity as the system load is now rising.',
             };
-            const code = this.safeString (data, 'code');
-            const message = this.safeString (errorMessages, code, 'Error');
-            this.throwExactlyMatchedException (this.exceptions['exact'], code, message);
+            const codeError = this.safeString (data, 'code');
+            const message = this.safeString (errorMessages, codeError, 'Error');
+            this.throwExactlyMatchedException (this.exceptions['exact'], codeError, message);
             throw new ExchangeError (this.id + ' ' + this.json (response));
         }
         return undefined;

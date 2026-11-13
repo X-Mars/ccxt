@@ -5,11 +5,17 @@ using System.Collections.Concurrent;
 using dict = Dictionary<string, object>;
 using list = List<object>;
 
-public partial class Exchange
+public partial class BaseExchange
 {
     public HttpClient httpClient { get; set; }
     public object fetchResponse = null; // tmp for response tests
+    // response-test mock keyed by url fragment, for methods that call several endpoints
+    public object fetchResponseByUrl = null;
     public string id { get; set; } = "Exchange";
+
+    public string[] countries = null;
+    public bool certified = false;
+    public bool pro = false;
 
     public bool alias { get; set; } = false;
 
@@ -17,46 +23,48 @@ public partial class Exchange
     public string userAgent { get; set; }
     public bool verbose { get; set; } = true;
     public bool enableRateLimit { get; set; } = true;
+    public double rollingWindowSize { get; set; } = 0.0;  // set to 0.0 to use leaky bucket rate limiter
+    public string rateLimiterAlgorithm { get; set; } = "leakyBucket";
     public long lastRestRequestTimestamp { get; set; } = 0;
     public string url { get; set; } = "";
 
     public string hostname { get; set; } = "";
 
-    public dict baseCurrencies { get; set; } = new dict();
+    public IDictionary<string, object> baseCurrencies { get; set; } = null;
 
     public bool reloadingMarkets { get; set; } = false;
 
-    public Task<object> marketsLoading { get; set; } = null;
+    public Task<IDictionary<string, object>> marketsLoading { get; set; } = null;
 
-    public dict quoteCurrencies { get; set; } = new dict();
+    public IDictionary<string, object> quoteCurrencies { get; set; } = null;
 
-    public dict api { get; set; } = new dict();
+    public Dictionary<string, object> api { get; set; } = new dict();
 
-    public dict transformedApi { get; set; } = new dict();
+    public Dictionary<string, object> transformedApi { get; set; } = new dict();
 
     public bool reduceFees { get; set; } = true;
 
-    public dict markets_by_id { get; set; } = null;
+    public IDictionary<string, object> markets_by_id { get; set; } = null;
 
-    public List<object> symbols { get; set; } = new list();
+    public List<object> symbols { get; set; } = null;
 
-    public List<object> codes { get; set; } = new list();
+    public List<object> codes { get; set; } = null;
 
-    public List<object> ids { get; set; } = new list();
+    public List<object> ids { get; set; } = null;
 
     public bool substituteCommonCurrencyCodes { get; set; } = true;
 
-    public dict commonCurrencies { get; set; } = new dict();
+    public Dictionary<string, object> commonCurrencies { get; set; } = new dict();
 
     public object limits { get; set; } = new dict();
 
     public object precisionMode { get; set; } = DECIMAL_PLACES;
 
-    public object currencies_by_id { get; set; } = new dict();
+    public IDictionary<string, object> currencies_by_id { get; set; } = null;
 
-    public object accounts { get; set; } = new dict();
+    public List<object> accounts { get; set; } = new List<object>();
 
-    public object accountsById { get; set; } = new dict();
+    public object accountsById { get; set; } = null;
 
     public object status { get; set; } = new dict();
 
@@ -64,34 +72,84 @@ public partial class Exchange
 
     public object number { get; set; } = typeof(float);
     public Dictionary<string, object> has { get; set; } = new dict();
-    public ConcurrentDictionary<string, object> options { get; set; } = new ConcurrentDictionary<string, object>();
-    public object markets { get; set; } = null;
-    public object currencies { get; set; } = null;
-    public object fees { get; set; } = new dict();
-    public object requiredCredentials { get; set; } = new dict();
-    public object timeframes { get; set; } = new dict();
-    public double rateLimit { get; set; }
-    public object exceptions { get; set; } = new dict();
-    public object urls { get; set; } = new dict();
-    public object precision { get; set; } = new dict();
+    public Dictionary<string, object> features { get; set; }
+    public System.Collections.Concurrent.ConcurrentDictionary<string, object> options { get; set; } = new System.Collections.Concurrent.ConcurrentDictionary<string, object>();
+    public bool isSandboxModeEnabled { get; set; } = false;
 
-    public string secret { get; set; }
+    public IDictionary<string, object> markets { get; set; } = null;
+    public object currencies { get; set; } = new dict();
+    public IDictionary<string, object> fees { get; set; } = new dict();
+    public IDictionary<string, object> requiredCredentials { get; set; } = new dict();
+    public Dictionary<string, object> timeframes { get; set; } = null;
+    public double rateLimit { get; set; } = 2000;
+    public IDictionary<string, object> exceptions { get; set; } = new dict();
+    public IDictionary<string, object> urls { get; set; } = new dict();
+
+    // urls['api'] is a Dict in the TS base declaration (`urls: { api: Dict }`), and every write of
+    // it stores a section dictionary, so this view is the dictionary itself.
+    public IDictionary<string, object> urlsApi
+    {
+        get
+        {
+            var sections = this.urls;
+            if (sections == null || !sections.ContainsKey("api"))
+            {
+                return null;
+            }
+            return sections["api"] as IDictionary<string, object>;
+        }
+    }
+    // urls['api'] entries that are themselves dictionaries, so urlsApi['ws'] indexes as a map.
+    // urls is written at config time only; RefreshUrlsViews re-derives this at every such write.
+    public Dictionary<string, IDictionary<string, object>> urlsApiSections { get; private set; } = new Dictionary<string, IDictionary<string, object>>();
+
+    public void RefreshUrlsViews()
+    {
+        var api = this.urlsApi;
+        var sections = new Dictionary<string, IDictionary<string, object>>();
+        if (api != null)
+        {
+            foreach (var entry in api)
+            {
+                var section = entry.Value as IDictionary<string, object>;
+                if (section != null)
+                {
+                    sections[entry.Key] = section;
+                }
+            }
+        }
+        this.urlsApiSections = sections;
+    }
+    // currencies stays `object` (cs/tests/Generated/TestMethods.cs assigns a boxed local into it),
+    // but every writer stores a string-keyed dictionary: this view is that dictionary.
+    public IDictionary<string, object> currenciesDict
+    {
+        get
+        {
+            return this.currencies as IDictionary<string, object>;
+        }
+    }
+    public Dictionary<string, object> precision { get; set; } = null;
+
     public string apiKey { get; set; }
+    public string secret { get; set; }
     public string password { get; set; }
     public string uid { get; set; }
     public string accountId { get; set; }
+    public string login { get; set; }
+    public string privateKey { get; set; }
+    public string walletAddress { get; set; }
+    public object token { get; set; }
+    public string twofa { get; set; }
 
-    public dict userAgents { get; set; } = new dict(){
+    public int minFundingAddressLength { get; set; } = 1;
+    public Dictionary<string, object> networkAliases { get; set; } = new Dictionary<string, object>() { { "ETH", "ERC20" }, { "TRX", "TRC20" }, { "BSC", "BEP20" }, { "BSC20", "BEP20" }, { "CRONOS", "CRC20" }, { "ARB", "ARBITRUM" }, { "ARBONE", "ARBITRUM" }, { "ARBNOVA", "ARBITRUM_NOVA" } };
+
+    public Dictionary<string, object> userAgents { get; set; } = new dict(){
         {"chrome", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"},
         {"chrome39","Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36"},
         {"chrome100","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36"}
     };
-
-    public string twofa { get; set; }
-    public string privateKey { get; set; }
-    public string walletAddress { get; set; }
-    public string token { get; set; }
-    public string login { get; set; }
     public string proxy { get; set; }
     public string agent { get; set; }
     public object timeout { get; set; } = 10000;
@@ -122,13 +180,20 @@ public partial class Exchange
     }
     public object last_request_url { get; set; }
 
+    public readonly System.Collections.Concurrent.ConcurrentQueue<Dictionary<string, object>> fetchHistoryCache = new ();
+
+    public int fetchHistoryCacheSize = 0;
+
+    public float MAX_VALUE = float.MaxValue;
+
     public object name { get; set; }
 
-    public object headers { get; set; } = new dict();
+    public IDictionary<string, object> headers { get; set; } = new dict();
+    public bool returnResponseHeaders { get; set; } = false;
 
-    public dict httpExceptions { get; set; } = new dict();
+    public Dictionary<string, object> httpExceptions { get; set; } = new dict();
 
-    public dict tokenBucket { get; set; } = new dict();
+    public Dictionary<string, object> tokenBucket { get; set; } = new dict();
     public Throttler throttler { get; set; }
 
     public object proxyUrl { get; set; } = null;
@@ -156,30 +221,75 @@ public partial class Exchange
     public Func<object, object, object, object> socks_proxy_callback { get; set; } = null;
 
     // WS options
-    public object tickers = new ccxt.pro.CustomConcurrentDictionary<string, object>();
-    public object fundingRates = new ccxt.pro.CustomConcurrentDictionary<string, object>();
-    public object bidsasks = new ccxt.pro.CustomConcurrentDictionary<string, object>();
+
+    // WS caches: concurrent maps, written by ws handlers while user threads read them.
+    private IDictionary<string, object> tickersState = new System.Collections.Concurrent.ConcurrentDictionary<string, object>();
+    private IDictionary<string, object> fundingRatesState = new System.Collections.Concurrent.ConcurrentDictionary<string, object>();
+    private IDictionary<string, object> bidsasksState = new System.Collections.Concurrent.ConcurrentDictionary<string, object>();
+
+    public IDictionary<string, object> tickers
+    {
+        get { return this.tickersState; }
+        set { this.tickersState = this.wrapWsCache(value); }
+    }
+
+    public IDictionary<string, object> fundingRates
+    {
+        get { return this.fundingRatesState; }
+        set { this.fundingRatesState = this.wrapWsCache(value); }
+    }
+
+    public IDictionary<string, object> bidsasks
+    {
+        get { return this.bidsasksState; }
+        set { this.bidsasksState = this.wrapWsCache(value); }
+    }
 
     public object transactions = new dict();
-    public object myTrades;
-    public object orders;
+    // ws caches: always an ArrayCache subclass or null (every writer in cs/**, bitstamp's
+    // pruneCachedBySymbols included). positions stays `object` — five venues store the
+    // account-type-keyed Dictionary there.
+    public ccxt.pro.ArrayCache myTrades;
+    public ccxt.pro.ArrayCache orders;
     public object triggerOrders;
-    public object balance = new ccxt.pro.CustomConcurrentDictionary<string, object>();
+    // a plain dict: safeBalance hands the merged balance back by reference and every
+    // ws balance handler stores that return value, so a concurrent map type is not kept
+    public IDictionary<string, object> balance = new Dictionary<string, object>() {};
 
     public bool newUpdates;
 
     public object positions;
-    public object liquidations = new ccxt.pro.CustomConcurrentDictionary<string, object>();
-    public object myLiquidations = new ccxt.pro.CustomConcurrentDictionary<string, object>();
-    public object trades = new ccxt.pro.CustomConcurrentDictionary<string, object>();
-    public object orderbooks = new ccxt.pro.CustomConcurrentDictionary<string, object>();
+    public ccxt.pro.ArrayCache liquidations;
+    public object myLiquidations;
+    private IDictionary<string, object> tradesState = new System.Collections.Concurrent.ConcurrentDictionary<string, object>();
+    private IDictionary<string, object> orderbooksState = new System.Collections.Concurrent.ConcurrentDictionary<string, object>();
 
-    public object ohlcvs = new ccxt.pro.CustomConcurrentDictionary<string, object>();
+    public IDictionary<string, object> trades
+    {
+        get { return this.tradesState; }
+        set { this.tradesState = this.wrapWsCache(value); }
+    }
+
+    public IDictionary<string, object> orderbooks
+    {
+        get { return this.orderbooksState; }
+        set { this.orderbooksState = this.wrapWsCache(value); }
+    }
+
+    private IDictionary<string, object> ohlcvsState = new System.Collections.Concurrent.ConcurrentDictionary<string, object>();
+
+    public IDictionary<string, object> ohlcvs
+    {
+        get { return this.ohlcvsState; }
+        set { this.ohlcvsState = this.wrapWsCache(value); }
+    }
     public object wssProxy { get; set; } = null;
     public object wss_proxy { get; set; } = null;
 
     public object wsProxy { get; set; } = null;
     public object ws_proxy { get; set; } = null;
+
+    public Dictionary<string, object> streaming { get; set; } = new dict();
 
     private string httpProxyValue = "";
     public object httpProxy
@@ -209,232 +319,27 @@ public partial class Exchange
         }
     }
 
-    public virtual object describe()
-    {
-        return new Dictionary<string, object>() {
-            { "id", null },
-            { "name", null },
-            { "countries", null },
-            { "enableRateLimit", true },
-            { "rateLimit", 2000 },
-            { "certified", false },
-            { "pro", false },
-            { "alias", false },
-            { "has", new Dictionary<string, object>() {
-                { "publicAPI", true },
-                { "privateAPI", true },
-                { "CORS", null },
-                { "spot", null },
-                { "margin", null },
-                { "swap", null },
-                { "future", null },
-                { "option", null },
-                { "addMargin", null },
-                { "cancelAllOrders", null },
-                { "cancelOrder", true },
-                { "cancelOrders", null },
-                { "createDepositAddress", null },
-                { "createLimitOrder", true },
-                { "createMarketOrder", true },
-                { "createOrder", true },
-                { "createPostOnlyOrder", null },
-                { "createReduceOnlyOrder", null },
-                { "createStopOrder", null },
-                { "createStopLimitOrder", null },
-                { "createStopMarketOrder", null },
-                { "editOrder", "emulated" },
-                { "fetchAccounts", null },
-                { "fetchBalance", true },
-                { "fetchBidsAsks", null },
-                { "fetchBorrowInterest", null },
-                { "fetchBorrowRate", null },
-                { "fetchBorrowRateHistory", null },
-                { "fetchBorrowRatesPerSymbol", null },
-                { "fetchBorrowRates", null },
-                { "fetchCanceledOrders", null },
-                { "fetchClosedOrder", null },
-                { "fetchClosedOrders", null },
-                { "fetchClosedOrdersWs", null },
-                { "fetchConvertCurrencies", null },
-                { "fetchConvertQuote", null },
-                { "fetchConvertTrade", null },
-                { "fetchConvertTradeHistory", null },
-                { "fetchCrossBorrowRate", null },
-                { "fetchCrossBorrowRates", null },
-                { "fetchCurrencies", "emulated" },
-                { "fetchCurrenciesWs", "emulated" },
-                { "fetchDeposit", null },
-                { "fetchDepositAddress", null },
-                { "fetchDepositAddresses", null },
-                { "fetchDepositAddressesByNetwork", null },
-                { "fetchDeposits", null },
-                { "fetchTransactionFee", null },
-                { "fetchTransactionFees", null },
-                { "fetchFundingHistory", null },
-                { "fetchFundingRate", null },
-                { "fetchFundingRateHistory", null },
-                { "fetchFundingRates", null },
-                { "fetchIndexOHLCV", null },
-                { "fetchL2OrderBook", true },
-                { "fetchLedger", null },
-                { "fetchLedgerEntry", null },
-                { "fetchLeverageTiers", null },
-                { "fetchMarketLeverageTiers", null },
-                { "fetchMarkets", true },
-                { "fetchMarkOHLCV", null },
-                { "fetchMyTrades", null },
-                { "fetchOHLCV", null },
-                { "fetchOpenOrder", null },
-                { "fetchOpenOrders", null },
-                { "fetchOrder", null },
-                { "fetchOrderBook", true },
-                { "fetchOrderBooks", null },
-                { "fetchOrders", null },
-                { "fetchOrderTrades", null },
-                { "fetchPermissions", null },
-                { "fetchPosition", null },
-                { "fetchPositions", null },
-                { "fetchPositionsRisk", null },
-                { "fetchPremiumIndexOHLCV", null },
-                { "fetchStatus", null },
-                { "fetchTicker", true },
-                { "fetchTickers", null },
-                { "fetchTime", null },
-                { "fetchTrades", true },
-                { "fetchTradingFee", null },
-                { "fetchTradingFees", null },
-                { "fetchTradingLimits", null },
-                { "fetchTransactions", null },
-                { "fetchTransfers", null },
-                { "fetchWithdrawal", null },
-                { "fetchWithdrawals", null },
-                { "reduceMargin", null },
-                { "setLeverage", null },
-                { "setMargin", null },
-                { "setMarginMode", null },
-                { "setPositionMode", null },
-                { "signIn", null },
-                { "transfer", null },
-                { "withdraw", null },
-            } },
-            { "urls", new Dictionary<string, object>() {
-                { "logo", null },
-                { "api", null },
-                { "www", null },
-                { "doc", null },
-                { "fees", null },
-            } },
-            { "api", null },
-            { "requiredCredentials", new Dictionary<string, object>() {
-                { "apiKey", true },
-                { "secret", true },
-                { "uid", false },
-                { "accountId", false },
-                { "login", false },
-                { "password", false },
-                { "twofa", false },
-                { "privateKey", false },
-                { "walletAddress", false },
-                { "token", false },
-            } },
-            { "markets", null },
-            { "currencies", new Dictionary<string, object>() {} },
-            { "timeframes", null },
-            { "fees", new Dictionary<string, object>() {
-                { "trading", new Dictionary<string, object>() {
-                    { "tierBased", null },
-                    { "percentage", null },
-                    { "taker", null },
-                    { "maker", null },
-                } },
-                { "funding", new Dictionary<string, object>() {
-                    { "tierBased", null },
-                    { "percentage", null },
-                    { "withdraw", new Dictionary<string, object>() {} },
-                    { "deposit", new Dictionary<string, object>() {} },
-                } },
-            } },
-            { "status", new Dictionary<string, object>() {
-                { "status", "ok" },
-                { "updated", null },
-                { "eta", null },
-                { "url", null },
-            } },
-            { "exceptions", null },
-            { "httpExceptions", new Dictionary<string, object>() {
-                { "422", typeof(ExchangeError) },
-                { "418", typeof(DDoSProtection) },
-                { "429", typeof(RateLimitExceeded) },
-                { "404", typeof(ExchangeNotAvailable) },
-                { "409", typeof(ExchangeNotAvailable) },
-                { "410", typeof(ExchangeNotAvailable) },
-                { "500", typeof(ExchangeNotAvailable) },
-                { "501", typeof(ExchangeNotAvailable) },
-                { "502", typeof(ExchangeNotAvailable) },
-                { "520", typeof(ExchangeNotAvailable) },
-                { "521", typeof(ExchangeNotAvailable) },
-                { "522", typeof(ExchangeNotAvailable) },
-                { "525", typeof(ExchangeNotAvailable) },
-                { "526", typeof(ExchangeNotAvailable) },
-                { "400", typeof(ExchangeNotAvailable) },
-                { "403", typeof(ExchangeNotAvailable) },
-                { "405", typeof(ExchangeNotAvailable) },
-                { "503", typeof(ExchangeNotAvailable) },
-                { "530", typeof(ExchangeNotAvailable) },
-                { "408", typeof(RequestTimeout) },
-                { "504", typeof(RequestTimeout) },
-                { "401", typeof(AuthenticationError) },
-                { "511", typeof(AuthenticationError) },
-            } },
-            { "commonCurrencies", new Dictionary<string, object>() {
-                { "XBT", "BTC" },
-                { "BCC", "BCH" },
-                { "BCHABC", "BCH" },
-                { "BCHSV", "BSV" },
-            } },
-            { "precisionMode", DECIMAL_PLACES },
-            { "paddingMode", NO_PADDING },
-            { "limits", new Dictionary<string, object>() {
-                { "leverage", new Dictionary<string, object>() {
-                    { "min", null },
-                    { "max", null },
-                } },
-                { "amount", new Dictionary<string, object>() {
-                    { "min", null },
-                    { "max", null },
-                } },
-                { "price", new Dictionary<string, object>() {
-                    { "min", null },
-                    { "max", null },
-                } },
-                { "cost", new Dictionary<string, object>() {
-                    { "min", null },
-                    { "max", null },
-                } },
-            } },
-        };  // return
-    }
-
-    void initializeProperties(dict userConfig = null)
+    void initializeProperties(Dictionary<string, object> userConfig = null)
     {
         var properties = this.describe();
 
         var extendedProperties = this.deepExtend(properties, userConfig);
 
-        this.version = SafeString(extendedProperties, "version", "");
+        this.version = SafeString(extendedProperties, "version", null);
 
         // credentials initis
         this.requiredCredentials = SafeValue(extendedProperties, "requiredCredentials") as dict;
-        this.apiKey = SafeString(extendedProperties, "apiKey", "");
-        this.secret = SafeString(extendedProperties, "secret", "");
-        this.password = SafeString(extendedProperties, "password", "");
-        this.login = SafeString(extendedProperties, "login", "");
-        this.twofa = SafeString(extendedProperties, "twofa", "");
-        this.privateKey = SafeString(extendedProperties, "privateKey", "");
-        this.walletAddress = SafeString(extendedProperties, "walletAddress", "");
-        this.token = SafeString(extendedProperties, "token", "");
-        this.uid = SafeString(extendedProperties, "uid", "");
-        this.accountId = SafeString(extendedProperties, "accountId", "");
+
+        this.apiKey = SafeString(extendedProperties, "apiKey", null);
+        this.secret = SafeString(extendedProperties, "secret", null);
+        this.password = SafeString(extendedProperties, "password", null);
+        this.login = SafeString(extendedProperties, "login", null);
+        this.twofa = SafeString(extendedProperties, "twofa", null);
+        this.privateKey = SafeString(extendedProperties, "privateKey", null);
+        this.walletAddress = SafeString(extendedProperties, "walletAddress", null);
+        this.token = SafeString(extendedProperties, "token", null);
+        this.uid = SafeString(extendedProperties, "uid", null);
+        this.accountId = SafeString(extendedProperties, "accountId", null);
 
         this.userAgents = SafeValue(extendedProperties, "userAgents", userAgents) as dict;
         this.userAgent = SafeString(extendedProperties, "userAgent");
@@ -446,24 +351,33 @@ public partial class Exchange
         this.api = SafeValue(extendedProperties, "api") as dict;
         this.hostname = SafeString(extendedProperties, "hostname");
         this.urls = SafeValue(extendedProperties, "urls") as dict;
+        this.RefreshUrlsViews();
+        this.limits = SafeValue(extendedProperties, "limits") as dict;
+
+        this.streaming = SafeValue(extendedProperties, "streaming") as dict;
 
         // handle options
         var extendedOptions = safeDict(extendedProperties, "options");
         if (extendedOptions != null)
         {
+            extendedOptions = this.deepExtend(this.getDefaultOptions(), extendedOptions);
             var extendedDict = extendedOptions as dict;
-            var concurrentExtendedDict = new ConcurrentDictionary<string, object>(extendedDict);
-            this.options = concurrentExtendedDict;
+            this.options = new System.Collections.Concurrent.ConcurrentDictionary<string, object>(extendedDict);
+        }
+        else
+        {
+            var dict2 = this.getDefaultOptions() as dict;
+            this.options = new System.Collections.Concurrent.ConcurrentDictionary<string, object>(dict2);
         }
         this.verbose = (bool)this.safeValue(extendedProperties, "verbose", false);
-        this.timeframes = SafeValue(extendedProperties, "timeframes", new dict()) as dict;
+        this.timeframes = SafeValue(extendedProperties, "timeframes", null) as dict;
         this.fees = SafeValue(extendedProperties, "fees") as dict;
         this.has = SafeValue(extendedProperties, "has") as dict;
         this.httpExceptions = SafeValue(extendedProperties, "httpExceptions") as dict;
         this.exceptions = SafeValue(extendedProperties, "exceptions") as dict;
         this.markets = SafeValue(extendedProperties, "markets") as dict;
         var propCurrencies = SafeValue(extendedProperties, "currencies") as dict;
-        if (propCurrencies.Keys.Count > 0)
+        if (propCurrencies != null && propCurrencies.Keys.Count > 0)
         {
             this.currencies = propCurrencies;
         }
@@ -471,7 +385,12 @@ public partial class Exchange
         this.rateLimit = SafeFloat(extendedProperties, "rateLimit", -1) ?? -1;
         this.status = SafeValue(extendedProperties, "status") as dict;
         this.precisionMode = SafeInteger(extendedProperties, "precisionMode", this.precisionMode);
-        this.paddingMode = ((int)SafeInteger(extendedProperties, "paddingMode", this.paddingMode));
+        var paddingModeOp = SafeInteger(extendedProperties, "paddingMode", this.paddingMode);
+        if (paddingModeOp != null)
+        {
+            this.paddingMode = ((int)paddingModeOp);
+
+        }
         this.commonCurrencies = SafeValue(extendedProperties, "commonCurrencies") as dict;
         var subVal = SafeValue(extendedProperties, "substituteCommonCurrencyCodes", true);
         this.substituteCommonCurrencyCodes = subVal != null ? (bool)subVal : true;
@@ -480,5 +399,10 @@ public partial class Exchange
         this.httpProxy = SafeString(extendedProperties, "httpProxy");
         this.newUpdates = SafeValue(extendedProperties, "newUpdates") as bool? ?? true;
         this.accounts = SafeValue(extendedProperties, "accounts") as List<object>;
+        this.features = SafeValue(extendedProperties, "features", features) as dict;
+        this.rollingWindowSize = (int)(SafeInteger(extendedProperties, "rollingWindowSize") ?? 0.0);
+        this.rateLimiterAlgorithm = SafeString(extendedProperties, "rateLimiterAlgorithm", "leakyBucket");
+        this.returnResponseHeaders = (bool)SafeValue(extendedProperties, "returnResponseHeaders", false);
+        this.fetchHistoryCacheSize = (int)(SafeInteger(extendedProperties, "fetchHistoryCacheSize") ?? 0.0);
     }
 }

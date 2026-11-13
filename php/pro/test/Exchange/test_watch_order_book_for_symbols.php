@@ -9,31 +9,41 @@ namespace ccxt;
 // -----------------------------------------------------------------------------
 use React\Async;
 use React\Promise;
-include_once PATH_TO_CCXT . '/test/base/test_order_book.php';
-include_once PATH_TO_CCXT . '/test/base/test_shared_methods.php';
+include_once PATH_TO_CCXT . '/test/exchange/base/test_order_book.php';
 
 function test_watch_order_book_for_symbols($exchange, $skipped_properties, $symbols) {
     return Async\async(function () use ($exchange, $skipped_properties, $symbols) {
         $method = 'watchOrderBookForSymbols';
-        $now = $exchange->milliseconds();
-        $ends = $now + 15000;
-        while ($now < $ends) {
+        // as in `watchOrderBook`, a pending subscription can not be cancelled, so the
+        // loop has to be bounded by the deadline alone. waiting for every requested
+        // symbol to be seen would hang forever whenever one of them stays idle.
+        $max_idle_time = 5000;
+        $current_time = $exchange->milliseconds();
+        $deadline = $current_time + 15000;
+        $idle = false;
+        while (($current_time < $deadline) && !$idle) {
             $response = null;
+            $succeeded = true;
+            $start_time = $exchange->milliseconds();
             try {
-                $response = Async\await($exchange->watch_order_book_for_symbols($symbols));
+                $response = \React\Async\await($exchange->watch_order_book_for_symbols($symbols));
             } catch(\Throwable $e) {
-                // temporary fix for InvalidNonce for c#
+                // interim workaround for InvalidNonce raised by the c# runtime
                 if (!is_temporary_failure($e) && !($e instanceof InvalidNonce)) {
                     throw $e;
                 }
-                $now = $exchange->milliseconds();
-                continue;
+                $succeeded = false;
             }
-            // [ response, skippedProperties ] = fixPhpObjectArray (exchange, response, skippedProperties);
-            assert(is_array($response), $exchange->id . ' ' . $method . ' ' . $exchange->json($symbols) . ' must return an object. ' . $exchange->json($response));
-            $now = $exchange->milliseconds();
-            assert_in_array($exchange, $skipped_properties, $method, $response, 'symbol', $symbols);
-            test_order_book($exchange, $skipped_properties, $method, $response, null);
+            $current_time = $exchange->milliseconds();
+            if (($succeeded) && ($response !== null)) {
+                test_order_book($exchange, $skipped_properties, $method, $response, null);
+                assert_in_array($exchange, $skipped_properties, $method, $response, 'symbol', $symbols);
+                $elapsed = $current_time - $start_time;
+                if ($elapsed > $max_idle_time) {
+                    $idle = true;
+                }
+            }
         }
+        return true;
     }) ();
 }

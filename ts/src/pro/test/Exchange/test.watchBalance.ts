@@ -1,13 +1,15 @@
 
 import testBalance from '../../../test/Exchange/base/test.balance.js';
 import testSharedMethods from '../../../test/Exchange/base/test.sharedMethods.js';
+import { Exchange } from '../../../../ccxt.js';
 
-async function testWatchBalance (exchange, skippedProperties, code) {
+async function testWatchBalance (exchange: Exchange, skippedProperties: object, code: string) {
     const method = 'watchBalance';
     let now = exchange.milliseconds ();
     const ends = now + 15000;
     while (now < ends) {
-        let response = undefined;
+        let response = {};
+        let success = true;
         try {
             response = await exchange.watchBalance ();
         } catch (e) {
@@ -15,7 +17,11 @@ async function testWatchBalance (exchange, skippedProperties, code) {
                 throw e;
             }
             now = exchange.milliseconds ();
-            continue;
+            // continue;
+            success = false;
+        }
+        if (!success) {
+            continue; // retry
         }
         testBalance (exchange, skippedProperties, method, response);
         now = exchange.milliseconds ();

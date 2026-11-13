@@ -30,8 +30,9 @@ export default class p2b extends p2bRest {
                 'watchOrders': false,
                 // 'watchStatus': true,
                 'watchTicker': true,
-                'watchTickers': false,
+                'watchTickers': true,
                 'watchTrades': true,
+                'watchTradesForSymbols': true,
             },
             'urls': {
                 'api': {
@@ -60,17 +61,17 @@ export default class p2b extends p2bRest {
             },
         });
     }
+    /**
+     * @ignore
+     * @method
+     * @description connects to a websocket channel
+     * @param {string} name name of the channel
+     * @param {string} messageHash string to look up in handler
+     * @param {string[]|float[]} request endpoint parameters
+     * @param {object} [params] extra parameters specific to the p2b api
+     * @returns {object} data from the websocket stream
+     */
     async subscribe(name, messageHash, request, params = {}) {
-        /**
-         * @ignore
-         * @method
-         * @description Connects to a websocket channel
-         * @param {string} name name of the channel
-         * @param {string} messageHash string to look up in handler
-         * @param {string[]|float[]} request endpoint parameters
-         * @param {object} [params] extra parameters specific to the p2b api
-         * @returns {object} data from the websocket stream
-         */
         const url = this.urls['api']['ws'];
         const subscribe = {
             'method': name,
@@ -80,21 +81,23 @@ export default class p2b extends p2bRest {
         const query = this.extend(subscribe, params);
         return await this.watch(url, messageHash, query, messageHash);
     }
+    /**
+     * @method
+     * @name p2b#watchOHLCV
+     * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market. Can only subscribe to one timeframe at a time for each symbol
+     * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#kline-candlestick
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe 15m, 30m, 1h or 1d
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async watchOHLCV(symbol, timeframe = '15m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name p2b#watchOHLCV
-         * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market. Can only subscribe to one timeframe at a time for each symbol
-         * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#kline-candlestick
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe 15m, 30m, 1h or 1d
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets();
-        const timeframes = this.safeValue(this.options, 'timeframes', {});
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const timeframes = this.safeDict(this.options, 'timeframes', {});
         const channel = this.safeInteger(timeframes, timeframe);
         if (channel === undefined) {
             throw new BadRequest(this.id + ' watchOHLCV cannot take a timeframe of ' + timeframe);
@@ -106,82 +109,147 @@ export default class p2b extends p2bRest {
         ];
         const messageHash = 'kline::' + market['symbol'];
         const ohlcv = await this.subscribe('kline.subscribe', messageHash, request, params);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = ohlcv.getLimit(symbol, limit);
+            limitResolved = ohlcv.getLimit(symbol, limit);
         }
-        return this.filterBySinceLimit(ohlcv, since, limit, 0, true);
+        return this.filterBySinceLimit(ohlcv, since, limitResolved, 0, true);
     }
+    /**
+     * @method
+     * @name p2b#watchTicker
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#last-price
+     * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#market-status
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {object} [params.method] 'state' (default) or 'price'
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async watchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name p2b#watchTicker
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#last-price
-         * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#market-status
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {object} [params.method] 'state' (default) or 'price'
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const watchTickerOptions = this.safeDict(this.options, 'watchTicker');
-        let name = this.safeString(watchTickerOptions, 'name', 'state'); // or price
-        [name, params] = this.handleOptionAndParams(params, 'method', 'name', name);
+        const name = this.safeString(watchTickerOptions, 'name', 'state'); // or price
+        const [nameOption, paramsName] = this.handleOptionStringAndParams(params, 'watchTicker', 'name', name);
         const market = this.market(symbol);
-        symbol = market['symbol'];
         this.options['tickerSubs'][market['id']] = true; // we need to re-subscribe to all tickers upon watching a new ticker
         const tickerSubs = this.options['tickerSubs'];
         const request = Object.keys(tickerSubs);
-        const messageHash = name + '::' + market['symbol'];
-        return await this.subscribe(name + '.subscribe', messageHash, request, params);
+        return await this.subscribe(nameOption + '.subscribe', nameOption + '::' + this.safeString(market, 'symbol', ''), request, paramsName);
     }
-    async watchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name p2b#watchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#deals
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets();
-        const market = this.market(symbol);
-        const request = [
-            market['id'],
-        ];
-        const messageHash = 'deals::' + market['symbol'];
-        const trades = await this.subscribe('deals.subscribe', messageHash, request, params);
-        if (this.newUpdates) {
-            limit = trades.getLimit(symbol, limit);
+    /**
+     * @method
+     * @name p2b#watchTickers
+     * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#last-price
+     * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#market-status
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
+     * @param {string[]} [symbols] unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {object} [params.method] 'state' (default) or 'price'
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    async watchTickers(symbols = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
         }
-        return this.filterBySinceLimit(trades, since, limit, 'timestamp', true);
+        const symbolsNormalized = this.marketSymbols(symbols, undefined, false);
+        const watchTickerOptions = this.safeDict(this.options, 'watchTicker');
+        const name = this.safeString(watchTickerOptions, 'name', 'state'); // or price
+        const [nameOption, paramsName] = this.handleOptionStringAndParams(params, 'watchTickers', 'name', name);
+        const messageHashes = [];
+        const args = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const market = this.market(symbolsNormalized[i]);
+            messageHashes.push(nameOption + '::' + this.safeString(market, 'symbol', ''));
+            args.push(market['id']);
+        }
+        const url = this.urls['api']['ws'];
+        const request = {
+            'method': nameOption + '.subscribe',
+            'params': args,
+            'id': this.milliseconds(),
+        };
+        await this.watchMultiple(url, messageHashes, this.extend(request, paramsName), messageHashes);
+        return this.filterByArray(this.tickers, 'symbol', symbolsNormalized);
     }
+    /**
+     * @method
+     * @name p2b#watchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#deals
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    watchTrades(symbol, since = undefined, limit = undefined, params = {}) {
+        return this.watchTradesForSymbols([symbol], since, limit, params);
+    }
+    /**
+     * @method
+     * @name p2b#watchTradesForSymbols
+     * @description get the list of most recent trades for a list of symbols
+     * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#deals
+     * @param {string[]} symbols unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    async watchTradesForSymbols(symbols, since = undefined, limit = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols, undefined, false, true, true);
+        const messageHashes = [];
+        if (symbolsNormalized !== undefined) {
+            for (let i = 0; i < symbolsNormalized.length; i++) {
+                messageHashes.push('deals::' + symbolsNormalized[i]);
+            }
+        }
+        const marketIds = this.marketIds(symbolsNormalized);
+        const url = this.urls['api']['ws'];
+        const subscribe = {
+            'method': 'deals.subscribe',
+            'params': marketIds,
+            'id': this.milliseconds(),
+        };
+        const query = this.extend(subscribe, params);
+        const trades = await this.watchMultiple(url, messageHashes, query, messageHashes);
+        const first = this.safeDict(trades, 0);
+        const tradeSymbol = this.safeString(first, 'symbol');
+        let limitResolved = limit;
+        if (this.newUpdates) {
+            limitResolved = trades.getLimit(tradeSymbol, limit);
+        }
+        return this.filterBySinceLimit(trades, since, limitResolved, 'timestamp', true);
+    }
+    /**
+     * @method
+     * @name p2b#watchOrderBook
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#depth-of-market
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] 1-100, default=100
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {float} [params.interval] 0, 0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, interval of precision for order, default=0.001
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async watchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name p2b#watchOrderBook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://github.com/P2B-team/P2B-WSS-Public/blob/main/wss_documentation.md#depth-of-market
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] 1-100, default=100
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {float} [params.interval] 0, 0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, interval of precision for order, default=0.001
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const name = 'depth.subscribe';
         const messageHash = 'orderbook::' + market['symbol'];
         const interval = this.safeString(params, 'interval', '0.001');
-        if (limit === undefined) {
-            limit = 100;
-        }
+        const limitResolved = (limit === undefined) ? 100 : limit;
         const request = [
             market['id'],
-            limit,
+            limitResolved,
             interval,
         ];
         const orderbook = await this.subscribe(name, messageHash, request, params);
@@ -206,8 +274,8 @@ export default class p2b extends p2bRest {
         //        "id": null
         //    }
         //
-        let data = this.safeList(message, 'params');
-        data = this.safeList(data, 0);
+        const params = this.safeList(message, 'params');
+        const data = this.safeList(params, 0);
         const method = this.safeString(message, 'method');
         const splitMethod = method.split('.');
         const channel = this.safeString(splitMethod, 0);
@@ -216,7 +284,6 @@ export default class p2b extends p2bRest {
         const timeframes = this.safeDict(this.options, 'timeframes', {});
         const timeframe = this.findTimeframe(channel, timeframes);
         const symbol = this.safeString(market, 'symbol');
-        const messageHash = channel + '::' + symbol;
         const parsed = this.parseOHLCV(data, market);
         this.ohlcvs[symbol] = this.safeValue(this.ohlcvs, symbol, {});
         let stored = this.safeValue(this.ohlcvs[symbol], timeframe);
@@ -227,7 +294,10 @@ export default class p2b extends p2bRest {
                 this.ohlcvs[symbol][timeframe] = stored;
             }
             stored.append(parsed);
-            client.resolve(stored, messageHash);
+            if (channel !== undefined) {
+                const messageHash = channel + '::' + symbol;
+                client.resolve(stored, messageHash);
+            }
         }
         return message;
     }
@@ -252,10 +322,10 @@ export default class p2b extends p2bRest {
         //    }
         //
         const data = this.safeList(message, 'params', []);
-        const trades = this.safeList(data, 1);
+        const trades = this.safeList(data, 1, []);
         const marketId = this.safeString(data, 0);
         const market = this.safeMarket(marketId);
-        const symbol = this.safeString(market, 'symbol');
+        const symbol = this.safeString(market, 'symbol', '');
         let tradesArray = this.safeValue(this.trades, symbol);
         if (tradesArray === undefined) {
             const tradesLimit = this.safeInteger(this.options, 'tradesLimit', 1000);
@@ -311,7 +381,7 @@ export default class p2b extends p2bRest {
         const splitMethod = method.split('.');
         const messageHashStart = this.safeString(splitMethod, 0);
         const tickerData = this.safeDict(data, 1);
-        let ticker = undefined;
+        let ticker;
         if (method === 'price.update') {
             const lastPrice = this.safeString(data, 1);
             ticker = this.safeTicker({
@@ -323,9 +393,12 @@ export default class p2b extends p2bRest {
         else {
             ticker = this.parseTicker(tickerData, market);
         }
-        const symbol = ticker['symbol'];
-        const messageHash = messageHashStart + '::' + symbol;
-        client.resolve(ticker, messageHash);
+        const symbol = this.safeString(ticker, 'symbol', '');
+        this.tickers[symbol] = ticker;
+        if (messageHashStart !== undefined) {
+            const messageHash = messageHashStart + '::' + symbol;
+            client.resolve(ticker, messageHash);
+        }
         return message;
     }
     handleOrderBook(client, message) {
@@ -348,23 +421,31 @@ export default class p2b extends p2bRest {
         //    }
         //
         const params = this.safeList(message, 'params', []);
+        const isFullUpdate = this.safeBool(params, 0, false);
         const data = this.safeDict(params, 1);
         const asks = this.safeList(data, 'asks');
         const bids = this.safeList(data, 'bids');
         const marketId = this.safeString(params, 2);
         const market = this.safeMarket(marketId);
-        const symbol = market['symbol'];
-        const messageHash = 'orderbook::' + market['symbol'];
-        const subscription = this.safeValue(client.subscriptions, messageHash, {});
+        const symbol = this.safeString(market, 'symbol', '');
+        const messageHash = 'orderbook::' + symbol;
+        const subscription = this.safeDict(client.subscriptions, messageHash, {});
         const limit = this.safeInteger(subscription, 'limit');
         let orderbook = this.safeValue(this.orderbooks, symbol);
         if (orderbook === undefined) {
             this.orderbooks[symbol] = this.orderBook({}, limit);
             orderbook = this.orderbooks[symbol];
         }
+        if (isFullUpdate) {
+            // the first parameter signals whether the message carries all
+            // records or only the changed ones, a full set replaces the book,
+            // otherwise stale levels that left the depth window would linger
+            // and cross the book, see https://github.com/ccxt/ccxt/issues/24944
+            orderbook.reset({});
+        }
         if (bids !== undefined) {
             for (let i = 0; i < bids.length; i++) {
-                const bid = this.safeValue(bids, i);
+                const bid = this.safeList(bids, i);
                 const price = this.safeNumber(bid, 0);
                 const amount = this.safeNumber(bid, 1);
                 const bookSide = orderbook['bids'];
@@ -373,7 +454,7 @@ export default class p2b extends p2bRest {
         }
         if (asks !== undefined) {
             for (let i = 0; i < asks.length; i++) {
-                const ask = this.safeValue(asks, i);
+                const ask = this.safeList(asks, i);
                 const price = this.safeNumber(ask, 0);
                 const amount = this.safeNumber(ask, 1);
                 const bookside = orderbook['asks'];
@@ -384,7 +465,7 @@ export default class p2b extends p2bRest {
         client.resolve(orderbook, messageHash);
     }
     handleMessage(client, message) {
-        if (this.handleErrorMessage(client, message)) {
+        if (this.handleErrorMessage(client, message) === true) {
             return;
         }
         const result = this.safeString(message, 'result');
@@ -431,15 +512,15 @@ export default class p2b extends p2bRest {
         //        id: 1706539608030
         //    }
         //
-        client.lastPong = this.safeInteger(message, 'id');
+        client.lastPong = this.safeInteger(message, 'id', this.milliseconds());
         return message;
     }
     onError(client, error) {
         this.options['tickerSubs'] = this.createSafeDictionary();
-        this.onError(client, error);
+        super.onError(client, error);
     }
     onClose(client, error) {
         this.options['tickerSubs'] = this.createSafeDictionary();
-        this.onClose(client, error);
+        super.onClose(client, error);
     }
 }

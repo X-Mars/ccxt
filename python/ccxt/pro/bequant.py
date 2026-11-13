@@ -5,17 +5,18 @@
 
 from ccxt.pro.hitbtc import hitbtc
 
-import ccxt.async_support.hitbtc as hitbtcRest
-
 import ccxt.async_support.bequant as bequantRest
 
 
 class bequant(hitbtc):
 
-    def describe(self):
+    def describe(self) -> dict:
         # eslint-disable-next-line new-cap
-        describeExtended = self.get_describe_for_extended_ws_exchange(bequantRest(), hitbtcRest(), super(bequant, self).describe())
-        return self.deep_extend(describeExtended, {
+        restInstance = bequantRest()
+        restDescribe = restInstance.describe()
+        parentWsDescribe = super(bequant, self).describe_data()
+        extended = self.deep_extend(restDescribe, parentWsDescribe)
+        return self.deep_extend(extended, {
             'id': 'bequant',
             'name': 'Bequant',
             'countries': ['MT'],  # Malta
@@ -25,6 +26,10 @@ class bequant(hitbtc):
                 'api': {
                     'public': 'https://api.bequant.io/api/3',
                     'private': 'https://api.bequant.io/api/3',
+                    'ws': {
+                        'public': 'wss://api.bequant.io/api/3/ws/public',
+                        'private': 'wss://api.bequant.io/api/3/ws/trading',
+                    },
                 },
                 'www': 'https://bequant.io',
                 'doc': [

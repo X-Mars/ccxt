@@ -5,7 +5,7 @@
 // EDIT THE CORRESPONDENT .ts FILE INSTEAD
 
 //  ---------------------------------------------------------------------------
-import binance from './binance.js';
+import binance from '../abstract/pro/binancecoinm.js';
 import binancecoinmRest from '../binancecoinm.js';
 // ---------------------------------------------------------------------------
 export default class binancecoinm extends binance {
@@ -13,15 +13,19 @@ export default class binancecoinm extends binance {
         // eslint-disable-next-line new-cap
         const restInstance = new binancecoinmRest();
         const restDescribe = restInstance.describe();
-        const extended = this.deepExtend(super.describe(), restDescribe);
+        const parentWsDescribe = super.describeData();
+        const extended = this.deepExtend(restDescribe, parentWsDescribe);
         return this.deepExtend(extended, {
             'id': 'binancecoinm',
             'name': 'Binance COIN-M',
             'urls': {
                 'logo': 'https://user-images.githubusercontent.com/1294454/117738721-668c8d80-b205-11eb-8c49-3fad84c4a07f.jpg',
+                'doc': 'https://developers.binance.com/en',
             },
             'options': {
-                'fetchMarkets': ['inverse'],
+                'fetchMarkets': {
+                    'types': ['inverse'],
+                },
                 'defaultSubType': 'inverse',
             },
         });

@@ -1,22 +1,26 @@
-import { Currency, Exchange } from "../../../../ccxt";
+import assert from 'assert';
+import { Currency, Exchange } from "../../../../ccxt.js";
 import testSharedMethods from './test.sharedMethods.js';
+import type { Dict } from '../../../base/types.js';
 
 function testCurrency (exchange: Exchange, skippedProperties: object, method: string, entry: Currency) {
-    const format = {
+    if (entry === undefined) {
+        return;
+    }
+    const format: Dict = {
         'id': 'btc', // string literal for referencing within an exchange
         'code': 'BTC', // uppercase string literal of a pair of currencies
     };
     // todo: remove fee from empty
     const emptyAllowedFor = [ 'name', 'fee' ];
     // todo: info key needs to be added in base, when exchange does not have fetchCurrencies
-    const isNative = exchange.has['fetchCurrencies'] && exchange.has['fetchCurrencies'] !== 'emulated';
+    const isNative = (exchange.has['fetchCurrencies'] !== undefined) && (exchange.has['fetchCurrencies'] !== false) && (exchange.has['fetchCurrencies'] !== 'emulated');
     const currencyType = exchange.safeString (entry, 'type');
     if (isNative) {
         format['info'] = {};
         // todo: 'name': 'Bitcoin', // uppercase string, base currency, 2 or more letters
-        // these two fields are being dynamically added a bit below
-        // format['withdraw'] = true; // withdraw enabled
-        // format['deposit'] = true; // deposit enabled
+        format['withdraw'] = true; // withdraw enabled
+        format['deposit'] = true; // deposit enabled
         format['precision'] = exchange.parseNumber ('0.0001'); // in case of SIGNIFICANT_DIGITS it will be 4 - number of digits "after the dot"
         format['fee'] = exchange.parseNumber ('0.001');
         format['networks'] = {};
@@ -30,20 +34,45 @@ function testCurrency (exchange: Exchange, skippedProperties: object, method: st
                 'max': exchange.parseNumber ('1000'),
             },
         };
-        // todo: format['type'] = 'fiat|crypto'; // after all exchanges have `type` defined, romove "if" check
-        if (currencyType !== undefined) {
-            testSharedMethods.assertInArray (exchange, skippedProperties, method, entry, 'type', [ 'fiat', 'crypto', 'other' ]);
-        }
+        format['type'] = 'crypto'; // crypto, fiat, leverage, other
+        testSharedMethods.assertInArray (exchange, skippedProperties, method, entry, 'type', [ 'fiat', 'crypto', 'leveraged', 'other', undefined ]); // todo: remove undefined
         // only require "deposit" & "withdraw" values, when currency is not fiat, or when it's fiat, but not skipped
-        if (currencyType === 'crypto' || !('depositForNonCrypto' in skippedProperties)) {
-            format['deposit'] = true;
+        if (currencyType !== 'crypto' && ('depositForNonCrypto' in skippedProperties)) {
+            emptyAllowedFor.push ('deposit');
         }
-        if (currencyType === 'crypto' || !('withdrawForNonCrypto' in skippedProperties)) {
-            format['withdraw'] = true;
+        if (currencyType !== 'crypto' && ('withdrawForNonCrypto' in skippedProperties)) {
+            emptyAllowedFor.push ('withdraw');
+        }
+        if (currencyType === 'leveraged' || currencyType === 'other') {
+            emptyAllowedFor.push ('precision');
         }
     }
-    testSharedMethods.assertStructure (exchange, skippedProperties, method, entry, format, emptyAllowedFor);
+    //
     testSharedMethods.assertCurrencyCode (exchange, skippedProperties, method, entry, entry['code']);
+    // check if empty networks should be skipped
+    const networks = exchange.safeDict (entry, 'networks', {});
+    const networkKeys = Object.keys (networks);
+    const networkKeysLength = networkKeys.length;
+    for (let i = 0; i < networkKeysLength; i++) {
+        testSharedMethods.assertUnifiedNetworkCode (exchange, skippedProperties, method, entry, networkKeys[i]);
+    }
+    if (networkKeysLength === 0 && ('skipCurrenciesWithoutNetworks' in skippedProperties)) {
+        return;
+    }
+    //
+    try {
+        testSharedMethods.assertStructure (exchange, skippedProperties, method, entry, format, emptyAllowedFor);
+    } catch (e) {
+        const message: string = exchange.exceptionMessage (e);
+        // check structure if key is numeric, not string
+        if (message.indexOf ('"id" key') >= 0) {
+            // @ts-ignore
+            format['id'] = 123;
+            testSharedMethods.assertStructure (exchange, skippedProperties, method, entry, format, emptyAllowedFor);
+        } else {
+            assert (message === '', message);
+        }
+    }
     //
     testSharedMethods.checkPrecisionAccuracy (exchange, skippedProperties, method, entry, 'precision');
     testSharedMethods.assertGreaterOrEqual (exchange, skippedProperties, method, entry, 'fee', '0');

@@ -1,5 +1,4 @@
-import assert from 'assert';
-import { Exchange } from "../../../ccxt";
+import { Exchange } from "../../../ccxt.js";
 import testLedgerEntry from './base/test.ledgerEntry.js';
 import testSharedMethods from './base/test.sharedMethods.js';
 
@@ -12,6 +11,7 @@ async function testFetchLedger (exchange: Exchange, skippedProperties: object, c
         testLedgerEntry (exchange, skippedProperties, method, items[i], code, now);
     }
     testSharedMethods.assertTimestampOrder (exchange, method, code, items);
+    return true;
 }
 
 export default testFetchLedger;

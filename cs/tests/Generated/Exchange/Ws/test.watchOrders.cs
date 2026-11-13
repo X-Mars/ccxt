@@ -8,17 +8,22 @@ namespace Tests;
 
 public partial class testMainClass : BaseTest
 {
-    async static public Task testWatchOrders(Exchange exchange, object skippedProperties, object symbol)
+    async static public Task<object> testWatchOrders(Exchange exchange, object skippedProperties, object symbol)
     {
-        object method = "watchOrders";
-        object now = exchange.milliseconds();
-        object ends = add(now, 15000);
-        while (isLessThan(now, ends))
+        string method = "watchOrders";
+        Int64 now = exchange.milliseconds();
+        Int64 ends = (now + 15000);
+        while (now < ends)
         {
             object response = null;
+            bool success = true;
             try
             {
-                response = await exchange.watchOrders(symbol);
+                response = detypeForComparison(await exchange.WatchOrders(((string)symbol)));
+                if ((response == null))
+                {
+                    throw new Exception (add(exchange.id, " watch returned undefined response")) ;
+                }
             } catch(Exception e)
             {
                 if (!isTrue(testSharedMethods.isTemporaryFailure(e)))
@@ -26,16 +31,25 @@ public partial class testMainClass : BaseTest
                     throw e;
                 }
                 now = exchange.milliseconds();
-                continue;
+                // continue;
+                success = false;
             }
-            testSharedMethods.assertNonEmtpyArray(exchange, skippedProperties, method, response, symbol);
-            now = exchange.milliseconds();
-            for (object i = 0; isLessThan(i, getArrayLength(response)); postFixIncrement(ref i))
+            if (success)
             {
-                testOrder(exchange, skippedProperties, method, getValue(response, i), symbol, now);
+                if ((response == null))
+                {
+                    throw new Exception (add(exchange.id, " watch returned undefined response")) ;
+                }
+                testSharedMethods.assertNonEmtpyArray(exchange, skippedProperties, method, response, symbol);
+                now = exchange.milliseconds();
+                for (int i = 0; i < getArrayLength(response); i++)
+                {
+                    testOrder(exchange, skippedProperties, method, getValue(response, i), symbol, now);
+                }
+                testSharedMethods.assertTimestampOrder(exchange, method, symbol, response);
             }
-            testSharedMethods.assertTimestampOrder(exchange, method, symbol, response);
         }
+        return true;
     }
 
 }

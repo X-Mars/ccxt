@@ -11,329 +11,1012 @@ public partial class bitfinex : Exchange
 {
     public bitfinex (object args = null): base(args) {}
 
-    public async Task<object> v2GetPlatformStatus (object parameters = null)
+    /// <summary>Calls the publicGetConfConfig endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfConfig (object parameters = null)
     {
-        return await this.callAsync ("v2GetPlatformStatus",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfConfig",parameters);
     }
 
-    public async Task<object> v2GetTickers (object parameters = null)
+    /// <summary>Calls the publicGetConfPubActionObject endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubActionObject (object parameters = null)
     {
-        return await this.callAsync ("v2GetTickers",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubActionObject",parameters);
     }
 
-    public async Task<object> v2GetTickerSymbol (object parameters = null)
+    /// <summary>Calls the publicGetConfPubActionObjectDetail endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubActionObjectDetail (object parameters = null)
     {
-        return await this.callAsync ("v2GetTickerSymbol",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubActionObjectDetail",parameters);
     }
 
-    public async Task<object> v2GetTickersHist (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapObject endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapObject (object parameters = null)
     {
-        return await this.callAsync ("v2GetTickersHist",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapObject",parameters);
     }
 
-    public async Task<object> v2GetTradesSymbolHist (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapObjectDetail endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapObjectDetail (object parameters = null)
     {
-        return await this.callAsync ("v2GetTradesSymbolHist",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapObjectDetail",parameters);
     }
 
-    public async Task<object> v2GetBookSymbolPrecision (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapCurrencyDetail endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapCurrencyDetail (object parameters = null)
     {
-        return await this.callAsync ("v2GetBookSymbolPrecision",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapCurrencyDetail",parameters);
     }
 
-    public async Task<object> v2GetBookSymbolP0 (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapCurrencySym endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapCurrencySym (object parameters = null)
     {
-        return await this.callAsync ("v2GetBookSymbolP0",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapCurrencySym",parameters);
     }
 
-    public async Task<object> v2GetBookSymbolP1 (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapCurrencyLabel endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapCurrencyLabel (object parameters = null)
     {
-        return await this.callAsync ("v2GetBookSymbolP1",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapCurrencyLabel",parameters);
     }
 
-    public async Task<object> v2GetBookSymbolP2 (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapCurrencyUnit endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapCurrencyUnit (object parameters = null)
     {
-        return await this.callAsync ("v2GetBookSymbolP2",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapCurrencyUnit",parameters);
     }
 
-    public async Task<object> v2GetBookSymbolP3 (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapCurrencyUndl endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapCurrencyUndl (object parameters = null)
     {
-        return await this.callAsync ("v2GetBookSymbolP3",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapCurrencyUndl",parameters);
     }
 
-    public async Task<object> v2GetBookSymbolR0 (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapCurrencyPool endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapCurrencyPool (object parameters = null)
     {
-        return await this.callAsync ("v2GetBookSymbolR0",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapCurrencyPool",parameters);
     }
 
-    public async Task<object> v2GetStats1KeySizeSymbolSideSection (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapCurrencyExplorer endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapCurrencyExplorer (object parameters = null)
     {
-        return await this.callAsync ("v2GetStats1KeySizeSymbolSideSection",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapCurrencyExplorer",parameters);
     }
 
-    public async Task<object> v2GetStats1KeySizeSymbolSection (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapCurrencyTxFee endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapCurrencyTxFee (object parameters = null)
     {
-        return await this.callAsync ("v2GetStats1KeySizeSymbolSection",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapCurrencyTxFee",parameters);
     }
 
-    public async Task<object> v2GetStats1KeySizeSymbolLongLast (object parameters = null)
+    /// <summary>Calls the publicGetConfPubMapTxMethod endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubMapTxMethod (object parameters = null)
     {
-        return await this.callAsync ("v2GetStats1KeySizeSymbolLongLast",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubMapTxMethod",parameters);
     }
 
-    public async Task<object> v2GetStats1KeySizeSymbolLongHist (object parameters = null)
+    /// <summary>Calls the publicGetConfPubListObject endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubListObject (object parameters = null)
     {
-        return await this.callAsync ("v2GetStats1KeySizeSymbolLongHist",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubListObject",parameters);
     }
 
-    public async Task<object> v2GetStats1KeySizeSymbolShortLast (object parameters = null)
+    /// <summary>Calls the publicGetConfPubListObjectDetail endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubListObjectDetail (object parameters = null)
     {
-        return await this.callAsync ("v2GetStats1KeySizeSymbolShortLast",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubListObjectDetail",parameters);
     }
 
-    public async Task<object> v2GetStats1KeySizeSymbolShortHist (object parameters = null)
+    /// <summary>Calls the publicGetConfPubListCurrency endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubListCurrency (object parameters = null)
     {
-        return await this.callAsync ("v2GetStats1KeySizeSymbolShortHist",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubListCurrency",parameters);
     }
 
-    public async Task<object> v2GetCandlesTradeTimeframeSymbolSection (object parameters = null)
+    /// <summary>Calls the publicGetConfPubListPairExchange endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubListPairExchange (object parameters = null)
     {
-        return await this.callAsync ("v2GetCandlesTradeTimeframeSymbolSection",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubListPairExchange",parameters);
     }
 
-    public async Task<object> v2GetCandlesTradeTimeframeSymbolLast (object parameters = null)
+    /// <summary>Calls the publicGetConfPubListPairMargin endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubListPairMargin (object parameters = null)
     {
-        return await this.callAsync ("v2GetCandlesTradeTimeframeSymbolLast",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubListPairMargin",parameters);
     }
 
-    public async Task<object> v2GetCandlesTradeTimeframeSymbolHist (object parameters = null)
+    /// <summary>Calls the publicGetConfPubListPairFutures endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubListPairFutures (object parameters = null)
     {
-        return await this.callAsync ("v2GetCandlesTradeTimeframeSymbolHist",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubListPairFutures",parameters);
     }
 
-    public async Task<object> publicGetBookSymbol (object parameters = null)
+    /// <summary>Calls the publicGetConfPubListCompetitions endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubListCompetitions (object parameters = null)
     {
-        return await this.callAsync ("publicGetBookSymbol",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubListCompetitions",parameters);
     }
 
-    public async Task<object> publicGetLendbookCurrency (object parameters = null)
+    /// <summary>Calls the publicGetConfPubInfoObject endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubInfoObject (object parameters = null)
     {
-        return await this.callAsync ("publicGetLendbookCurrency",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubInfoObject",parameters);
     }
 
-    public async Task<object> publicGetLendsCurrency (object parameters = null)
+    /// <summary>Calls the publicGetConfPubInfoObjectDetail endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubInfoObjectDetail (object parameters = null)
     {
-        return await this.callAsync ("publicGetLendsCurrency",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubInfoObjectDetail",parameters);
     }
 
-    public async Task<object> publicGetPubtickerSymbol (object parameters = null)
+    /// <summary>Calls the publicGetConfPubInfoPair endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubInfoPair (object parameters = null)
     {
-        return await this.callAsync ("publicGetPubtickerSymbol",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubInfoPair",parameters);
     }
 
-    public async Task<object> publicGetStatsSymbol (object parameters = null)
+    /// <summary>Calls the publicGetConfPubInfoPairFutures endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubInfoPairFutures (object parameters = null)
     {
-        return await this.callAsync ("publicGetStatsSymbol",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubInfoPairFutures",parameters);
     }
 
-    public async Task<object> publicGetSymbols (object parameters = null)
+    /// <summary>Calls the publicGetConfPubInfoTxStatus endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubInfoTxStatus (object parameters = null)
     {
-        return await this.callAsync ("publicGetSymbols",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubInfoTxStatus",parameters);
     }
 
-    public async Task<object> publicGetSymbolsDetails (object parameters = null)
+    /// <summary>Calls the publicGetConfPubFees endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetConfPubFees (object parameters = null)
     {
-        return await this.callAsync ("publicGetSymbolsDetails",parameters);
+        return await this.callAsync<List<object>> ("publicGetConfPubFees",parameters);
     }
 
-    public async Task<object> publicGetTickers (object parameters = null)
+    /// <summary>Calls the publicGetPlatformStatus endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetPlatformStatus (object parameters = null)
     {
-        return await this.callAsync ("publicGetTickers",parameters);
+        return await this.callAsync<List<object>> ("publicGetPlatformStatus",parameters);
     }
 
-    public async Task<object> publicGetTradesSymbol (object parameters = null)
+    /// <summary>Calls the publicGetTickers endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetTickers (object parameters = null)
     {
-        return await this.callAsync ("publicGetTradesSymbol",parameters);
+        return await this.callAsync<List<object>> ("publicGetTickers",parameters);
     }
 
-    public async Task<object> privatePostAccountFees (object parameters = null)
+    /// <summary>Calls the publicGetTickerSymbol endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetTickerSymbol (object parameters = null)
     {
-        return await this.callAsync ("privatePostAccountFees",parameters);
+        return await this.callAsync<List<object>> ("publicGetTickerSymbol",parameters);
     }
 
-    public async Task<object> privatePostAccountInfos (object parameters = null)
+    /// <summary>Calls the publicGetTickersHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetTickersHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostAccountInfos",parameters);
+        return await this.callAsync<List<object>> ("publicGetTickersHist",parameters);
     }
 
-    public async Task<object> privatePostBalances (object parameters = null)
+    /// <summary>Calls the publicGetTradesSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetTradesSymbolHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostBalances",parameters);
+        return await this.callAsync<List<object>> ("publicGetTradesSymbolHist",parameters);
     }
 
-    public async Task<object> privatePostBasketManage (object parameters = null)
+    /// <summary>Calls the publicGetBookSymbolPrecision endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetBookSymbolPrecision (object parameters = null)
     {
-        return await this.callAsync ("privatePostBasketManage",parameters);
+        return await this.callAsync<List<object>> ("publicGetBookSymbolPrecision",parameters);
     }
 
-    public async Task<object> privatePostCredits (object parameters = null)
+    /// <summary>Calls the publicGetBookSymbolP0 endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetBookSymbolP0 (object parameters = null)
     {
-        return await this.callAsync ("privatePostCredits",parameters);
+        return await this.callAsync<List<object>> ("publicGetBookSymbolP0",parameters);
     }
 
-    public async Task<object> privatePostDepositNew (object parameters = null)
+    /// <summary>Calls the publicGetBookSymbolP1 endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetBookSymbolP1 (object parameters = null)
     {
-        return await this.callAsync ("privatePostDepositNew",parameters);
+        return await this.callAsync<List<object>> ("publicGetBookSymbolP1",parameters);
     }
 
-    public async Task<object> privatePostFundingClose (object parameters = null)
+    /// <summary>Calls the publicGetBookSymbolP2 endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetBookSymbolP2 (object parameters = null)
     {
-        return await this.callAsync ("privatePostFundingClose",parameters);
+        return await this.callAsync<List<object>> ("publicGetBookSymbolP2",parameters);
     }
 
-    public async Task<object> privatePostHistory (object parameters = null)
+    /// <summary>Calls the publicGetBookSymbolP3 endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetBookSymbolP3 (object parameters = null)
     {
-        return await this.callAsync ("privatePostHistory",parameters);
+        return await this.callAsync<List<object>> ("publicGetBookSymbolP3",parameters);
     }
 
-    public async Task<object> privatePostHistoryMovements (object parameters = null)
+    /// <summary>Calls the publicGetBookSymbolR0 endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetBookSymbolR0 (object parameters = null)
     {
-        return await this.callAsync ("privatePostHistoryMovements",parameters);
+        return await this.callAsync<List<object>> ("publicGetBookSymbolR0",parameters);
     }
 
-    public async Task<object> privatePostKeyInfo (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolSideSection endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolSideSection (object parameters = null)
     {
-        return await this.callAsync ("privatePostKeyInfo",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolSideSection",parameters);
     }
 
-    public async Task<object> privatePostMarginInfos (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolSideLast endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolSideLast (object parameters = null)
     {
-        return await this.callAsync ("privatePostMarginInfos",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolSideLast",parameters);
     }
 
-    public async Task<object> privatePostMytrades (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolSideHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolSideHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostMytrades",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolSideHist",parameters);
     }
 
-    public async Task<object> privatePostMytradesFunding (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolSection endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolSection (object parameters = null)
     {
-        return await this.callAsync ("privatePostMytradesFunding",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolSection",parameters);
     }
 
-    public async Task<object> privatePostOfferCancel (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolLast endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolLast (object parameters = null)
     {
-        return await this.callAsync ("privatePostOfferCancel",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolLast",parameters);
     }
 
-    public async Task<object> privatePostOfferNew (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostOfferNew",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolHist",parameters);
     }
 
-    public async Task<object> privatePostOfferStatus (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolLongLast endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolLongLast (object parameters = null)
     {
-        return await this.callAsync ("privatePostOfferStatus",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolLongLast",parameters);
     }
 
-    public async Task<object> privatePostOffers (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolLongHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolLongHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostOffers",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolLongHist",parameters);
     }
 
-    public async Task<object> privatePostOffersHist (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolShortLast endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolShortLast (object parameters = null)
     {
-        return await this.callAsync ("privatePostOffersHist",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolShortLast",parameters);
     }
 
-    public async Task<object> privatePostOrderCancel (object parameters = null)
+    /// <summary>Calls the publicGetStats1KeySizeSymbolShortHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStats1KeySizeSymbolShortHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrderCancel",parameters);
+        return await this.callAsync<List<object>> ("publicGetStats1KeySizeSymbolShortHist",parameters);
     }
 
-    public async Task<object> privatePostOrderCancelAll (object parameters = null)
+    /// <summary>Calls the publicGetCandlesTradeTimeframeSymbolPeriodSection endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetCandlesTradeTimeframeSymbolPeriodSection (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrderCancelAll",parameters);
+        return await this.callAsync<List<object>> ("publicGetCandlesTradeTimeframeSymbolPeriodSection",parameters);
     }
 
-    public async Task<object> privatePostOrderCancelMulti (object parameters = null)
+    /// <summary>Calls the publicGetCandlesTradeTimeframeSymbolSection endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetCandlesTradeTimeframeSymbolSection (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrderCancelMulti",parameters);
+        return await this.callAsync<List<object>> ("publicGetCandlesTradeTimeframeSymbolSection",parameters);
     }
 
-    public async Task<object> privatePostOrderCancelReplace (object parameters = null)
+    /// <summary>Calls the publicGetCandlesTradeTimeframeSymbolLast endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetCandlesTradeTimeframeSymbolLast (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrderCancelReplace",parameters);
+        return await this.callAsync<List<object>> ("publicGetCandlesTradeTimeframeSymbolLast",parameters);
     }
 
-    public async Task<object> privatePostOrderNew (object parameters = null)
+    /// <summary>Calls the publicGetCandlesTradeTimeframeSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetCandlesTradeTimeframeSymbolHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrderNew",parameters);
+        return await this.callAsync<List<object>> ("publicGetCandlesTradeTimeframeSymbolHist",parameters);
     }
 
-    public async Task<object> privatePostOrderNewMulti (object parameters = null)
+    /// <summary>Calls the publicGetStatusType endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStatusType (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrderNewMulti",parameters);
+        return await this.callAsync<List<object>> ("publicGetStatusType",parameters);
     }
 
-    public async Task<object> privatePostOrderStatus (object parameters = null)
+    /// <summary>Calls the publicGetStatusDeriv endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStatusDeriv (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrderStatus",parameters);
+        return await this.callAsync<List<object>> ("publicGetStatusDeriv",parameters);
     }
 
-    public async Task<object> privatePostOrders (object parameters = null)
+    /// <summary>Calls the publicGetStatusDerivSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetStatusDerivSymbolHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrders",parameters);
+        return await this.callAsync<List<object>> ("publicGetStatusDerivSymbolHist",parameters);
     }
 
-    public async Task<object> privatePostOrdersHist (object parameters = null)
+    /// <summary>Calls the publicGetLiquidationsHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetLiquidationsHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostOrdersHist",parameters);
+        return await this.callAsync<List<object>> ("publicGetLiquidationsHist",parameters);
     }
 
-    public async Task<object> privatePostPositionClaim (object parameters = null)
+    /// <summary>Calls the publicGetRankingsKeyTimeframeSymbolSection endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetRankingsKeyTimeframeSymbolSection (object parameters = null)
     {
-        return await this.callAsync ("privatePostPositionClaim",parameters);
+        return await this.callAsync<List<object>> ("publicGetRankingsKeyTimeframeSymbolSection",parameters);
     }
 
-    public async Task<object> privatePostPositionClose (object parameters = null)
+    /// <summary>Calls the publicGetRankingsKeyTimeframeSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetRankingsKeyTimeframeSymbolHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostPositionClose",parameters);
+        return await this.callAsync<List<object>> ("publicGetRankingsKeyTimeframeSymbolHist",parameters);
     }
 
-    public async Task<object> privatePostPositions (object parameters = null)
+    /// <summary>Calls the publicGetPulseHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetPulseHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostPositions",parameters);
+        return await this.callAsync<List<object>> ("publicGetPulseHist",parameters);
     }
 
-    public async Task<object> privatePostSummary (object parameters = null)
+    /// <summary>Calls the publicGetPulseProfileNickname endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetPulseProfileNickname (object parameters = null)
     {
-        return await this.callAsync ("privatePostSummary",parameters);
+        return await this.callAsync<List<object>> ("publicGetPulseProfileNickname",parameters);
     }
 
-    public async Task<object> privatePostTakenFunds (object parameters = null)
+    /// <summary>Calls the publicGetFundingStatsSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetFundingStatsSymbolHist (object parameters = null)
     {
-        return await this.callAsync ("privatePostTakenFunds",parameters);
+        return await this.callAsync<List<object>> ("publicGetFundingStatsSymbolHist",parameters);
     }
 
-    public async Task<object> privatePostTotalTakenFunds (object parameters = null)
+    /// <summary>Calls the publicGetExtVasps endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicGetExtVasps (object parameters = null)
     {
-        return await this.callAsync ("privatePostTotalTakenFunds",parameters);
+        return await this.callAsync<List<object>> ("publicGetExtVasps",parameters);
     }
 
-    public async Task<object> privatePostTransfer (object parameters = null)
+    /// <summary>Calls the publicPostCalcTradeAvg endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicPostCalcTradeAvg (object parameters = null)
     {
-        return await this.callAsync ("privatePostTransfer",parameters);
+        return await this.callAsync<List<object>> ("publicPostCalcTradeAvg",parameters);
     }
 
-    public async Task<object> privatePostUnusedTakenFunds (object parameters = null)
+    /// <summary>Calls the publicPostCalcFx endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> publicPostCalcFx (object parameters = null)
     {
-        return await this.callAsync ("privatePostUnusedTakenFunds",parameters);
+        return await this.callAsync<List<object>> ("publicPostCalcFx",parameters);
     }
 
-    public async Task<object> privatePostWithdraw (object parameters = null)
+    /// <summary>Calls the privatePostAuthRWallets endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRWallets (object parameters = null)
     {
-        return await this.callAsync ("privatePostWithdraw",parameters);
+        return await this.callAsync<List<object>> ("privatePostAuthRWallets",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRWalletsHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRWalletsHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRWalletsHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthROrders endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthROrders (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthROrders",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthROrdersSymbol endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthROrdersSymbol (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthROrdersSymbol",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWOrderSubmit endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWOrderSubmit (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWOrderSubmit",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWOrderUpdate endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWOrderUpdate (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWOrderUpdate",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWOrderCancel endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWOrderCancel (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWOrderCancel",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWOrderMulti endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWOrderMulti (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWOrderMulti",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWOrderCancelMulti endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWOrderCancelMulti (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWOrderCancelMulti",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthROrdersSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthROrdersSymbolHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthROrdersSymbolHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthROrdersHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthROrdersHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthROrdersHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthROrdersOtcSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthROrdersOtcSymbolHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthROrdersOtcSymbolHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthROrderSymbolIdTrades endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthROrderSymbolIdTrades (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthROrderSymbolIdTrades",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRTradesSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRTradesSymbolHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRTradesSymbolHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRTradesHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRTradesHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRTradesHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRLedgersCurrencyHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRLedgersCurrencyHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRLedgersCurrencyHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRLedgersHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRLedgersHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRLedgersHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRInfoMarginKey endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRInfoMarginKey (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRInfoMarginKey",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRInfoMarginBase endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRInfoMarginBase (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRInfoMarginBase",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRInfoMarginSymAll endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRInfoMarginSymAll (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRInfoMarginSymAll",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRPositions endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRPositions (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRPositions",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWPositionClaim endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWPositionClaim (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWPositionClaim",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWPositionIncrease endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWPositionIncrease (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWPositionIncrease",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRPositionIncreaseInfo endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRPositionIncreaseInfo (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRPositionIncreaseInfo",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRPositionsHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRPositionsHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRPositionsHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRPositionsAudit endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRPositionsAudit (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRPositionsAudit",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRPositionsSnap endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRPositionsSnap (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRPositionsSnap",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWPositionUpdateFundingType endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWPositionUpdateFundingType (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWPositionUpdateFundingType",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWDerivCollateralSet endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWDerivCollateralSet (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWDerivCollateralSet",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWDerivCollateralLimits endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWDerivCollateralLimits (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWDerivCollateralLimits",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingOffers endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingOffers (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingOffers",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingOffersSymbol endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingOffersSymbol (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingOffersSymbol",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWFundingOfferSubmit endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWFundingOfferSubmit (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWFundingOfferSubmit",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWFundingOfferCancel endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWFundingOfferCancel (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWFundingOfferCancel",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWFundingOfferCancelAll endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWFundingOfferCancelAll (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWFundingOfferCancelAll",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWFundingClose endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWFundingClose (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWFundingClose",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWFundingAuto endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWFundingAuto (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWFundingAuto",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWFundingKeep endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWFundingKeep (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWFundingKeep",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingOffersSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingOffersSymbolHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingOffersSymbolHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingOffersHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingOffersHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingOffersHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingLoans endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingLoans (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingLoans",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingLoansHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingLoansHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingLoansHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingLoansSymbol endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingLoansSymbol (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingLoansSymbol",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingLoansSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingLoansSymbolHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingLoansSymbolHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingCredits endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingCredits (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingCredits",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingCreditsHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingCreditsHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingCreditsHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingCreditsSymbol endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingCreditsSymbol (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingCreditsSymbol",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingCreditsSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingCreditsSymbolHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingCreditsSymbolHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingTradesSymbolHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingTradesSymbolHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingTradesSymbolHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRFundingTradesHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRFundingTradesHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRFundingTradesHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRInfoFundingKey endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRInfoFundingKey (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRInfoFundingKey",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRInfoUser endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRInfoUser (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRInfoUser",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRSummary endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRSummary (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRSummary",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRLoginsHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRLoginsHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRLoginsHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRPermissions endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRPermissions (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRPermissions",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWToken endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWToken (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWToken",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRAuditHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRAuditHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRAuditHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWTransfer endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWTransfer (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWTransfer",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWDepositAddress endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWDepositAddress (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWDepositAddress",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRDepositAddressAll endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRDepositAddressAll (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRDepositAddressAll",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWDepositInvoice endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWDepositInvoice (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWDepositInvoice",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRExtInvoicePayments endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRExtInvoicePayments (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRExtInvoicePayments",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWWithdraw endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWWithdraw (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWWithdraw",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRMovementsCurrencyHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRMovementsCurrencyHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRMovementsCurrencyHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRMovementsHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRMovementsHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRMovementsHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRMovementsInfo endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRMovementsInfo (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRMovementsInfo",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRAlerts endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRAlerts (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRAlerts",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWAlertSet endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWAlertSet (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWAlertSet",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWAlertPriceSymbolPriceDel endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWAlertPriceSymbolPriceDel (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWAlertPriceSymbolPriceDel",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWAlertTypeSymbolPriceDel endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWAlertTypeSymbolPriceDel (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWAlertTypeSymbolPriceDel",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthCalcOrderAvail endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthCalcOrderAvail (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthCalcOrderAvail",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWSettingsSet endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWSettingsSet (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWSettingsSet",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRSettings endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRSettings (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRSettings",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWSettingsDel endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWSettingsDel (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWSettingsDel",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRPulseHist endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRPulseHist (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRPulseHist",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWPulseAdd endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWPulseAdd (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWPulseAdd",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWPulseDel endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWPulseDel (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWPulseDel",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWExtWalletsDepositsRequest endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWExtWalletsDepositsRequest (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWExtWalletsDepositsRequest",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthWExtWalletsWithdrawalsRequest endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthWExtWalletsWithdrawalsRequest (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthWExtWalletsWithdrawalsRequest",parameters);
+    }
+
+    /// <summary>Calls the privatePostAuthRExtWalletsTransfersFreeCount endpoint.</summary>
+    /// <returns>a JSON array</returns>
+    public async Task<List<object>> privatePostAuthRExtWalletsTransfersFreeCount (object parameters = null)
+    {
+        return await this.callAsync<List<object>> ("privatePostAuthRExtWalletsTransfersFreeCount",parameters);
     }
 
 }

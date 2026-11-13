@@ -4,22 +4,22 @@ import path from 'path'
 function replaceInFile (filename, regex, replacement) {
     const contents = fs.readFileSync (filename, 'utf8')
     const newContents = contents.replace (regex, replacement)
-    fs.truncateSync (filename)
     fs.writeFileSync (filename, newContents)
 }
 
 function copyFile (oldName, newName) {
     const contents = fs.readFileSync (oldName, 'utf8')
-    if (fs.existsSync (newName)) {
-        fs.truncateSync (newName)
-    }
     fs.writeFileSync (newName, contents)
 }
 
 function overwriteFile (filename, contents) {
     // log.cyan ('Overwriting → ' + filename.yellow)
     fs.closeSync (fs.openSync (filename, 'a'));
-    fs.truncateSync (filename)
+    fs.writeFileSync (filename, contents)
+}
+
+function writeFile (filename, contents) {
+    // log.cyan ('Writing → ' + filename.yellow)
     fs.writeFileSync (filename, contents)
 }
 
@@ -40,10 +40,22 @@ function createFolderRecursively (folder) {
     }
 }
 
+function checkCreateFolder (filePath) {
+    const folder = path.dirname (filePath)
+    if (!(fs.existsSync(folder) && fs.lstatSync(folder).isDirectory())) {
+        fs.mkdirSync(folder, { recursive: true }, (err) => {
+            if (err) throw err;
+            console.log('Directory created successfully!');
+        });
+    }
+}
+
 export {
     replaceInFile,
     copyFile,
     overwriteFile,
+    writeFile,
     createFolder,
     createFolderRecursively,
+    checkCreateFolder,
 }

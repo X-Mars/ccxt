@@ -9,16 +9,24 @@ use Exception; // a common import
 use ccxt\abstract\bequant as hitbtc;
 
 class bequant extends hitbtc {
-
-    public function describe() {
+    public function describe(): array {
         return $this->deep_extend(parent::describe(), array(
             'id' => 'bequant',
             'name' => 'Bequant',
-            'countries' => array( 'MT' ), // Malta
             'pro' => true,
+            'countries' => array( 'MT' ), // Malta
+            'has' => array(
+                'CORS' => null,
+                'spot' => true,
+                'margin' => null,
+                'swap' => false,
+                'future' => null,
+                'option' => null,
+            ),
             'urls' => array(
-                'logo' => 'https://user-images.githubusercontent.com/1294454/55248342-a75dfe00-525a-11e9-8aa2-05e9dca943c6.jpg',
+                'logo' => 'https://github.com/user-attachments/assets/01e199a6-5c65-4b03-83ab-7f9827c140f9',
                 'api' => array(
+                    // v3
                     'public' => 'https://api.bequant.io/api/3',
                     'private' => 'https://api.bequant.io/api/3',
                 ),

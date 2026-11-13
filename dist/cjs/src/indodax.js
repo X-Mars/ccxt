@@ -1,25 +1,28 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var sha2_js = require('@noble/hashes/sha2.js');
 var indodax$1 = require('./abstract/indodax.js');
 var errors = require('./base/errors.js');
 var number = require('./base/functions/number.js');
-var sha512 = require('./static_dependencies/noble-hashes/sha512.js');
+var Precise = require('./base/Precise.js');
 
-//  ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 //  ---------------------------------------------------------------------------
 /**
  * @class indodax
  * @augments Exchange
  */
-class indodax extends indodax$1 {
+class indodax extends indodax$1["default"] {
     describe() {
         return this.deepExtend(super.describe(), {
             'id': 'indodax',
             'name': 'INDODAX',
-            'countries': ['ID'],
+            'countries': ['ID'], // Indonesia
             // 10 requests per second for making trades => 1000ms / 10 = 100ms
             // 180 requests per minute (public endpoints) = 2 requests per second => cost = (1000ms / rateLimit) / 2 = 5
-            'rateLimit': 100,
+            'rateLimit': 50,
             'has': {
                 'CORS': undefined,
                 'spot': true,
@@ -28,6 +31,9 @@ class indodax extends indodax$1 {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
                 'cancelAllOrders': false,
                 'cancelOrder': true,
                 'cancelOrders': false,
@@ -39,44 +45,76 @@ class indodax extends indodax$1 {
                 'createStopLimitOrder': false,
                 'createStopMarketOrder': false,
                 'createStopOrder': false,
+                'fetchAllGreeks': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchClosedOrders': true,
                 'fetchCrossBorrowRate': false,
                 'fetchCrossBorrowRates': false,
+                'fetchCurrencies': false,
                 'fetchDeposit': false,
                 'fetchDepositAddress': 'emulated',
                 'fetchDepositAddresses': true,
                 'fetchDepositAddressesByNetwork': false,
                 'fetchDeposits': false,
                 'fetchDepositsWithdrawals': true,
+                'fetchDepositWithdrawFee': true,
+                'fetchDepositWithdrawFees': false,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
                 'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
                 'fetchMarginMode': false,
+                'fetchMarginModes': false,
+                'fetchMarketLeverageTiers': false,
                 'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrice': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
+                'fetchOHLCV': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchOrders': false,
                 'fetchPosition': false,
+                'fetchPositionForSymbolWs': false,
                 'fetchPositionHistory': false,
                 'fetchPositionMode': false,
                 'fetchPositions': false,
                 'fetchPositionsForSymbol': false,
+                'fetchPositionsForSymbolWs': false,
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchTicker': true,
+                'fetchTickers': true,
                 'fetchTime': true,
                 'fetchTrades': true,
                 'fetchTradingFee': false,
@@ -86,9 +124,13 @@ class indodax extends indodax$1 {
                 'fetchTransactions': 'emulated',
                 'fetchTransfer': false,
                 'fetchTransfers': false,
+                'fetchUnderlyingAssets': false,
+                'fetchVolatilityHistory': false,
                 'fetchWithdrawal': false,
                 'fetchWithdrawals': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
                 'setLeverage': false,
                 'setMargin': false,
                 'setMarginMode': false,
@@ -96,7 +138,7 @@ class indodax extends indodax$1 {
                 'transfer': false,
                 'withdraw': true,
             },
-            'version': '2.0',
+            'version': '2.0', // as of 9 April 2018
             'urls': {
                 'logo': 'https://user-images.githubusercontent.com/51840849/87070508-9358c880-c221-11ea-8dc5-5391afbbb422.jpg',
                 'api': {
@@ -110,32 +152,34 @@ class indodax extends indodax$1 {
             'api': {
                 'public': {
                     'get': {
-                        'api/server_time': 5,
-                        'api/pairs': 5,
-                        'api/price_increments': 5,
-                        'api/summaries': 5,
-                        'api/ticker/{pair}': 5,
-                        'api/ticker_all': 5,
-                        'api/trades/{pair}': 5,
-                        'api/depth/{pair}': 5,
-                        'tradingview/history_v2': 5,
+                        'api/server_time': { 'cost': 5 },
+                        'api/pairs': { 'cost': 5 },
+                        'api/price_increments': { 'cost': 5 },
+                        'api/summaries': { 'cost': 5 },
+                        'api/ticker/{pair}': { 'cost': 5 },
+                        'api/ticker_all': { 'cost': 5 },
+                        'api/trades/{pair}': { 'cost': 5 },
+                        'api/depth/{pair}': { 'cost': 5 },
+                        'tradingview/history_v2': { 'cost': 5 },
                     },
                 },
                 'private': {
                     'post': {
-                        'getInfo': 4,
-                        'transHistory': 4,
-                        'trade': 1,
-                        'tradeHistory': 4,
-                        'openOrders': 4,
-                        'orderHistory': 4,
-                        'getOrder': 4,
-                        'cancelOrder': 4,
-                        'withdrawFee': 4,
-                        'withdrawCoin': 4,
-                        'listDownline': 4,
-                        'checkDownline': 4,
-                        'createVoucher': 4, // partner only
+                        'getInfo': { 'cost': 4 },
+                        'transHistory': { 'cost': 4 },
+                        'trade': { 'cost': 1 },
+                        'tradeHistory': { 'cost': 4 }, // TODO add fetchMyTrades
+                        'openOrders': { 'cost': 4 },
+                        'orderHistory': { 'cost': 4 },
+                        'getOrder': { 'cost': 4 },
+                        'getOrderByClientOrderId': { 'cost': 4 },
+                        'cancelOrder': { 'cost': 4 },
+                        'cancelByClientOrderId': { 'cost': 4 },
+                        'withdrawFee': { 'cost': 4 },
+                        'withdrawCoin': { 'cost': 4 },
+                        'listDownline': { 'cost': 4 },
+                        'checkDownline': { 'cost': 4 },
+                        'createVoucher': { 'cost': 4 }, // partner only
                     },
                 },
             },
@@ -149,7 +193,7 @@ class indodax extends indodax$1 {
             },
             'exceptions': {
                 'exact': {
-                    'invalid_pair': errors.BadSymbol,
+                    'invalid_pair': errors.BadSymbol, // {"error":"invalid_pair","error_description":"Invalid Pair"}
                     'Insufficient balance.': errors.InsufficientFunds,
                     'invalid order.': errors.OrderNotFound,
                     'Invalid credentials. API not found or session has expired.': errors.AuthenticationError,
@@ -160,38 +204,101 @@ class indodax extends indodax$1 {
                     'Minimum order': errors.InvalidOrder,
                 },
             },
+            'timeframes': {
+                '1m': '1',
+                '15m': '15',
+                '30m': '30',
+                '1h': '60',
+                '4h': '240',
+                '1d': '1D',
+                '3d': '3D',
+                '1w': '1W',
+            },
             // exchange-specific options
             'options': {
-                'recvWindow': 5 * 1000,
-                'timeDifference': 0,
-                'adjustForTimeDifference': false,
+                'recvWindow': 5 * 1000, // default 5 sec
+                'timeDifference': 0, // the difference between system clock and exchange clock
+                'adjustForTimeDifference': false, // controls the adjustment logic upon instantiation
                 'networks': {
                     'XLM': 'Stellar Token',
-                    'BSC': 'bep20',
+                    'BEP20': 'bep20',
                     'TRC20': 'trc20',
                     'MATIC': 'polygon',
                     // 'BEP2': 'bep2',
-                    // 'ARB': 'arb',
+                    // 'ARBITRUM': 'arb',
                     // 'ERC20': 'erc20',
                     // 'KIP7': 'kip7',
                     // 'MAINNET': 'mainnet',  // TODO: does mainnet just mean the default?
                     // 'OEP4': 'oep4',
                     // 'OP': 'op',
-                    // 'SPL': 'spl',
                     // 'TRC10': 'trc10',
                     // 'ZRC2': 'zrc2'
                     // 'ETH': 'eth'
                     // 'BASE': 'base'
                 },
-                'timeframes': {
-                    '1m': '1',
-                    '15m': '15',
-                    '30m': '30',
-                    '1h': '60',
-                    '4h': '240',
-                    '1d': '1D',
-                    '3d': '3D',
-                    '1w': '1W',
+            },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': false,
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': true, // todo implementation
+                            'FOK': false,
+                            'PO': false,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'selfTradePrevention': false,
+                        'trailing': false,
+                        'leverage': false,
+                        'marketBuyByCost': false,
+                        'marketBuyRequiresPrice': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': undefined, // todo implement
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrders': undefined,
+                    'fetchClosedOrders': {
+                        'marginMode': false,
+                        'limit': 1000,
+                        'daysBack': 100000, // todo
+                        'daysBackCanceled': 1,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOHLCV': {
+                        'limit': 2000, // todo: not in request
+                    },
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
                 },
             },
             'commonCurrencies': {
@@ -205,17 +312,17 @@ class indodax extends indodax$1 {
         });
     }
     nonce() {
-        return this.milliseconds() - this.options['timeDifference'];
+        return this.milliseconds() - this.safeInteger(this.options, 'timeDifference', 0);
     }
+    /**
+     * @method
+     * @name indodax#fetchTime
+     * @description fetches the current integer timestamp in milliseconds from the exchange server
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#server-time
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int} the current integer timestamp in milliseconds from the exchange server
+     */
     async fetchTime(params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchTime
-         * @description fetches the current integer timestamp in milliseconds from the exchange server
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#server-time
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int} the current integer timestamp in milliseconds from the exchange server
-         */
         const response = await this.publicGetApiServerTime(params);
         //
         //     {
@@ -225,15 +332,15 @@ class indodax extends indodax$1 {
         //
         return this.safeInteger(response, 'server_time');
     }
+    /**
+     * @method
+     * @name indodax#fetchMarkets
+     * @description retrieves data on all markets for indodax
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#pairs
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
     async fetchMarkets(params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchMarkets
-         * @description retrieves data on all markets for indodax
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#pairs
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
         const response = await this.publicGetApiPairs(params);
         //
         //     [
@@ -262,14 +369,19 @@ class indodax extends indodax$1 {
         //     ]
         //
         const result = [];
-        for (let i = 0; i < response.length; i++) {
-            const market = response[i];
-            const id = this.safeString(market, 'ticker_id');
+        const rawMarkets = this.toArray(response);
+        for (let i = 0; i < rawMarkets.length; i++) {
+            const market = rawMarkets[i];
+            const id = this.safeString(market, 'id');
             const baseId = this.safeString(market, 'traded_currency');
             const quoteId = this.safeString(market, 'base_currency');
             const base = this.safeCurrencyCode(baseId);
             const quote = this.safeCurrencyCode(quoteId);
+            if ((base === undefined) || (quote === undefined)) {
+                continue;
+            }
             const isMaintenance = this.safeInteger(market, 'is_maintenance');
+            const inMaintenance = (isMaintenance !== undefined) && (isMaintenance !== 0);
             result.push({
                 'id': id,
                 'symbol': base + '/' + quote,
@@ -285,7 +397,7 @@ class indodax extends indodax$1 {
                 'swap': false,
                 'future': false,
                 'option': false,
-                'active': isMaintenance ? false : true,
+                'active': inMaintenance ? false : true,
                 'contract': false,
                 'linear': undefined,
                 'inverse': undefined,
@@ -326,9 +438,9 @@ class indodax extends indodax$1 {
         return result;
     }
     parseBalance(response) {
-        const balances = this.safeValue(response, 'return', {});
-        const free = this.safeValue(balances, 'balance', {});
-        const used = this.safeValue(balances, 'balance_hold', {});
+        const balances = this.safeDict(response, 'return', {});
+        const free = this.safeDict(balances, 'balance', {});
+        const used = this.safeDict(balances, 'balance_hold', {});
         const timestamp = this.safeTimestamp(balances, 'server_time');
         const result = {
             'info': response,
@@ -342,20 +454,24 @@ class indodax extends indodax$1 {
             const account = this.account();
             account['free'] = this.safeString(free, currencyId);
             account['used'] = this.safeString(used, currencyId);
-            result[code] = account;
+            if (code !== undefined) {
+                result[code] = account;
+            }
         }
         return this.safeBalance(result);
     }
+    /**
+     * @method
+     * @name indodax#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#get-info-endpoint
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
     async fetchBalance(params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#get-info-endpoint
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const response = await this.privatePostGetInfo(params);
         //
         //     {
@@ -389,21 +505,23 @@ class indodax extends indodax$1 {
         //
         return this.parseBalance(response);
     }
+    /**
+     * @method
+     * @name indodax#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#depth
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async fetchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#depth
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
-            'pair': market['base'] + market['quote'],
+            'pair': market['id'],
         };
         const orderbook = await this.publicGetApiDepthPair(this.extend(request, params));
         return this.parseOrderBook(orderbook, market['symbol'], undefined, 'buy', 'sell');
@@ -423,8 +541,10 @@ class indodax extends indodax$1 {
         //
         const symbol = this.safeSymbol(undefined, market);
         const timestamp = this.safeTimestamp(ticker, 'server_time');
-        const baseVolume = 'vol_' + market['baseId'].toLowerCase();
-        const quoteVolume = 'vol_' + market['quoteId'].toLowerCase();
+        const baseId = this.safeStringLower(market, 'baseId', '');
+        const quoteId = this.safeStringLower(market, 'quoteId', '');
+        const baseVolume = 'vol_' + baseId;
+        const quoteVolume = 'vol_' + quoteId;
         const last = this.safeString(ticker, 'last');
         return this.safeTicker({
             'symbol': symbol,
@@ -449,20 +569,22 @@ class indodax extends indodax$1 {
             'info': ticker,
         }, market);
     }
+    /**
+     * @method
+     * @name indodax#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#ticker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async fetchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#ticker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
-            'pair': market['base'] + market['quote'],
+            'pair': market['id'],
         };
         const response = await this.publicGetApiTickerPair(this.extend(request, params));
         //
@@ -482,17 +604,19 @@ class indodax extends indodax$1 {
         const ticker = this.safeDict(response, 'ticker', {});
         return this.parseTicker(ticker, market);
     }
+    /**
+     * @method
+     * @name indodax#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#ticker-all
+     * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async fetchTickers(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchTickers
-         * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#ticker-all
-         * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a dictionary of [ticker structures]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         //
         // {
         //     "tickers": {
@@ -511,7 +635,17 @@ class indodax extends indodax$1 {
         //
         const response = await this.publicGetApiTickerAll(params);
         const tickers = this.safeDict(response, 'tickers', {});
-        return this.parseTickers(tickers, symbols);
+        const keys = Object.keys(tickers);
+        const parsedTickers = {};
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            const rawTicker = tickers[key];
+            const marketId = key.replace('_', '');
+            const market = this.safeMarket(marketId);
+            const parsed = this.parseTicker(rawTicker, market);
+            parsedTickers[marketId] = parsed;
+        }
+        return this.filterByArrayTickers(parsedTickers, 'symbol', symbols);
     }
     parseTrade(trade, market = undefined) {
         const timestamp = this.safeTimestamp(trade, 'date');
@@ -531,22 +665,24 @@ class indodax extends indodax$1 {
             'fee': undefined,
         }, market);
     }
+    /**
+     * @method
+     * @name indodax#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#trades
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
     async fetchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#trades
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
-            'pair': market['base'] + market['quote'],
+            'pair': market['id'],
         };
         const response = await this.publicGetApiTradesPair(this.extend(request, params));
         return this.parseTrades(response, market, since, limit);
@@ -571,42 +707,46 @@ class indodax extends indodax$1 {
             this.safeNumber(ohlcv, 'Volume'),
         ];
     }
+    /**
+     * @method
+     * @name indodax#fetchOHLCV
+     * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.until] timestamp in ms of the latest candle to fetch
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async fetchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchOHLCV
-         * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {int} [params.until] timestamp in ms of the latest candle to fetch
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        const timeframes = this.options['timeframes'];
-        const selectedTimeframe = this.safeString(timeframes, timeframe, timeframe);
+        const selectedTimeframe = this.safeString(this.timeframes, timeframe, timeframe);
         const now = this.seconds();
         const until = this.safeInteger(params, 'until', now);
-        params = this.omit(params, ['until']);
+        const paramsOmitted = this.omit(params, ['until']);
         const request = {
             'to': until,
             'tf': selectedTimeframe,
-            'symbol': market['base'] + market['quote'],
+            'symbol': market['id'],
         };
-        if (limit === undefined) {
-            limit = 1000;
-        }
+        const limitResolved = (limit === undefined) ? 1000 : limit;
         if (since !== undefined) {
             request['from'] = Math.floor(since / 1000);
         }
         else {
             const duration = this.parseTimeframe(timeframe);
-            request['from'] = now - limit * duration - 1;
+            if (limit === undefined) {
+                request['from'] = now - 1000 * duration - 1;
+            }
+            else {
+                request['from'] = now - limit * duration - 1;
+            }
         }
-        const response = await this.publicGetTradingviewHistoryV2(this.extend(request, params));
+        const response = await this.publicGetTradingviewHistoryV2(this.extend(request, paramsOmitted));
         //
         //     [
         //         {
@@ -619,7 +759,7 @@ class indodax extends indodax$1 {
         //         }
         //     ]
         //
-        return this.parseOHLCVs(response, market, timeframe, since, limit);
+        return this.parseOHLCVs(this.toArray(response), market, timeframe, since, limitResolved);
     }
     parseOrderStatus(status) {
         const statuses = {
@@ -653,31 +793,50 @@ class indodax extends indodax$1 {
         //       "order_xrp": "30.45000000",
         //       "remain_xrp": "0.00000000"
         //     }
-        let side = undefined;
-        if ('type' in order) {
-            side = order['type'];
-        }
+        //
+        // cancelOrder
+        //
+        //    {
+        //        "order_id": 666883,
+        //        "client_order_id": "clientx-sj82ks82j",
+        //        "type": "sell",
+        //        "pair": "btc_idr",
+        //        "balance": {
+        //            "idr": "33605800",
+        //            "btc": "0.00000000",
+        //            ...
+        //            "frozen_idr": "0",
+        //            "frozen_btc": "0.00000000",
+        //            ...
+        //        }
+        //    }
+        //
+        const side = this.safeString(order, 'type');
         const status = this.parseOrderStatus(this.safeString(order, 'status', 'open'));
         let symbol = undefined;
         let cost = undefined;
         const price = this.safeString(order, 'price');
         let amount = undefined;
         let remaining = undefined;
-        if (market !== undefined) {
-            symbol = market['symbol'];
-            let quoteId = market['quoteId'];
-            let baseId = market['baseId'];
-            if ((market['quoteId'] === 'idr') && ('order_rp' in order)) {
+        let filled = undefined;
+        const marketId = this.safeString(order, 'pair');
+        const marketResolved = this.safeMarket(marketId, market);
+        if (marketResolved !== undefined) {
+            symbol = marketResolved['symbol'];
+            let quoteId = this.safeString(marketResolved, 'quoteId', '');
+            let baseId = this.safeString(marketResolved, 'baseId', '');
+            if ((marketResolved['quoteId'] === 'idr') && (this.safeString(order, 'order_rp') !== undefined)) {
                 quoteId = 'rp';
             }
-            if ((market['baseId'] === 'idr') && ('remain_rp' in order)) {
+            if ((marketResolved['baseId'] === 'idr') && (this.safeString(order, 'remain_rp') !== undefined)) {
                 baseId = 'rp';
             }
             cost = this.safeString(order, 'order_' + quoteId);
-            if (!cost) {
-                amount = this.safeString(order, 'order_' + baseId);
-                remaining = this.safeString(order, 'remain_' + baseId);
-            }
+            amount = this.safeString(order, 'order_' + baseId);
+            remaining = this.safeString(order, 'remain_' + baseId);
+            // filled buy orders on idr-quoted markets carry the executed base amount
+            // only in a dynamic receive_{base} field, https://github.com/ccxt/ccxt/issues/26413
+            filled = this.safeString(order, 'receive_' + baseId);
         }
         const timestamp = this.safeInteger(order, 'submit_time');
         const fee = undefined;
@@ -685,7 +844,7 @@ class indodax extends indodax$1 {
         return this.safeOrder({
             'info': order,
             'id': id,
-            'clientOrderId': undefined,
+            'clientOrderId': this.safeString(order, 'client_order_id'),
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
             'lastTradeTimestamp': undefined,
@@ -695,56 +854,60 @@ class indodax extends indodax$1 {
             'postOnly': undefined,
             'side': side,
             'price': price,
-            'stopPrice': undefined,
             'triggerPrice': undefined,
             'cost': cost,
             'average': undefined,
             'amount': amount,
-            'filled': undefined,
+            'filled': filled,
             'remaining': remaining,
             'status': status,
             'fee': fee,
             'trades': undefined,
         });
     }
+    /**
+     * @method
+     * @name indodax#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#get-order-endpoints
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#get-order-endpoints
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         if (symbol === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' fetchOrder() requires a symbol argument');
         }
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
             'order_id': id,
         };
         const response = await this.privatePostGetOrder(this.extend(request, params));
-        const orders = response['return'];
+        const orders = this.safeDict(response, 'return', {});
         const order = this.parseOrder(this.extend({ 'id': id }, orders['order']), market);
         order['info'] = response;
         return order;
     }
+    /**
+     * @method
+     * @name indodax#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#open-orders-endpoints
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOpenOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#open-orders-endpoints
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let market = undefined;
         const request = {};
         if (symbol !== undefined) {
@@ -752,9 +915,10 @@ class indodax extends indodax$1 {
             request['pair'] = market['id'];
         }
         const response = await this.privatePostOpenOrders(this.extend(request, params));
-        const rawOrders = response['return']['orders'];
+        const openOrdersResult = this.safeDict(response, 'return', {});
+        const rawOrders = openOrdersResult['orders'];
         // { success: 1, return: { orders: null }} if no orders
-        if (!rawOrders) {
+        if ((rawOrders === undefined) || (rawOrders === null)) {
             return [];
         }
         // { success: 1, return: { orders: [ ... objects ] }} for orders fetched by symbol
@@ -762,119 +926,218 @@ class indodax extends indodax$1 {
             return this.parseOrders(rawOrders, market, since, limit);
         }
         // { success: 1, return: { orders: { marketid: [ ... objects ] }}} if all orders are fetched
-        const marketIds = Object.keys(rawOrders);
+        const ordersDict = this.safeDict(openOrdersResult, 'orders', {});
+        const marketIds = Object.keys(ordersDict);
         let exchangeOrders = [];
         for (let i = 0; i < marketIds.length; i++) {
             const marketId = marketIds[i];
-            const marketOrders = rawOrders[marketId];
+            const marketOrders = ordersDict[marketId];
             market = this.safeMarket(marketId);
             const parsedOrders = this.parseOrders(marketOrders, market, since, limit);
             exchangeOrders = this.arrayConcat(exchangeOrders, parsedOrders);
         }
         return exchangeOrders;
     }
+    /**
+     * @method
+     * @name indodax#fetchClosedOrders
+     * @description fetches information on multiple closed orders made by the user
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#order-history
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchClosedOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchClosedOrders
-         * @description fetches information on multiple closed orders made by the user
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#order-history
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         if (symbol === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' fetchClosedOrders() requires a symbol argument');
         }
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
         };
         const response = await this.privatePostOrderHistory(this.extend(request, params));
-        let orders = this.parseOrders(response['return']['orders'], market);
+        const historyResult = this.safeDict(response, 'return', {});
+        let orders = this.parseOrders(historyResult['orders'], market);
         orders = this.filterBy(orders, 'status', 'closed');
         return this.filterBySymbolSinceLimit(orders, symbol, since, limit);
     }
+    /**
+     * @method
+     * @name indodax#createOrder
+     * @description create a trade order
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#trade-endpoints
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async createOrder(symbol, type, side, amount, price = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#createOrder
-         * @description create a trade order
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#trade-endpoints
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        if (type !== 'limit') {
-            throw new errors.ExchangeError(this.id + ' createOrder() allows limit orders only');
+        if (this.markets === undefined) {
+            await this.loadMarkets();
         }
-        await this.loadMarkets();
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
             'type': side,
             'price': price,
         };
-        const currency = market['baseId'];
-        if (side === 'buy') {
-            request[market['quoteId']] = amount * price;
+        let priceIsRequired = false;
+        let quantityIsRequired = false;
+        const isMarketBuy = (type === 'market') && (side === 'buy');
+        let paramsOmitted = params;
+        if (isMarketBuy) {
+            paramsOmitted = this.omit(params, 'cost');
         }
-        else {
-            request[market['baseId']] = amount;
+        if (type === 'market') {
+            if (side === 'buy') {
+                let quoteAmount = undefined;
+                const cost = this.safeNumber(params, 'cost');
+                if (cost !== undefined) {
+                    quoteAmount = this.costToPrecision(symbol, cost);
+                }
+                else {
+                    if (price === undefined) {
+                        throw new errors.InvalidOrder(this.id + ' createOrder() requires the price argument for market buy orders to calculate the total cost to spend (amount * price).');
+                    }
+                    const amountString = this.numberToString(amount);
+                    const priceString = this.numberToString(price);
+                    const costRequest = Precise["default"].stringMul(amountString, priceString);
+                    quoteAmount = this.costToPrecision(symbol, costRequest);
+                }
+                request[market['quoteId']] = quoteAmount;
+            }
+            else {
+                quantityIsRequired = true;
+            }
         }
-        request[currency] = amount;
-        const result = await this.privatePostTrade(this.extend(request, params));
-        const data = this.safeValue(result, 'return', {});
+        else if (type === 'limit') {
+            priceIsRequired = true;
+            quantityIsRequired = true;
+            if (side === 'buy') {
+                request[market['quoteId']] = this.parseToNumeric(this.costToPrecision(symbol, Precise["default"].stringMul(this.numberToString(amount), this.numberToString(price))));
+            }
+        }
+        if (priceIsRequired) {
+            if (price === undefined) {
+                throw new errors.InvalidOrder(this.id + ' createOrder() requires a price argument for a ' + type + ' order');
+            }
+            request['price'] = price;
+        }
+        if (quantityIsRequired) {
+            request[market['baseId']] = this.amountToPrecision(symbol, amount);
+        }
+        const result = await this.privatePostTrade(this.extend(request, paramsOmitted));
+        const data = this.safeDict(result, 'return', {});
         const id = this.safeString(data, 'order_id');
         return this.safeOrder({
             'info': result,
             'id': id,
         }, market);
     }
+    /**
+     * @method
+     * @name indodax#cancelOrder
+     * @description cancels an open order
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#cancel-order-endpoints
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async cancelOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#cancelOrder
-         * @description cancels an open order
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#cancel-order-endpoints
-         * @param {string} id order id
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         if (symbol === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' cancelOrder() requires a symbol argument');
         }
-        const side = this.safeValue(params, 'side');
+        const side = this.safeString(params, 'side');
         if (side === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' cancelOrder() requires an extra "side" param');
         }
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'order_id': id,
             'pair': market['id'],
             'type': side,
         };
-        return await this.privatePostCancelOrder(this.extend(request, params));
+        const response = await this.privatePostCancelOrder(this.extend(request, params));
+        //
+        //    {
+        //        "success": 1,
+        //        "return": {
+        //            "order_id": 666883,
+        //            "client_order_id": "clientx-sj82ks82j",
+        //            "type": "sell",
+        //            "pair": "btc_idr",
+        //            "balance": {
+        //                "idr": "33605800",
+        //                "btc": "0.00000000",
+        //                ...
+        //                "frozen_idr": "0",
+        //                "frozen_btc": "0.00000000",
+        //                ...
+        //            }
+        //        }
+        //    }
+        //
+        const data = this.safeDict(response, 'return');
+        return this.parseOrder(data);
     }
+    /**
+     * @method
+     * @name indodax#fetchTransactionFee
+     * @description fetch the fee for a transaction
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#withdraw-fee-endpoints
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [fee structure]{@link https://docs.ccxt.com/?id=fee-structure}
+     */
     async fetchTransactionFee(code, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchTransactionFee
-         * @description fetch the fee for a transaction
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#withdraw-fee-endpoints
-         * @param {string} code unified currency code
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [fee structure]{@link https://docs.ccxt.com/#/?id=fee-structure}
-         */
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const currency = this.currency(code);
+        const request = {
+            'currency': currency['id'],
+        };
+        const response = await this.privatePostWithdrawFee(this.extend(request, params));
+        //
+        //     {
+        //         "success": 1,
+        //         "return": {
+        //             "server_time": 1607923272,
+        //             "withdraw_fee": 0.005,
+        //             "currency": "eth"
+        //         }
+        //     }
+        //
+        const data = this.safeDict(response, 'return', {});
+        const currencyId = this.safeString(data, 'currency');
+        return {
+            'info': response,
+            'rate': this.safeNumber(data, 'withdraw_fee'),
+            'currency': this.safeCurrencyCode(currencyId, currency),
+        };
+    }
+    /**
+     * @method
+     * @name indodax#fetchDepositWithdrawFee
+     * @description fetch the withdrawal fee for a currency; indodax charges no crypto deposit fees, see https://github.com/ccxt/ccxt/issues/25800
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#withdraw-fee-endpoints
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [fee structure]{@link https://docs.ccxt.com/?id=fee-structure}
+     */
+    async fetchDepositWithdrawFee(code, params = {}) {
         await this.loadMarkets();
         const currency = this.currency(code);
         const request = {
@@ -891,32 +1154,38 @@ class indodax extends indodax$1 {
         //         }
         //     }
         //
-        const data = this.safeValue(response, 'return', {});
-        const currencyId = this.safeString(data, 'currency');
-        return {
-            'info': response,
-            'rate': this.safeNumber(data, 'withdraw_fee'),
-            'currency': this.safeCurrencyCode(currencyId, currency),
+        const data = this.safeDict(response, 'return', {});
+        const result = this.depositWithdrawFee(response);
+        result['withdraw'] = {
+            'fee': this.safeNumber(data, 'withdraw_fee'),
+            'percentage': false,
         };
+        result['deposit'] = {
+            'fee': 0,
+            'percentage': false,
+        };
+        return this.assignDefaultDepositWithdrawFees(result, currency);
     }
+    /**
+     * @method
+     * @name indodax#fetchDepositsWithdrawals
+     * @description fetch history of deposits and withdrawals
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#transaction-history-endpoints
+     * @param {string} [code] unified currency code for the currency of the deposit/withdrawals, default is undefined
+     * @param {int} [since] timestamp in ms of the earliest deposit/withdrawal, default is undefined
+     * @param {int} [limit] max number of deposit/withdrawals to return, default is undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a list of [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
     async fetchDepositsWithdrawals(code = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchDepositsWithdrawals
-         * @description fetch history of deposits and withdrawals
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#transaction-history-endpoints
-         * @param {string} [code] unified currency code for the currency of the deposit/withdrawals, default is undefined
-         * @param {int} [since] timestamp in ms of the earliest deposit/withdrawal, default is undefined
-         * @param {int} [limit] max number of deposit/withdrawals to return, default is undefined
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a list of [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {};
         if (since !== undefined) {
-            const startTime = this.iso8601(since).slice(0, 10);
+            const startTime = this.yyyymmdd(since);
             request['start'] = startTime;
-            request['end'] = this.iso8601(this.milliseconds()).slice(0, 10);
+            request['end'] = this.yyyymmdd(this.milliseconds());
         }
         const response = await this.privatePostTransHistory(this.extend(request, params));
         //
@@ -976,47 +1245,49 @@ class indodax extends indodax$1 {
         //         }
         //     }
         //
-        const data = this.safeValue(response, 'return', {});
-        const withdraw = this.safeValue(data, 'withdraw', {});
-        const deposit = this.safeValue(data, 'deposit', {});
+        const data = this.safeDict(response, 'return', {});
+        const withdraw = this.safeDict(data, 'withdraw', {});
+        const deposit = this.safeDict(data, 'deposit', {});
         let transactions = [];
         let currency = undefined;
         if (code === undefined) {
-            let keys = Object.keys(withdraw);
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
+            const withdrawKeys = Object.keys(withdraw);
+            for (let i = 0; i < withdrawKeys.length; i++) {
+                const key = withdrawKeys[i];
                 transactions = this.arrayConcat(transactions, withdraw[key]);
             }
-            keys = Object.keys(deposit);
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
+            const depositKeys = Object.keys(deposit);
+            for (let i = 0; i < depositKeys.length; i++) {
+                const key = depositKeys[i];
                 transactions = this.arrayConcat(transactions, deposit[key]);
             }
         }
         else {
             currency = this.currency(code);
-            const withdraws = this.safeValue(withdraw, currency['id'], []);
-            const deposits = this.safeValue(deposit, currency['id'], []);
+            const withdraws = this.safeList(withdraw, currency['id'], []);
+            const deposits = this.safeList(deposit, currency['id'], []);
             transactions = this.arrayConcat(withdraws, deposits);
         }
         return this.parseTransactions(transactions, currency, since, limit);
     }
-    async withdraw(code, amount, address, tag = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#withdraw
-         * @description make a withdrawal
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#withdraw-coin-endpoints
-         * @param {string} code unified currency code
-         * @param {float} amount the amount to withdraw
-         * @param {string} address the address to withdraw to
-         * @param {string} tag
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        [tag, params] = this.handleWithdrawTagAndParams(tag, params);
-        this.checkAddress(address);
-        await this.loadMarkets();
+    /**
+     * @method
+     * @name indodax#withdraw
+     * @description make a withdrawal
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#withdraw-coin-endpoints
+     * @param {string} code unified currency code
+     * @param {float} amount the amount to withdraw
+     * @param {string} address the address to withdraw to
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.tag] memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    async withdraw(code, amount, address, params = {}) {
+        const [tagWithdrawTag, paramsWithdrawTag] = this.handleParamString(params, 'tag');
+        this.checkAddress(address, code, tagWithdrawTag);
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const currency = this.currency(code);
         // Custom string you need to provide to identify each withdrawal.
         // Will be passed to callback URL (assigned via website to the API key)
@@ -1031,10 +1302,10 @@ class indodax extends indodax$1 {
             'withdraw_address': address,
             'request_id': requestId.toString(),
         };
-        if (tag) {
-            request['withdraw_memo'] = tag;
+        if ((tagWithdrawTag !== undefined) && (tagWithdrawTag !== '')) {
+            request['withdraw_memo'] = tagWithdrawTag;
         }
-        const response = await this.privatePostWithdrawCoin(this.extend(request, params));
+        const response = await this.privatePostWithdrawCoin(this.extend(request, paramsWithdrawTag));
         //
         //     {
         //         "success": 1,
@@ -1135,17 +1406,19 @@ class indodax extends indodax$1 {
         };
         return this.safeString(statuses, status, status);
     }
+    /**
+     * @method
+     * @name indodax#fetchDepositAddresses
+     * @description fetch deposit addresses for multiple currencies and chain types
+     * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#general-information-on-endpoints
+     * @param {string[]} [codes] list of unified currency codes, default is undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a list of [address structures]{@link https://docs.ccxt.com/?id=address-structure}
+     */
     async fetchDepositAddresses(codes = undefined, params = {}) {
-        /**
-         * @method
-         * @name indodax#fetchDepositAddresses
-         * @description fetch deposit addresses for multiple currencies and chain types
-         * @see https://github.com/btcid/indodax-official-api-docs/blob/master/Private-RestAPI.md#general-information-on-endpoints
-         * @param {string[]} [codes] list of unified currency codes, default is undefined
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a list of [address structures]{@link https://docs.ccxt.com/#/?id=address-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const response = await this.privatePostGetInfo(params);
         //
         //    {
@@ -1186,9 +1459,7 @@ class indodax extends indodax$1 {
         const addresses = this.safeDict(data, 'address', {});
         const networks = this.safeDict(data, 'network', {});
         const addressKeys = Object.keys(addresses);
-        const result = {
-            'info': data,
-        };
+        const result = [];
         for (let i = 0; i < addressKeys.length; i++) {
             const marketId = addressKeys[i];
             const code = this.safeCurrencyCode(marketId);
@@ -1198,52 +1469,83 @@ class indodax extends indodax$1 {
                 let network = undefined;
                 if (marketId in networks) {
                     const networkId = this.safeString(networks, marketId);
+                    if (networkId === undefined) {
+                        throw new errors.ExchangeError(this.id + ' fetchDepositAddresses() missing networkId');
+                    }
                     if (networkId.indexOf(',') >= 0) {
                         network = [];
+                        if (networkId === undefined) {
+                            throw new errors.ExchangeError(this.id + ' fetchDepositAddresses() missing networkId');
+                        }
                         const networkIds = networkId.split(',');
                         for (let j = 0; j < networkIds.length; j++) {
-                            network.push(this.networkIdToCode(networkIds[j]).toUpperCase());
+                            const _netIdTmp = this.networkIdToCode(networkIds[j], code);
+                            if (_netIdTmp !== undefined) {
+                                network.push(_netIdTmp.toUpperCase());
+                            }
                         }
                     }
                     else {
-                        network = this.networkIdToCode(networkId).toUpperCase();
+                        const _netIdTmp = this.networkIdToCode(networkId, code);
+                        if (_netIdTmp !== undefined) {
+                            network = _netIdTmp.toUpperCase();
+                        }
                     }
                 }
-                result[code] = {
-                    'info': {},
-                    'currency': code,
-                    'address': address,
-                    'network': network,
-                    'tag': undefined,
-                };
+                const finalNetwork = network; // java req
+                if (code !== undefined) {
+                    result.push({
+                        'info': {},
+                        'currency': code,
+                        'network': finalNetwork,
+                        'address': address,
+                        'tag': undefined,
+                    });
+                }
             }
         }
-        return result;
+        return this.toArray(result);
     }
-    sign(path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        let url = this.urls['api'][api];
-        if (api === 'public') {
+    sign(path, api = ['public'], method = 'GET', params = {}) {
+        const apiName = api[0];
+        const apiUrl = this.safeString(this.urls['api'], apiName);
+        if (apiUrl === undefined) {
+            throw new errors.ExchangeError(this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl;
+        let privateBody = undefined;
+        let privateHeaders = undefined;
+        const isPublic = (apiName === 'public');
+        if (isPublic) {
             const query = this.omit(params, this.extractParams(path));
             const requestPath = '/' + this.implodeParams(path, params);
-            url = url + requestPath;
-            if (Object.keys(query).length) {
-                url += '?' + this.urlencodeWithArrayRepeat(query);
+            url = apiUrl + requestPath;
+            if (Object.keys(query).length > 0) {
+                url = apiUrl + requestPath + '?' + this.urlencodeWithArrayRepeat(query);
             }
         }
         else {
             this.checkRequiredCredentials();
-            body = this.urlencode(this.extend({
+            privateBody = this.urlencode(this.extend({
                 'method': path,
                 'timestamp': this.nonce(),
                 'recvWindow': this.options['recvWindow'],
             }, params));
-            headers = {
+            privateHeaders = {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Key': this.apiKey,
-                'Sign': this.hmac(this.encode(body), this.encode(this.secret), sha512.sha512),
+                'Sign': this.hmac(this.encode(privateBody), this.encode(this.secret), sha2_js.sha512),
             };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        let requestBody = privateBody;
+        if (isPublic) {
+            requestBody = undefined;
+        }
+        let requestHeaders = privateHeaders;
+        if (isPublic) {
+            requestHeaders = undefined;
+        }
+        return { 'url': url, 'method': method, 'body': requestBody, 'headers': requestHeaders };
     }
     handleErrors(code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
@@ -1252,12 +1554,17 @@ class indodax extends indodax$1 {
         // { success: 0, error: "invalid order." }
         // or
         // [{ data, ... }, { ... }, ... ]
+        // {"success":"1","status":"approved","withdraw_currency":"strm","withdraw_address":"0x2b9A8cd5535D99b419aEfFBF1ae8D90a7eBdb24E","withdraw_amount":"2165.05767839","fee":"21.11000000","amount_after_fee":"2143.94767839","submit_time":"1730759489","withdraw_id":"strm-3423","txid":""}
         if (Array.isArray(response)) {
             return undefined; // public endpoints may return []-arrays
         }
-        const error = this.safeValue(response, 'error', '');
-        if (!('success' in response) && error === '') {
+        const error = this.safeString(response, 'error', '');
+        const status = this.safeString(response, 'success');
+        if ((status === undefined) && (error === '')) {
             return undefined; // no 'success' property on public responses
+        }
+        if (status === 'approved') {
+            return undefined;
         }
         if (this.safeInteger(response, 'success', 0) === 1) {
             // { success: 1, return: { orders: [] }}
@@ -1275,4 +1582,4 @@ class indodax extends indodax$1 {
     }
 }
 
-module.exports = indodax;
+exports["default"] = indodax;

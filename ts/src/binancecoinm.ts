@@ -1,20 +1,22 @@
 
 //  ---------------------------------------------------------------------------
 
-import binance from './binance.js';
+import binance from './abstract/binancecoinm.js';
+import type { Dict, TransferEntry } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
 export default class binancecoinm extends binance {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'id': 'binancecoinm',
             'name': 'Binance COIN-M',
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/1294454/117738721-668c8d80-b205-11eb-8c49-3fad84c4a07f.jpg',
+                'logo': 'https://github.com/user-attachments/assets/387cfc4e-5f33-48cd-8f5c-cd4854dabf0c',
                 'doc': [
                     'https://binance-docs.github.io/apidocs/delivery/en/',
                     'https://binance-docs.github.io/apidocs/spot/en',
+                    'https://developers.binance.com/en',
                 ],
             },
             'has': {
@@ -27,19 +29,23 @@ export default class binancecoinm extends binance {
                 'createStopMarketOrder': true,
             },
             'options': {
-                'fetchMarkets': [ 'inverse' ],
+                'fetchMarkets': {
+                    'types': [
+                        'inverse',
+                    ],
+                },
                 'defaultSubType': 'inverse',
                 'leverageBrackets': undefined,
             },
         });
     }
 
-    async transferIn (code: string, amount, params = {}) {
+    async transferIn (code: string, amount: number, params: Dict = {}): Promise<TransferEntry> {
         // transfer from spot wallet to coinm futures wallet
         return await this.futuresTransfer (code, amount, 3, params);
     }
 
-    async transferOut (code: string, amount, params = {}) {
+    async transferOut (code: string, amount: number, params: Dict = {}): Promise<TransferEntry> {
         // transfer from coinm futures wallet to spot wallet
         return await this.futuresTransfer (code, amount, 4, params);
     }

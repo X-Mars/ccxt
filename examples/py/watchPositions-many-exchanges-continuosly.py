@@ -10,9 +10,8 @@ sys.path.append(root + '/python')
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 # ----------------------------------------------------------------------------
-undefined
 
-# AUTO-TRANSPILE #
+
 # watch and handle constinuosly
 async def watch_positions_continuously(exchange):
     while True:
@@ -45,7 +44,7 @@ async def example():
             'apiKey': 'YOUR_API_KEY',
             'secret': 'YOUR_API_SECRET',
         },
-        'huobi': {
+        'htx': {
             'apiKey': 'YOUR_API_KEY',
             'secret': 'YOUR_API_SECRET',
         },

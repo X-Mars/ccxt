@@ -7,7 +7,7 @@
 //  ---------------------------------------------------------------------------
 import Exchange from './abstract/bitteam.js';
 import { ArgumentsRequired, AuthenticationError, BadRequest, BadSymbol, ExchangeError, ExchangeNotAvailable, InsufficientFunds, OrderNotFound } from './base/errors.js';
-import { DECIMAL_PLACES } from './base/functions/number.js';
+import { TICK_SIZE } from './base/functions/number.js';
 import { Precise } from './base/Precise.js';
 //  ---------------------------------------------------------------------------
 /**
@@ -21,7 +21,7 @@ export default class bitteam extends Exchange {
             'name': 'BIT.TEAM',
             'countries': ['UK'],
             'version': 'v2.0.6',
-            'rateLimit': 1,
+            'rateLimit': 1, // the exchange has no rate limit
             'certified': false,
             'pro': false,
             'has': {
@@ -32,12 +32,18 @@ export default class bitteam extends Exchange {
                 'future': false,
                 'option': false,
                 'addMargin': false,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
                 'borrowMargin': false,
                 'cancelAllOrders': true,
                 'cancelOrder': true,
                 'cancelOrders': false,
+                'closeAllPositions': false,
+                'closePosition': false,
                 'createDepositAddress': false,
                 'createOrder': true,
+                'createOrderWithTakeProfitAndStopLoss': false,
+                'createOrderWithTakeProfitAndStopLossWs': false,
                 'createPostOnlyOrder': false,
                 'createReduceOnlyOrder': false,
                 'createStopLimitOrder': false,
@@ -49,8 +55,11 @@ export default class bitteam extends Exchange {
                 'fetchBalance': true,
                 'fetchBidsAsks': false,
                 'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
                 'fetchBorrowRateHistories': false,
                 'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchCanceledOrders': true,
                 'fetchClosedOrder': false,
                 'fetchClosedOrders': true,
@@ -66,24 +75,42 @@ export default class bitteam extends Exchange {
                 'fetchDepositWithdrawFee': false,
                 'fetchDepositWithdrawFees': false,
                 'fetchFundingHistory': false,
+                'fetchFundingInterval': false,
+                'fetchFundingIntervals': false,
                 'fetchFundingRate': false,
                 'fetchFundingRateHistory': false,
                 'fetchFundingRates': false,
+                'fetchGreeks': false,
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchIsolatedPositions': false,
                 'fetchL3OrderBook': false,
                 'fetchLedger': false,
                 'fetchLeverage': false,
+                'fetchLeverages': false,
                 'fetchLeverageTiers': false,
+                'fetchLiquidations': false,
+                'fetchLongShortRatio': false,
+                'fetchLongShortRatioHistory': false,
+                'fetchMarginAdjustmentHistory': false,
+                'fetchMarginMode': false,
+                'fetchMarginModes': false,
                 'fetchMarketLeverageTiers': false,
                 'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
+                'fetchMarkPrices': false,
+                'fetchMyLiquidations': false,
+                'fetchMySettlementHistory': false,
                 'fetchMyTrades': true,
                 'fetchOHLCV': true,
+                'fetchOpenInterest': false,
                 'fetchOpenInterestHistory': false,
+                'fetchOpenInterests': false,
                 'fetchOpenOrder': false,
                 'fetchOpenOrders': true,
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
                 'fetchOrderBooks': false,
@@ -97,6 +124,7 @@ export default class bitteam extends Exchange {
                 'fetchPositionsHistory': false,
                 'fetchPositionsRisk': false,
                 'fetchPremiumIndexOHLCV': false,
+                'fetchSettlementHistory': false,
                 'fetchStatus': false,
                 'fetchTicker': true,
                 'fetchTickers': true,
@@ -109,10 +137,13 @@ export default class bitteam extends Exchange {
                 'fetchTransactionFees': false,
                 'fetchTransactions': true,
                 'fetchTransfers': false,
+                'fetchVolatilityHistory': false,
                 'fetchWithdrawal': false,
                 'fetchWithdrawals': false,
                 'fetchWithdrawalWhitelist': false,
                 'reduceMargin': false,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
                 'repayMargin': false,
                 'setLeverage': false,
                 'setMargin': false,
@@ -131,7 +162,7 @@ export default class bitteam extends Exchange {
                 '1d': '1D',
             },
             'urls': {
-                'logo': 'https://github.com/ccxt/ccxt/assets/43336371/cf71fe3d-b8b4-40f2-a906-907661b28793',
+                'logo': 'https://github.com/user-attachments/assets/b41b5e0d-98e5-4bd3-8a6e-aeb230a4a135',
                 'api': {
                     'history': 'https://history.bit.team',
                     'public': 'https://bit.team',
@@ -146,41 +177,42 @@ export default class bitteam extends Exchange {
             'api': {
                 'history': {
                     'get': {
-                        'api/tw/history/{pairName}/{resolution}': 1,
+                        'api/tw/history/{pairName}/{resolution}': { 'cost': 1 },
                     },
                 },
                 'public': {
                     'get': {
-                        'trade/api/asset': 1,
-                        'trade/api/currencies': 1,
-                        'trade/api/orderbooks/{symbol}': 1,
-                        'trade/api/orders': 1,
-                        'trade/api/pair/{name}': 1,
-                        'trade/api/pairs': 1,
-                        'trade/api/pairs/precisions': 1,
-                        'trade/api/rates': 1,
-                        'trade/api/trade/{id}': 1,
-                        'trade/api/trades': 1,
-                        'trade/api/ccxt/pairs': 1,
-                        'trade/api/cmc/assets': 1,
-                        'trade/api/cmc/orderbook/{pair}': 1,
-                        'trade/api/cmc/summary': 1,
-                        'trade/api/cmc/ticker': 1,
-                        'trade/api/cmc/trades/{pair}': 1,
+                        'trade/api/asset': { 'cost': 1 }, // not unified
+                        'trade/api/currencies': { 'cost': 1 },
+                        'trade/api/orderbooks/{symbol}': { 'cost': 1 }, // not unified
+                        'trade/api/orders': { 'cost': 1 }, // not unified
+                        'trade/api/pair/{name}': { 'cost': 1 },
+                        'trade/api/pairs': { 'cost': 1 }, // not unified
+                        'trade/api/pairs/precisions': { 'cost': 1 }, // not unified
+                        'trade/api/rates': { 'cost': 1 }, // not unified
+                        'trade/api/stats': { 'cost': 1 }, // not unified
+                        'trade/api/trade/{id}': { 'cost': 1 }, // not unified
+                        'trade/api/trades': { 'cost': 1 }, // not unified
+                        'trade/api/ccxt/pairs': { 'cost': 1 },
+                        'trade/api/cmc/assets': { 'cost': 1 },
+                        'trade/api/cmc/orderbook/{pair}': { 'cost': 1 },
+                        'trade/api/cmc/summary': { 'cost': 1 },
+                        'trade/api/cmc/ticker': { 'cost': 1 }, // not unified
+                        'trade/api/cmc/trades/{pair}': { 'cost': 1 },
                     },
                 },
                 'private': {
                     'get': {
-                        'trade/api/ccxt/balance': 1,
-                        'trade/api/ccxt/order/{id}': 1,
-                        'trade/api/ccxt/ordersOfUser': 1,
-                        'trade/api/ccxt/tradesOfUser': 1,
-                        'trade/api/transactionsOfUser': 1,
+                        'trade/api/ccxt/balance': { 'cost': 1 },
+                        'trade/api/ccxt/order/{id}': { 'cost': 1 },
+                        'trade/api/ccxt/ordersOfUser': { 'cost': 1 },
+                        'trade/api/ccxt/tradesOfUser': { 'cost': 1 },
+                        'trade/api/transactionsOfUser': { 'cost': 1 },
                     },
                     'post': {
-                        'trade/api/ccxt/cancel-all-order': 1,
-                        'trade/api/ccxt/cancelorder': 1,
-                        'trade/api/ccxt/ordercreate': 1,
+                        'trade/api/ccxt/cancel-all-order': { 'cost': 1 },
+                        'trade/api/ccxt/cancelorder': { 'cost': 1 },
+                        'trade/api/ccxt/ordercreate': { 'cost': 1 },
                     },
                 },
             },
@@ -193,7 +225,7 @@ export default class bitteam extends Exchange {
                     'maker': this.parseNumber('0.002'),
                 },
             },
-            'precisionMode': DECIMAL_PLACES,
+            'precisionMode': TICK_SIZE,
             // exchange-specific options
             'options': {
                 'networksById': {
@@ -201,10 +233,10 @@ export default class bitteam extends Exchange {
                     'ethereum': 'ERC20',
                     'Tron': 'TRC20',
                     'tron': 'TRC20',
-                    'Binance': 'BSC',
-                    'binance': 'BSC',
-                    'Binance Smart Chain': 'BSC',
-                    'bscscan': 'BSC',
+                    'Binance': 'BEP20',
+                    'binance': 'BEP20',
+                    'Binance Smart Chain': 'BEP20',
+                    'bscscan': 'BEP20',
                     'Bitcoin': 'BTC',
                     'bitcoin': 'BTC',
                     'Litecoin': 'LTC',
@@ -216,44 +248,124 @@ export default class bitteam extends Exchange {
                     'ufobject': 'ufobject',
                     'tonchain': 'tonchain',
                 },
-                'currenciesValuedInUsd': {
-                    'USDT': true,
-                    'BUSD': true,
+                'fetchMarkets': {
+                    'currenciesValuedInUsd': {
+                        'USDT': true,
+                        'BUSD': true,
+                    },
+                },
+            },
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': false,
+                        'triggerPriceType': undefined,
+                        'triggerDirection': undefined,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': false,
+                            'FOK': false,
+                            'PO': false,
+                            'GTD': false,
+                        },
+                        'hedged': false,
+                        'trailing': false,
+                        'leverage': false,
+                        'marketBuyRequiresPrice': false,
+                        'marketBuyByCost': false,
+                        'selfTradePrevention': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': 100000,
+                        'untilDays': 100000,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOrders': {
+                        'marginMode': true,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchClosedOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'daysBackCanceled': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': false,
+                    },
+                    'fetchOHLCV': {
+                        'limit': 1000,
+                    },
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
                 },
             },
             'exceptions': {
                 'exact': {
-                    '400002': BadSymbol,
-                    '401000': AuthenticationError,
-                    '403002': BadRequest,
+                    '400002': BadSymbol, // {"ok":false,"code":400002,"message":"An order cannot be created on a deactivated pair"}
+                    '401000': AuthenticationError, // {"ok":false,"code":401000,"data": {},"message": "Missing authentication"}
+                    '403002': BadRequest, // {"ok":false,"code":403002,"data":{},"message":"Order cannot be deleted, status does not match"}
                     '404200': BadSymbol, // {"ok":false,"code":404200,"data":{},"message":"Pair was not found"}
                 },
                 'broad': {
-                    'is not allowed': BadRequest,
-                    'Insufficient funds': InsufficientFunds,
-                    'Invalid request params input': BadRequest,
-                    'must be a number': BadRequest,
-                    'must be a string': BadRequest,
-                    'must be of type': BadRequest,
-                    'must be one of': BadRequest,
-                    'Order not found': OrderNotFound,
-                    'Pair with pair name': BadSymbol,
-                    'pairName': BadSymbol,
-                    'Service Unavailable': ExchangeNotAvailable,
+                    'is not allowed': BadRequest, // {"message":"\"createdAt\" is not allowed","path":["createdAt"],"type":"object.unknown","context":{"child":"createdAt","label":"createdAt","value":"DESC","key":"createdAt"}}
+                    'Insufficient funds': InsufficientFunds, // {"ok":false,"code":450000,"data":null,"message":"Insufficient funds"}
+                    'Invalid request params input': BadRequest, // {"ok":false,"code":400000,"data":{},"message":"Invalid request params input"}
+                    'must be a number': BadRequest, // [ExchangeError] bitteam {"message":"\"currency\" must be a number","path":["currency"],"type":"number.base","context":{"label":"currency","value":"adsf","key":"currency"}}
+                    'must be a string': BadRequest, // {"message":"\"pairId\" must be a string","path":["pairId"],"type":"string.base","context":{"label":"pairId","value":87,"key":"pairId"}}
+                    'must be of type': BadRequest, // {"message":"\"order\" must be of type object","path":["order"],"type":"object.base","context":{"type":"object","label":"order","value":"107218781","key":"order"}}
+                    'must be one of': BadRequest, // {"message":"\"resolution\" must be one of [1, 5, 15, 60, 1D]","path":["resolution"],"type":"any.only","context":{"valids":["1","5","15","60","1D"],"label":"resolution","value":"1d","key":"resolution"}}
+                    'Order not found': OrderNotFound, // {"ok":false,"code":404300,"data":{},"message":"Order not found"}
+                    'Pair with pair name': BadSymbol, // {"ok":false,"code":404000,"data":{"pairName":"ETH_USasdf"},"msg":"Pair with pair name ETH_USasdf was not found"}
+                    'pairName': BadSymbol, // {"message":"\"pairName\" length must be at least 7 characters long","path":["pairName"],"type":"string.min","context":{"limit":7,"value":"ETH_US","label":"pairName","key":"pairName"}}
+                    'Service Unavailable': ExchangeNotAvailable, // {"message":"Service Unavailable","code":403000,"ok":false}
                     'Symbol ': BadSymbol, // {"ok":false,"code":404000,"data":{},"message":"Symbol asdfasdfas was not found"}
                 },
             },
         });
     }
+    /**
+     * @method
+     * @name bitteam#fetchMarkets
+     * @description retrieves data on all markets for bitteam
+     * @see https://bit.team/trade/api/documentation#/CCXT/getTradeApiCcxtPairs
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
     async fetchMarkets(params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchMarkets
-         * @description retrieves data on all markets for bitteam
-         * @see https://bit.team/trade/api/documentation#/CCXT/getTradeApiCcxtPairs
-         * @param {object} [params] extra parameters specific to the exchange api endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
         const response = await this.publicGetTradeApiCcxtPairs(params);
         //
         //     {
@@ -341,8 +453,8 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const result = this.safeValue(response, 'result', {});
-        const markets = this.safeValue(result, 'pairs', []);
+        const result = this.safeDict(response, 'result', {});
+        const markets = this.safeList(result, 'pairs', []);
         return this.parseMarkets(markets);
     }
     parseMarket(market) {
@@ -353,16 +465,17 @@ export default class bitteam extends Exchange {
         const quoteId = this.safeString(parts, 1);
         const base = this.safeCurrencyCode(baseId);
         const quote = this.safeCurrencyCode(quoteId);
-        const active = this.safeValue(market, 'active');
-        const amountPrecision = this.safeInteger(market, 'baseStep');
-        const pricePrecision = this.safeInteger(market, 'quoteStep');
+        if ((base === undefined) || (quote === undefined)) {
+            return undefined;
+        }
+        const active = this.safeBool(market, 'active');
         const timeStart = this.safeString(market, 'timeStart');
         const created = this.parse8601(timeStart);
         let minCost = undefined;
-        const currenciesValuedInUsd = this.safeValue(this.options, 'currenciesValuedInUsd', {});
+        const currenciesValuedInUsd = this.handleOption('fetchMarkets', 'currenciesValuedInUsd', {});
         const quoteInUsd = this.safeBool(currenciesValuedInUsd, quote, false);
         if (quoteInUsd) {
-            const settings = this.safeValue(market, 'settings', {});
+            const settings = this.safeDict(market, 'settings', {});
             minCost = this.safeNumber(settings, 'limit_usd');
         }
         return this.safeMarketStructure({
@@ -391,8 +504,8 @@ export default class bitteam extends Exchange {
             'strike': undefined,
             'optionType': undefined,
             'precision': {
-                'amount': amountPrecision,
-                'price': pricePrecision,
+                'amount': this.parseNumber(this.parsePrecision(this.safeString(market, 'baseStep'))),
+                'price': this.parseNumber(this.parsePrecision(this.safeString(market, 'quoteStep'))),
             },
             'limits': {
                 'leverage': {
@@ -416,15 +529,15 @@ export default class bitteam extends Exchange {
             'info': market,
         });
     }
+    /**
+     * @method
+     * @name bitteam#fetchCurrencies
+     * @description fetches all available currencies on an exchange
+     * @see https://bit.team/trade/api/documentation#/PUBLIC/getTradeApiCurrencies
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an associative dictionary of currencies
+     */
     async fetchCurrencies(params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchCurrencies
-         * @description fetches all available currencies on an exchange
-         * @see https://bit.team/trade/api/documentation#/PUBLIC/getTradeApiCurrencies
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} an associative dictionary of currencies
-         */
         const response = await this.publicGetTradeApiCurrencies(params);
         //
         //     {
@@ -516,9 +629,9 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const responseResult = this.safeValue(response, 'result', {});
-        const currencies = this.safeValue(responseResult, 'currencies', []);
-        // usding another endpoint to fetch statuses of deposits and withdrawals
+        const responseResult = this.safeDict(response, 'result', {});
+        const currencies = this.safeList(responseResult, 'currencies', []);
+        // using another endpoint to fetch statuses of deposits and withdrawals
         let statusesResponse = await this.publicGetTradeApiCmcAssets();
         //
         //     {
@@ -541,40 +654,46 @@ export default class bitteam extends Exchange {
         //     }
         //
         statusesResponse = this.indexBy(statusesResponse, 'unified_cryptoasset_id');
-        const result = {};
-        for (let i = 0; i < currencies.length; i++) {
-            const currency = currencies[i];
-            const id = this.safeString(currency, 'symbol');
-            const numericId = this.safeInteger(currency, 'id');
-            const code = this.safeCurrencyCode(id);
-            const active = this.safeBool(currency, 'active', false);
-            const precision = this.safeInteger(currency, 'precision');
-            const txLimits = this.safeValue(currency, 'txLimits', {});
-            const minWithdraw = this.safeString(txLimits, 'minWithdraw');
-            const maxWithdraw = this.safeString(txLimits, 'maxWithdraw');
-            const minDeposit = this.safeString(txLimits, 'minDeposit');
-            let fee = undefined;
-            const withdrawCommissionFixed = this.safeValue(txLimits, 'withdrawCommissionFixed', {});
-            let feesByNetworkId = {};
-            const blockChain = this.safeString(currency, 'blockChain');
-            // if only one blockChain
-            if ((blockChain !== undefined) && (blockChain !== '')) {
-                fee = this.parseNumber(withdrawCommissionFixed);
-                feesByNetworkId[blockChain] = fee;
-            }
-            else {
-                feesByNetworkId = withdrawCommissionFixed;
-            }
-            const statuses = this.safeValue(statusesResponse, numericId, {});
-            const deposit = this.safeValue(statuses, 'depositStatus');
-            const withdraw = this.safeValue(statuses, 'withdrawStatus');
-            const networkIds = Object.keys(feesByNetworkId);
-            const networks = {};
-            const networkPrecision = this.safeInteger(currency, 'decimals');
-            for (let j = 0; j < networkIds.length; j++) {
-                const networkId = networkIds[j];
-                const networkCode = this.networkIdToCode(networkId, code);
-                const networkFee = this.safeNumber(feesByNetworkId, networkId);
+        this.options['_temp_currencies_statuses'] = statusesResponse;
+        const result = this.parseCurrencies(currencies);
+        delete this.options['_temp_currencies_statuses'];
+        return result;
+    }
+    parseCurrency(currency) {
+        const statusesResponse = this.safeDict(this.options, '_temp_currencies_statuses', {});
+        const id = this.safeString(currency, 'symbol');
+        const numericId = this.safeInteger(currency, 'id');
+        const code = this.safeCurrencyCode(id);
+        const active = this.safeBool(currency, 'active', false);
+        const precision = this.parseNumber(this.parsePrecision(this.safeString(currency, 'precision')));
+        const txLimits = this.safeDict(currency, 'txLimits', {});
+        const minWithdraw = this.safeString(txLimits, 'minWithdraw');
+        const maxWithdraw = this.safeString(txLimits, 'maxWithdraw');
+        const minDeposit = this.safeString(txLimits, 'minDeposit');
+        let fee = undefined;
+        const withdrawCommissionFixed = this.safeDict(txLimits, 'withdrawCommissionFixed', {});
+        let feesByNetworkId = {};
+        const blockChain = this.safeString(currency, 'blockChain');
+        // if only one blockChain
+        if ((blockChain !== undefined) && (blockChain !== '')) {
+            fee = this.parseNumber(withdrawCommissionFixed);
+            feesByNetworkId[blockChain] = fee;
+        }
+        else {
+            feesByNetworkId = this.extend(withdrawCommissionFixed, {});
+        }
+        const statuses = this.safeDict(statusesResponse, numericId, {});
+        const deposit = this.safeBool(statuses, 'depositStatus');
+        const withdraw = this.safeBool(statuses, 'withdrawStatus');
+        const networkIds = Object.keys(feesByNetworkId);
+        const networks = {};
+        const networkPrecision = this.parseNumber(this.parsePrecision(this.safeString(currency, 'decimals')));
+        const typeRaw = this.safeString(currency, 'type');
+        for (let j = 0; j < networkIds.length; j++) {
+            const networkId = networkIds[j];
+            const networkCode = this.networkIdToCode(networkId, code);
+            const networkFee = this.safeNumber(feesByNetworkId, networkId);
+            if (networkCode !== undefined) {
                 networks[networkCode] = {
                     'id': networkId,
                     'network': networkCode,
@@ -600,49 +719,51 @@ export default class bitteam extends Exchange {
                     'info': currency,
                 };
             }
-            result[code] = {
-                'id': id,
-                'numericId': numericId,
-                'code': code,
-                'name': code,
-                'info': currency,
-                'active': active,
-                'deposit': deposit,
-                'withdraw': withdraw,
-                'fee': fee,
-                'precision': precision,
-                'limits': {
-                    'amount': {
-                        'min': undefined,
-                        'max': undefined,
-                    },
-                    'withdraw': {
-                        'min': this.parseNumber(minWithdraw),
-                        'max': this.parseNumber(maxWithdraw),
-                    },
-                    'deposit': {
-                        'min': this.parseNumber(minDeposit),
-                        'max': undefined,
-                    },
-                },
-                'networks': networks,
-            };
         }
-        return result;
+        return this.safeCurrencyStructure({
+            'id': id,
+            'numericId': numericId,
+            'code': code,
+            'name': code,
+            'info': currency,
+            'active': active,
+            'deposit': deposit,
+            'withdraw': withdraw,
+            'fee': fee,
+            'precision': precision,
+            'limits': {
+                'amount': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+                'withdraw': {
+                    'min': this.parseNumber(minWithdraw),
+                    'max': this.parseNumber(maxWithdraw),
+                },
+                'deposit': {
+                    'min': this.parseNumber(minDeposit),
+                    'max': undefined,
+                },
+            },
+            'type': typeRaw, // 'crypto' or 'fiat'
+            'networks': networks,
+        });
     }
+    /**
+     * @method
+     * @name bitteam#fetchOHLCV
+     * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async fetchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchOHLCV
-         * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const resolution = this.safeString(this.timeframes, timeframe, timeframe);
         const request = {
@@ -677,7 +798,7 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const result = this.safeValue(response, 'result', {});
+        const result = this.safeDict(response, 'result', {});
         const data = this.safeList(result, 'data', []);
         return this.parseOHLCVs(data, market, timeframe, since, limit);
     }
@@ -701,18 +822,20 @@ export default class bitteam extends Exchange {
             this.safeNumber(ohlcv, 'v'),
         ];
     }
+    /**
+     * @method
+     * @name bitteam#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://bit.team/trade/api/documentation#/CMC/getTradeApiCmcOrderbookPair
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return (default 100, max 200)
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async fetchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://bit.team/trade/api/documentation#/CMC/getTradeApiCmcOrderbookPair
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return (default 100, max 200)
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
@@ -720,7 +843,7 @@ export default class bitteam extends Exchange {
         const response = await this.publicGetTradeApiCmcOrderbookPair(this.extend(request, params));
         //
         //     {
-        //         "timestamp": 1701166703285,
+        //         "timestamp": 1701166703284,
         //         "bids": [
         //             [
         //                 2019.334988,
@@ -749,20 +872,22 @@ export default class bitteam extends Exchange {
         const orderbook = this.parseOrderBook(response, symbol, timestamp);
         return orderbook;
     }
+    /**
+     * @method
+     * @name bitteam#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrdersofuser
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of  orde structures to retrieve (default 10)
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.type] the status of the order - 'active', 'closed', 'cancelled', 'all', 'history' (default 'all')
+     * @returns {Order[]} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
+     */
     async fetchOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchOrders
-         * @description fetches information on multiple orders made by the user
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrdersofuser
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of  orde structures to retrieve (default 10)
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @param {string} [params.type] the status of the order - 'active', 'closed', 'cancelled', 'all', 'history' (default 'all')
-         * @returns {Order[]} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const type = this.safeString(params, 'type', 'all');
         const request = {
             'type': type,
@@ -858,22 +983,24 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const result = this.safeValue(response, 'result', {});
+        const result = this.safeDict(response, 'result', {});
         const orders = this.safeList(result, 'orders', []);
         return this.parseOrders(orders, market, since, limit);
     }
+    /**
+     * @method
+     * @name bitteam#fetchOrder
+     * @description fetches information on an order
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrderId
+     * @param {int|string} id order id
+     * @param {string} symbol not used by fetchOrder ()
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
+     */
     async fetchOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchOrder
-         * @description fetches information on an order
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrderId
-         * @param {int|string} id order id
-         * @param {string} symbol not used by bitteam fetchOrder ()
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} An [order structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'id': id,
         };
@@ -919,81 +1046,89 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const result = this.safeDict(response, 'result');
+        const result = this.safeDict(response, 'result', {});
         return this.parseOrder(result, market);
     }
+    /**
+     * @method
+     * @name bitteam#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrdersofuser
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of open order structures to retrieve (default 10)
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
+     */
     async fetchOpenOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrdersofuser
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of open order structures to retrieve (default 10)
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'type': 'active',
         };
         return await this.fetchOrders(symbol, since, limit, this.extend(request, params));
     }
+    /**
+     * @method
+     * @name bitteam#fetchClosedOrders
+     * @description fetches information on multiple closed orders made by the user
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrdersofuser
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of closed order structures to retrieve (default 10)
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
+     */
     async fetchClosedOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchClosedOrders
-         * @description fetches information on multiple closed orders made by the user
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrdersofuser
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of closed order structures to retrieve (default 10)
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'type': 'closed',
         };
         return await this.fetchOrders(symbol, since, limit, this.extend(request, params));
     }
+    /**
+     * @method
+     * @name bitteam#fetchCanceledOrders
+     * @description fetches information on multiple canceled orders made by the user
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrdersofuser
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of canceled order structures to retrieve (default 10)
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
+     */
     async fetchCanceledOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchCanceledOrders
-         * @description fetches information on multiple canceled orders made by the user
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtOrdersofuser
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of canceled order structures to retrieve (default 10)
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'type': 'cancelled',
         };
         return await this.fetchOrders(symbol, since, limit, this.extend(request, params));
     }
+    /**
+     * @method
+     * @name bitteam#createOrder
+     * @description create a trade order
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/postTradeApiCcxtOrdercreate
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
+     */
     async createOrder(symbol, type, side, amount, price = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#createOrder
-         * @description create a trade order
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/postTradeApiCcxtOrdercreate
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} an [order structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
-            'pairId': market['numericId'].toString(),
+            'pairId': this.safeString(market, 'numericId'),
             'type': type,
             'side': side,
             'amount': this.amountToPrecision(symbol, amount),
@@ -1033,18 +1168,20 @@ export default class bitteam extends Exchange {
         const order = this.safeDict(response, 'result', {});
         return this.parseOrder(order, market);
     }
+    /**
+     * @method
+     * @name bitteam#cancelOrder
+     * @description cancels an open order
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/postTradeApiCcxtCancelorder
+     * @param {string} id order id
+     * @param {string} symbol not used by cancelOrder ()
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
+     */
     async cancelOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#cancelOrder
-         * @description cancels an open order
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/postTradeApiCcxtCancelorder
-         * @param {string} id order id
-         * @param {string} symbol not used by bitteam cancelOrder ()
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} An [order structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'id': id,
         };
@@ -1060,22 +1197,24 @@ export default class bitteam extends Exchange {
         const result = this.safeDict(response, 'result', {});
         return this.parseOrder(result);
     }
+    /**
+     * @method
+     * @name bitteam#cancelAllOrders
+     * @description cancel open orders of market
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/postTradeApiCcxtCancelallorder
+     * @param {string} [symbol] unified market symbol
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
+     */
     async cancelAllOrders(symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#cancelAllOrders
-         * @description cancel open orders of market
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/postTradeApiCcxtCancelallorder
-         * @param {string} symbol unified market symbol
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object[]} a list of [order structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let market = undefined;
         const request = {};
         if (symbol !== undefined) {
             market = this.market(symbol);
-            request['pairId'] = market['numericId'].toString();
+            request['pairId'] = this.safeString(market, 'numericId');
         }
         else {
             request['pairId'] = '0'; // '0' for all markets
@@ -1089,7 +1228,7 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const result = this.safeValue(response, 'result', {});
+        const result = this.safeDict(response, 'result', {});
         const orders = [result];
         return this.parseOrders(orders, market);
     }
@@ -1181,7 +1320,7 @@ export default class bitteam extends Exchange {
         //
         const id = this.safeString(order, 'id');
         const marketId = this.safeString(order, 'pair');
-        market = this.safeMarket(marketId, market);
+        const marketResolved = this.safeMarket(marketId, market);
         const clientOrderId = this.safeString(order, 'orderCid');
         let timestamp = undefined;
         const createdAt = this.safeString(order, 'createdAt');
@@ -1196,9 +1335,8 @@ export default class bitteam extends Exchange {
         const status = this.parseOrderStatus(this.safeString(order, 'status'));
         const type = this.parseOrderType(this.safeString(order, 'type'));
         const side = this.safeString(order, 'side');
-        const feeRaw = this.safeValue(order, 'fee');
+        const feeRaw = this.safeDict(order, 'fee');
         const price = this.safeString(order, 'price');
-        const stopPrice = this.safeString(order, 'stopPrice');
         const amount = this.safeString(order, 'quantity');
         const filled = this.safeString(order, 'executed');
         let fee = undefined;
@@ -1219,13 +1357,12 @@ export default class bitteam extends Exchange {
             'lastTradeTimestamp': undefined,
             'lastUpdateTimestamp': lastUpdateTimestamp,
             'status': status,
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'type': type,
             'timeInForce': 'GTC',
             'side': side,
             'price': price,
-            'stopPrice': stopPrice,
-            'triggerPrice': stopPrice,
+            'triggerPrice': this.safeString(order, 'stopPrice'),
             'average': undefined,
             'amount': amount,
             'cost': undefined,
@@ -1235,7 +1372,7 @@ export default class bitteam extends Exchange {
             'trades': undefined,
             'info': order,
             'postOnly': false,
-        }, market);
+        }, marketResolved);
     }
     parseOrderStatus(status) {
         const statuses = {
@@ -1266,18 +1403,20 @@ export default class bitteam extends Exchange {
         const precisionString = this.parsePrecision(precisionRawString);
         return Precise.stringMul(valueRawString, precisionString);
     }
+    /**
+     * @method
+     * @name bitteam#fetchTickers
+     * @description fetches price tickers for multiple markets, statistical calculations with the information calculated over the past 24 hours each market
+     * @see https://bit.team/trade/api/documentation#/CMC/getTradeApiCmcSummary
+     * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a dictionary of [ticker structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#ticker-structure}
+     */
     async fetchTickers(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchTickers
-         * @description fetches price tickers for multiple markets, statistical calculations with the information calculated over the past 24 hours each market
-         * @see https://bit.team/trade/api/documentation#/CMC/getTradeApiCmcSummary
-         * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} a dictionary of [ticker structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#ticker-structure}
-         */
-        await this.loadMarkets();
-        let response = await this.publicGetTradeApiCmcSummary();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const response = await this.publicGetTradeApiCmcSummary();
         //
         //     [
         //         {
@@ -1310,27 +1449,30 @@ export default class bitteam extends Exchange {
         //     ]
         //
         const tickers = [];
-        if (!Array.isArray(response)) {
-            response = [];
+        let rawTickers = [];
+        if (Array.isArray(response)) {
+            rawTickers = response;
         }
-        for (let i = 0; i < response.length; i++) {
-            const rawTicker = response[i];
+        for (let i = 0; i < rawTickers.length; i++) {
+            const rawTicker = rawTickers[i];
             const ticker = this.parseTicker(rawTicker);
             tickers.push(ticker);
         }
         return this.filterByArrayTickers(tickers, 'symbol', symbols);
     }
+    /**
+     * @method
+     * @name bitteam#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://bit.team/trade/api/documentation#/PUBLIC/getTradeApiPairName
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#ticker-structure}
+     */
     async fetchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://bit.team/trade/api/documentation#/PUBLIC/getTradeApiPairName
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} a [ticker structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'name': market['id'],
@@ -1519,7 +1661,7 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const result = this.safeValue(response, 'result', {});
+        const result = this.safeDict(response, 'result', {});
         const pair = this.safeDict(result, 'pair', {});
         return this.parseTicker(pair, market);
     }
@@ -1604,18 +1746,18 @@ export default class bitteam extends Exchange {
         //         "lowest_price_24h": 37574.894999
         //     }
         const marketId = this.safeStringLower(ticker, 'trading_pairs');
-        market = this.safeMarket(marketId, market);
+        const marketResolved = this.safeMarket(marketId, market);
         let bestBidPrice = undefined;
         let bestAskPrice = undefined;
         let bestBidVolume = undefined;
         let bestAskVolume = undefined;
-        const bids = this.safeValue(ticker, 'bids');
-        const asks = this.safeValue(ticker, 'asks');
-        if ((bids !== undefined) && (Array.isArray(bids)) && (asks !== undefined) && (Array.isArray(asks))) {
-            const bestBid = this.safeValue(bids, 0, {});
+        const bids = this.safeList(ticker, 'bids');
+        const asks = this.safeList(ticker, 'asks');
+        if ((bids !== undefined) && (asks !== undefined)) {
+            const bestBid = this.safeDict(bids, 0, {});
             bestBidPrice = this.safeString(bestBid, 'price');
             bestBidVolume = this.safeString(bestBid, 'quantity');
-            const bestAsk = this.safeValue(asks, 0, {});
+            const bestAsk = this.safeDict(asks, 0, {});
             bestAskPrice = this.safeString(bestAsk, 'price');
             bestAskVolume = this.safeString(bestAsk, 'quantity');
         }
@@ -1630,7 +1772,7 @@ export default class bitteam extends Exchange {
         const close = this.safeString2(ticker, 'lastPrice', 'last_price');
         const changePcnt = this.safeString2(ticker, 'change24', 'price_change_percent_24h');
         return this.safeTicker({
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'timestamp': undefined,
             'datetime': undefined,
             'open': undefined,
@@ -1649,21 +1791,23 @@ export default class bitteam extends Exchange {
             'baseVolume': baseVolume,
             'quoteVolume': quoteVolume,
             'info': ticker,
-        }, market);
+        }, marketResolved);
     }
+    /**
+     * @method
+     * @name bitteam#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://bit.team/trade/api/documentation#/CMC/getTradeApiCmcTradesPair
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#public-trades}
+     */
     async fetchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://bit.team/trade/api/documentation#/CMC/getTradeApiCmcTradesPair
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#public-trades}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'pair': market['id'],
@@ -1692,19 +1836,21 @@ export default class bitteam extends Exchange {
         //
         return this.parseTrades(response, market, since, limit);
     }
+    /**
+     * @method
+     * @name bitteam#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtTradesofuser
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve (default 10)
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#trade-structure}
+     */
     async fetchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtTradesofuser
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve (default 10)
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#trade-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {};
         let market = undefined;
         if (symbol !== undefined) {
@@ -1848,7 +1994,7 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const result = this.safeValue(response, 'result', {});
+        const result = this.safeDict(response, 'result', {});
         const trades = this.safeList(result, 'trades', []);
         return this.parseTrades(trades, market, since, limit);
     }
@@ -1908,8 +2054,8 @@ export default class bitteam extends Exchange {
         //     }
         //
         const marketId = this.safeString(trade, 'pair');
-        market = this.safeMarket(marketId, market);
-        const symbol = market['symbol'];
+        const marketResolved = this.safeMarket(marketId, market);
+        const symbol = marketResolved['symbol'];
         const id = this.safeString2(trade, 'id', 'trade_id');
         const price = this.safeString(trade, 'price');
         const amount = this.safeString2(trade, 'quantity', 'base_volume');
@@ -1931,18 +2077,17 @@ export default class bitteam extends Exchange {
                 side = 'sell';
             }
             order = this.safeString(trade, 'makerOrderId');
-            feeInfo = this.safeValue(trade, 'feeMaker', {});
+            feeInfo = this.safeDict(trade, 'feeMaker', {});
         }
         else if (takerOrMaker === 'taker') {
             order = this.safeString(trade, 'takerOrderId');
-            feeInfo = this.safeValue(trade, 'feeTaker', {});
+            feeInfo = this.safeDict(trade, 'feeTaker', {});
         }
         const feeCurrencyId = this.safeString(feeInfo, 'symbol');
         const feeCost = this.safeString(feeInfo, 'amount');
         const fee = {
             'currency': this.safeCurrencyCode(feeCurrencyId),
             'cost': feeCost,
-            'rate': undefined,
         };
         const intTs = this.parseToInt(timestamp);
         return this.safeTrade({
@@ -1959,18 +2104,20 @@ export default class bitteam extends Exchange {
             'cost': cost,
             'fee': fee,
             'info': trade,
-        }, market);
+        }, marketResolved);
     }
+    /**
+     * @method
+     * @name bitteam#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtBalance
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#balance-structure}
+     */
     async fetchBalance(params = {}) {
-        /**
-         * @method
-         * @name betteam#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiCcxtBalance
-         * @param {object} [params] extra parameters specific to the betteam api endpoint
-         * @returns {object} a [balance structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#balance-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const response = await this.privateGetTradeApiCcxtBalance(params);
         return this.parseBalance(response);
     }
@@ -2016,43 +2163,46 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const timestamp = this.milliseconds();
         const balance = {
             'info': response,
-            'timestamp': timestamp,
-            'datetime': this.iso8601(timestamp),
+            'timestamp': undefined,
+            'datetime': undefined,
         };
-        const result = this.safeValue(response, 'result', {});
+        const result = this.safeDict(response, 'result', {});
         const balanceByCurrencies = this.omit(result, ['free', 'used', 'total']);
         const rawCurrencyIds = Object.keys(balanceByCurrencies);
         for (let i = 0; i < rawCurrencyIds.length; i++) {
             const rawCurrencyId = rawCurrencyIds[i];
-            const currencyBalance = this.safeValue(result, rawCurrencyId);
+            const currencyBalance = this.safeDict(result, rawCurrencyId);
             const free = this.safeString(currencyBalance, 'free');
             const used = this.safeString(currencyBalance, 'used');
             const total = this.safeString(currencyBalance, 'total');
             const currencyCode = this.safeCurrencyCode(rawCurrencyId.toLowerCase());
-            balance[currencyCode] = {
-                'free': free,
-                'used': used,
-                'total': total,
-            };
+            if (currencyCode !== undefined) {
+                balance[currencyCode] = {
+                    'free': free,
+                    'used': used,
+                    'total': total,
+                };
+            }
         }
         return this.safeBalance(balance);
     }
+    /**
+     * @method
+     * @name bitteam#fetchDepositsWithdrawals
+     * @description fetch history of deposits and withdrawals from external wallets and between CoinList Pro trading account and CoinList wallet
+     * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiTransactionsofuser
+     * @param {string} [code] unified currency code for the currency of the deposit/withdrawals
+     * @param {int} [since] timestamp in ms of the earliest deposit/withdrawal
+     * @param {int} [limit] max number of deposit/withdrawals to return (default 10)
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a list of [transaction structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#transaction-structure}
+     */
     async fetchDepositsWithdrawals(code = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitteam#fetchDepositsWithdrawals
-         * @description fetch history of deposits and withdrawals from external wallets and between CoinList Pro trading account and CoinList wallet
-         * @see https://bit.team/trade/api/documentation#/PRIVATE/getTradeApiTransactionsofuser
-         * @param {string} [code] unified currency code for the currency of the deposit/withdrawals
-         * @param {int} [since] timestamp in ms of the earliest deposit/withdrawal
-         * @param {int} [limit] max number of deposit/withdrawals to return (default 10)
-         * @param {object} [params] extra parameters specific to the bitteam api endpoint
-         * @returns {object} a list of [transaction structure]{@link https://github.com/ccxt/ccxt/wiki/Manual#transaction-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let currency = undefined;
         const request = {};
         if (code !== undefined) {
@@ -2151,7 +2301,7 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const result = this.safeValue(response, 'result', {});
+        const result = this.safeDict(response, 'result', {});
         const transactions = this.safeList(result, 'transactions', []);
         return this.parseTransactions(transactions, currency, since, limit);
     }
@@ -2203,17 +2353,17 @@ export default class bitteam extends Exchange {
         //         }
         //     }
         //
-        const currencyObject = this.safeValue(transaction, 'currency');
+        const currencyObject = this.safeDict(transaction, 'currency');
         const currencyId = this.safeString(currencyObject, 'symbol');
         const code = this.safeCurrencyCode(currencyId, currency);
         const id = this.safeString(transaction, 'id');
-        const params = this.safeValue(transaction, 'params');
+        const params = this.safeDict(transaction, 'params');
         const txid = this.safeString(params, 'tx_id');
         const timestamp = this.safeInteger(transaction, 'timestamp');
         let networkId = this.safeString(transaction, 'blockChain');
         if (networkId === undefined) {
-            const links = this.safeValue(currencyObject, 'links', []);
-            const blockChain = this.safeValue(links, 0, {});
+            const links = this.safeList(currencyObject, 'links', []);
+            const blockChain = this.safeDict(links, 0, {});
             networkId = this.safeString(blockChain, 'blockChain');
         }
         const addressFrom = this.safeString(transaction, 'sender');
@@ -2221,14 +2371,14 @@ export default class bitteam extends Exchange {
         const tag = this.safeString(transaction, 'message');
         const type = this.parseTransactionType(this.safeString(transaction, 'type'));
         const amount = this.parseValueToPricision(transaction, 'amount', currencyObject, 'decimals');
-        const status = this.parseTransactionStatus(this.safeValue(transaction, 'status'));
+        const status = this.parseTransactionStatus(this.safeString(transaction, 'status'));
         return {
             'info': transaction,
             'id': id,
             'txid': txid,
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
-            'network': this.networkIdToCode(networkId),
+            'network': this.networkIdToCode(networkId, code),
             'addressFrom': addressFrom,
             'address': undefined,
             'addressTo': addressTo,
@@ -2259,15 +2409,22 @@ export default class bitteam extends Exchange {
         };
         return this.safeString(statuses, status, status);
     }
-    sign(path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
+    sign(path, api = ['public'], method = 'GET', params = {}) {
+        const apiName = api[0];
         const request = this.omit(params, this.extractParams(path));
         const endpoint = '/' + this.implodeParams(path, params);
-        let url = this.urls['api'][api] + endpoint;
+        const apiUrl = this.safeString(this.urls['api'], apiName);
+        if (apiUrl === undefined) {
+            throw new ExchangeError(this.id + ' sign() has no API URL for this endpoint');
+        }
+        let url = apiUrl + endpoint;
         const query = this.urlencode(request);
-        if (api === 'private') {
+        let requestBody = undefined;
+        let requestHeaders = undefined;
+        if (apiName === 'private') {
             this.checkRequiredCredentials();
             if (method === 'POST') {
-                body = this.json(request);
+                requestBody = this.json(request);
             }
             else if (query.length !== 0) {
                 url += '?' + query;
@@ -2275,7 +2432,7 @@ export default class bitteam extends Exchange {
             const auth = this.apiKey + ':' + this.secret;
             const auth64 = this.stringToBase64(auth);
             const signature = 'Basic ' + auth64;
-            headers = {
+            requestHeaders = {
                 'Authorization': signature,
                 'Content-Type': 'application/json',
             };
@@ -2283,7 +2440,9 @@ export default class bitteam extends Exchange {
         else if (query.length !== 0) {
             url += '?' + query;
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const bodyResolved = requestBody;
+        const headersResolved = requestHeaders;
+        return { 'url': url, 'method': method, 'body': bodyResolved, 'headers': headersResolved };
     }
     handleErrors(code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
@@ -2293,12 +2452,12 @@ export default class bitteam extends Exchange {
             if (code === 404) {
                 if ((url.indexOf('/ccxt/order/') >= 0) && (method === 'GET')) {
                     const parts = url.split('/order/');
-                    const orderId = this.safeString(parts, 1);
+                    const orderId = this.safeString(parts, 1, '');
                     throw new OrderNotFound(this.id + ' order ' + orderId + ' not found');
                 }
                 if (url.indexOf('/cmc/orderbook/') >= 0) {
                     const parts = url.split('/cmc/orderbook/');
-                    const symbolId = this.safeString(parts, 1);
+                    const symbolId = this.safeString(parts, 1, '');
                     throw new BadSymbol(this.id + ' symbolId ' + symbolId + ' not found');
                 }
             }

@@ -9,8 +9,7 @@ use Exception; // a common import
 use ccxt\abstract\onetrading as Exchange;
 
 class onetrading extends Exchange {
-
-    public function describe() {
+    public function describe(): array {
         return $this->deep_extend(parent::describe(), array(
             'id' => 'onetrading',
             'name' => 'One Trading',
@@ -23,50 +22,79 @@ class onetrading extends Exchange {
                 'CORS' => null,
                 'spot' => true,
                 'margin' => false,
-                'swap' => false,
-                'future' => false,
+                'swap' => true,
+                'future' => true,
                 'option' => false,
                 'addMargin' => false,
+                'borrowCrossMargin' => false,
+                'borrowIsolatedMargin' => false,
+                'borrowMargin' => false,
                 'cancelAllOrders' => true,
                 'cancelOrder' => true,
                 'cancelOrders' => true,
                 'closeAllPositions' => false,
                 'closePosition' => false,
-                'createDepositAddress' => true,
+                'createDepositAddress' => false,
                 'createOrder' => true,
                 'createReduceOnlyOrder' => false,
                 'createStopLimitOrder' => true,
                 'createStopMarketOrder' => false,
                 'createStopOrder' => true,
                 'fetchAccounts' => false,
+                'fetchAllGreeks' => false,
                 'fetchBalance' => true,
+                'fetchBorrowInterest' => false,
+                'fetchBorrowRate' => false,
                 'fetchBorrowRateHistories' => false,
                 'fetchBorrowRateHistory' => false,
+                'fetchBorrowRates' => false,
+                'fetchBorrowRatesPerSymbol' => false,
                 'fetchClosedOrders' => true,
                 'fetchCrossBorrowRate' => false,
                 'fetchCrossBorrowRates' => false,
                 'fetchCurrencies' => true,
                 'fetchDeposit' => false,
-                'fetchDepositAddress' => true,
+                'fetchDepositAddress' => false,
                 'fetchDepositAddresses' => false,
-                'fetchDeposits' => true,
+                'fetchDepositAddressesByNetwork' => false,
+                'fetchDeposits' => false,
                 'fetchDepositsWithdrawals' => false,
                 'fetchFundingHistory' => false,
+                'fetchFundingInterval' => false,
+                'fetchFundingIntervals' => false,
                 'fetchFundingRate' => false,
                 'fetchFundingRateHistory' => false,
                 'fetchFundingRates' => false,
+                'fetchGreeks' => false,
                 'fetchIndexOHLCV' => false,
                 'fetchIsolatedBorrowRate' => false,
                 'fetchIsolatedBorrowRates' => false,
+                'fetchIsolatedPositions' => false,
                 'fetchLedger' => false,
                 'fetchLeverage' => false,
+                'fetchLeverages' => false,
+                'fetchLeverageTiers' => false,
+                'fetchLiquidations' => false,
+                'fetchLongShortRatio' => false,
+                'fetchLongShortRatioHistory' => false,
+                'fetchMarginAdjustmentHistory' => false,
                 'fetchMarginMode' => false,
+                'fetchMarginModes' => false,
+                'fetchMarketLeverageTiers' => false,
                 'fetchMarkets' => true,
                 'fetchMarkOHLCV' => false,
+                'fetchMarkPrice' => false,
+                'fetchMarkPrices' => false,
+                'fetchMyLiquidations' => false,
+                'fetchMySettlementHistory' => false,
                 'fetchMyTrades' => true,
                 'fetchOHLCV' => true,
+                'fetchOpenInterest' => false,
                 'fetchOpenInterestHistory' => false,
+                'fetchOpenInterests' => false,
                 'fetchOpenOrders' => true,
+                'fetchOption' => false,
+                'fetchOptionChain' => false,
                 'fetchOrder' => true,
                 'fetchOrderBook' => true,
                 'fetchOrders' => false,
@@ -79,10 +107,11 @@ class onetrading extends Exchange {
                 'fetchPositionsHistory' => false,
                 'fetchPositionsRisk' => false,
                 'fetchPremiumIndexOHLCV' => false,
+                'fetchSettlementHistory' => false,
                 'fetchTicker' => true,
                 'fetchTickers' => true,
                 'fetchTime' => true,
-                'fetchTrades' => true,
+                'fetchTrades' => false,
                 'fetchTradingFee' => false,
                 'fetchTradingFees' => true,
                 'fetchTransactionFee' => false,
@@ -90,15 +119,19 @@ class onetrading extends Exchange {
                 'fetchTransactions' => false,
                 'fetchTransfer' => false,
                 'fetchTransfers' => false,
+                'fetchUnderlyingAssets' => false,
+                'fetchVolatilityHistory' => false,
                 'fetchWithdrawal' => false,
-                'fetchWithdrawals' => true,
+                'fetchWithdrawals' => false,
                 'reduceMargin' => false,
+                'repayCrossMargin' => false,
+                'repayIsolatedMargin' => false,
                 'setLeverage' => false,
                 'setMargin' => false,
                 'setMarginMode' => false,
                 'setPositionMode' => false,
                 'transfer' => false,
-                'withdraw' => true,
+                'withdraw' => false,
             ),
             'timeframes' => array(
                 '1m' => '1/MINUTES',
@@ -112,10 +145,10 @@ class onetrading extends Exchange {
                 '1M' => '1/MONTHS',
             ),
             'urls' => array(
-                'logo' => 'https://github.com/ccxt/ccxt/assets/43336371/bdbc26fd-02f2-4ca7-9f1e-17333690bb1c',
+                'logo' => 'https://github.com/user-attachments/assets/341a1b01-7660-402a-9a2b-876391e52f15',
                 'api' => array(
-                    'public' => 'https://api.onetrading.com/public',
-                    'private' => 'https://api.onetrading.com/public',
+                    'public' => 'https://api.onetrading.com/fast',
+                    'private' => 'https://api.onetrading.com/fast',
                 ),
                 'www' => 'https://onetrading.com/',
                 'doc' => array(
@@ -126,45 +159,44 @@ class onetrading extends Exchange {
             'api' => array(
                 'public' => array(
                     'get' => array(
-                        'currencies',
-                        'candlesticks/{instrument_code}',
-                        'fees',
-                        'instruments',
-                        'order-book/{instrument_code}',
-                        'market-ticker',
-                        'market-ticker/{instrument_code}',
-                        'price-ticks/{instrument_code}',
-                        'time',
+                        'currencies' => array( 'cost' => 1 ),
+                        'candlesticks/{instrument_code}' => array( 'cost' => 1 ),
+                        'fees' => array( 'cost' => 1 ),
+                        'instruments' => array( 'cost' => 1 ),
+                        'order-book/{instrument_code}' => array( 'cost' => 1 ),
+                        'market-ticker' => array( 'cost' => 1 ),
+                        'market-ticker/{instrument_code}' => array( 'cost' => 1 ),
+                        'time' => array( 'cost' => 1 ),
+                        'funding-rate' => array( 'cost' => 1 ),
+                        'funding-rate/history' => array( 'cost' => 1 ),
+                        'funding-rate/settings' => array( 'cost' => 1 ),
                     ),
                 ),
                 'private' => array(
                     'get' => array(
-                        'account/balances',
-                        'account/deposit/crypto/{currency_code}',
-                        'account/deposit/fiat/EUR',
-                        'account/deposits',
-                        'account/deposits/bitpanda',
-                        'account/withdrawals',
-                        'account/withdrawals/bitpanda',
-                        'account/fees',
-                        'account/orders',
-                        'account/orders/{order_id}',
-                        'account/orders/{order_id}/trades',
-                        'account/trades',
-                        'account/trades/{trade_id}',
-                        'account/trading-volume',
+                        'account/balances' => array( 'cost' => 1 ),
+                        'account/fees' => array( 'cost' => 1 ),
+                        'account/orders' => array( 'cost' => 1 ),
+                        'account/orders/{order_id}' => array( 'cost' => 1 ),
+                        'account/orders/client/{client_id}' => array( 'cost' => 1 ),
+                        'account/orders/{order_id}/trades' => array( 'cost' => 1 ),
+                        'account/trades' => array( 'cost' => 1 ),
+                        'account/trade/{trade_id}' => array( 'cost' => 1 ),
+                        'account/futures/summary' => array( 'cost' => 1 ),
+                        'account/futures/positions' => array( 'cost' => 1 ),
+                        'account/futures/positions-history' => array( 'cost' => 1 ),
+                        'account/futures/positions/{position_id}/trades' => array( 'cost' => 1 ),
+                        'account/futures/positions/{position_id}/funding-payments' => array( 'cost' => 1 ),
+                        'account/futures/funding-payments' => array( 'cost' => 1 ),
                     ),
                     'post' => array(
-                        'account/deposit/crypto',
-                        'account/withdraw/crypto',
-                        'account/withdraw/fiat',
-                        'account/fees',
-                        'account/orders',
+                        'account/orders' => array( 'cost' => 1 ),
+                        'subaccounts/transfers' => array( 'cost' => 1 ),
                     ),
                     'delete' => array(
-                        'account/orders',
-                        'account/orders/{order_id}',
-                        'account/orders/client/{client_id}',
+                        'account/orders' => array( 'cost' => 1 ),
+                        'account/orders/{order_id}' => array( 'cost' => 1 ),
+                        'account/orders/client/{client_id}' => array( 'cost' => 1 ),
                     ),
                 ),
             ),
@@ -285,6 +317,7 @@ class onetrading extends Exchange {
                     'INTERNAL_SERVER_ERROR' => '\\ccxt\\ExchangeError',
                 ),
                 'broad' => array(
+                    'Order not found.' => '\\ccxt\\OrderNotFound',
                 ),
             ),
             'commonCurrencies' => array(
@@ -292,123 +325,290 @@ class onetrading extends Exchange {
             ),
             // exchange-specific options
             'options' => array(
+                'mica' => true,
                 'fetchTradingFees' => array(
                     'method' => 'fetchPrivateTradingFees', // or 'fetchPublicTradingFees'
                 ),
                 'fiat' => array( 'EUR', 'CHF' ),
             ),
+            'features' => array(
+                'spot' => array(
+                    'sandbox' => false,
+                    'createOrder' => array(
+                        'marginMode' => false,
+                        'triggerPrice' => false,
+                        'triggerDirection' => false,
+                        'triggerPriceType' => null,
+                        'stopLossPrice' => false,
+                        'takeProfitPrice' => false,
+                        'attachedStopLossTakeProfit' => null,
+                        'timeInForce' => array(
+                            'IOC' => true,
+                            'FOK' => true,
+                            'PO' => true,
+                            'GTD' => false,
+                        ),
+                        'hedged' => false,
+                        'trailing' => false,
+                        'leverage' => false,
+                        'marketBuyByCost' => false,
+                        'marketBuyRequiresPrice' => false,
+                        'selfTradePrevention' => false,
+                        'iceberg' => false,
+                    ),
+                    'createOrders' => null,
+                    'fetchMyTrades' => array(
+                        'marginMode' => false,
+                        'limit' => 100,
+                        'daysBack' => 100000, // todo
+                        'untilDays' => 30, // days between start-end
+                        'symbolRequired' => false,
+                    ),
+                    'fetchOrder' => array(
+                        'marginMode' => false,
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => false,
+                    ),
+                    'fetchOpenOrders' => array(
+                        'marginMode' => false,
+                        'limit' => 100,
+                        'untilDays' => 30, // days between start-end
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => false,
+                    ),
+                    'fetchOrders' => null, // todo
+                    'fetchClosedOrders' => array(
+                        'marginMode' => false,
+                        'limit' => 100,
+                        'daysBack' => 100000, // todo
+                        'daysBackCanceled' => 1 / 12, // todo
+                        'untilDays' => 30, // days between start-end
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => false,
+                    ),
+                    'fetchOHLCV' => array(
+                        'limit' => 5000,
+                    ),
+                ),
+                'swap' => array(
+                    'linear' => null,
+                    'inverse' => null,
+                ),
+                'future' => array(
+                    'linear' => null,
+                    'inverse' => null,
+                ),
+            ),
         ));
     }
 
-    public function fetch_time($params = array ()) {
+    public function fetch_time($params = array()): ?int {
         /**
          * fetches the current integer timestamp in milliseconds from the exchange server
+         *
+         * @see https://docs.onetrading.com/rest/public/time
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
          * @return {int} the current integer timestamp in milliseconds from the exchange server
          */
-        $response = $this->publicGetTime ($params);
+        $response = $this->publicGetTime($params);
         //
         //     {
-        //         "iso" => "2020-07-10T05:17:26.716Z",
-        //         "epoch_millis" => 1594358246716,
+        //         "iso": "2020-07-10T05:17:26.716Z",
+        //         "epoch_millis": 1594358246716,
         //     }
         //
         return $this->safe_integer($response, 'epoch_millis');
     }
 
-    public function fetch_currencies($params = array ()): ?array {
+    public function fetch_currencies($params = array()): array {
         /**
          * fetches all available currencies on an exchange
+         *
+         * @see https://docs.onetrading.com/rest/public/currencies
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
          * @return {array} an associative dictionary of currencies
          */
-        $response = $this->publicGetCurrencies ($params);
+        $response = $this->publicGetCurrencies($params);
         //
-        //     array(
+        //     [
         //         {
-        //             "code":"BEST",
-        //             "precision":8
-        //         }
-        //     )
+        //             "code": "USDT",
+        //             "precision": 6,
+        //             "unified_cryptoasset_id": 825,
+        //             "name": "Tether USDt",
+        //             "collateral_percentage": 0
+        //         },
+        //     ]
         //
-        $result = array();
-        for ($i = 0; $i < count($response); $i++) {
-            $currency = $response[$i];
-            $id = $this->safe_string($currency, 'code');
-            $code = $this->safe_currency_code($id);
-            $result[$code] = array(
-                'id' => $id,
-                'code' => $code,
-                'name' => null,
-                'info' => $currency, // the original payload
-                'active' => null,
-                'fee' => null,
-                'precision' => $this->parse_number($this->parse_precision($this->safe_string($currency, 'precision'))),
-                'withdraw' => null,
-                'deposit' => null,
-                'limits' => array(
-                    'amount' => array( 'min' => null, 'max' => null ),
-                    'withdraw' => array( 'min' => null, 'max' => null ),
-                ),
-                'networks' => array(),
-            );
-        }
-        return $result;
+        return $this->parse_currencies($response);
     }
 
-    public function fetch_markets($params = array ()): array {
+    public function parse_currency(array $rawCurrency): array {
+        $id = $this->safe_string($rawCurrency, 'code');
+        $code = $this->safe_currency_code($id);
+        return $this->safe_currency_structure(array(
+            'id' => $id,
+            'code' => $code,
+            'name' => $this->safe_string($rawCurrency, 'name'),
+            'info' => $rawCurrency,
+            'active' => null,
+            'fee' => null,
+            'precision' => $this->parse_number($this->parse_precision($this->safe_string($rawCurrency, 'precision'))),
+            'withdraw' => null,
+            'deposit' => null,
+            'limits' => array(
+                'amount' => array( 'min' => null, 'max' => null ),
+                'withdraw' => array( 'min' => null, 'max' => null ),
+            ),
+            'networks' => array(),
+        ));
+    }
+
+    public function fetch_markets($params = array()): array {
         /**
          * retrieves data on all markets for onetrading
+         *
+         * @see https://docs.onetrading.com/rest/public/instruments
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
          * @return {array[]} an array of objects representing market data
          */
-        $response = $this->publicGetInstruments ($params);
+        $response = $this->publicGetInstruments($params);
         //
-        //     array(
+        //     [
         //         {
-        //             "state" => "ACTIVE",
-        //             "base" => array( code => "ETH", precision => 8 ),
-        //             "quote" => array( code => "CHF", precision => 2 ),
-        //             "amount_precision" => 4,
-        //             "market_precision" => 2,
-        //             "min_size" => "10.0"
+        //             "state": "ACTIVE",
+        //             "base": { code: "ETH", precision: 8 },
+        //             "quote": { code: "CHF", precision: 2 },
+        //             "amount_precision": 4,
+        //             "market_precision": 2,
+        //             "min_size": "10.0"
         //         }
-        //     )
+        //     ]
         //
         return $this->parse_markets($response);
     }
 
     public function parse_market(array $market): array {
-        $baseAsset = $this->safe_value($market, 'base', array());
-        $quoteAsset = $this->safe_value($market, 'quote', array());
+        //
+        //   {
+        //      "base":{
+        //         "code":"BTC",
+        //         "precision":"5"
+        //      },
+        //      "quote":{
+        //         "code":"USDC",
+        //         "precision":"2"
+        //      },
+        //      "amount_precision":"5",
+        //      "market_precision":"2",
+        //      "min_size":"10.0",
+        //      "min_price":"1000",
+        //      "max_price":"10000000",
+        //      "id":"BTC_USDC",
+        //      "type":"SPOT",
+        //      "state":"ACTIVE"
+        //   }
+        //
+        //
+        //  {
+        //      "base": {
+        //          "code": "BTC",
+        //          "precision": 5
+        //      },
+        //      "quote": {
+        //          "code": "EUR",
+        //          "precision": 2
+        //      },
+        //      "amount_precision": 5,
+        //      "market_precision": 2,
+        //      "min_size": "10.0",
+        //      "min_price": "1000",
+        //      "max_price": "10000000",
+        //      "id": "BTC_EUR_P",
+        //      "type": "PERP",
+        //      "state": "ACTIVE"
+        //  }
+        //
+        //  {
+        //      "base": { "code": "BTC", "precision": 8 },
+        //      "quote": { "code": "USD", "precision": 8 },
+        //      "amount_precision": 5,
+        //      "market_precision": 2,
+        //      "min_size": "10.0",
+        //      "min_price": "1000",
+        //      "max_price": "10000000",
+        //      "id": "BTC_USD_P",
+        //      "price_collar_percentage": "10",
+        //      "type": "DATED_FUTURE", // or EQUITY_FUTURE
+        //      "state": "ACTIVE",
+        //      "funding_period": 240,
+        //      "market_offset": 0,
+        //      "funding_schedule": { "type": "FIXED_INTERVAL", "period_minutes": 240 },
+        //      "contract_expiry_date": "2031-04-20",
+        //      "contract_duration": "5Y"
+        //  }
+        //
+        $baseAsset = $this->safe_dict($market, 'base', array());
+        $quoteAsset = $this->safe_dict($market, 'quote', array());
         $baseId = $this->safe_string($baseAsset, 'code');
         $quoteId = $this->safe_string($quoteAsset, 'code');
-        $id = $baseId . '_' . $quoteId;
+        $id = $this->safe_string($market, 'id');
         $base = $this->safe_currency_code($baseId);
         $quote = $this->safe_currency_code($quoteId);
+        if (($base === null) || ($quote === null)) {
+            return null;
+        }
         $state = $this->safe_string($market, 'state');
-        return array(
+        $type = $this->safe_string($market, 'type');
+        $isPerp = $type === 'PERP';
+        $isFuture = ($type === 'DATED_FUTURE') || ($type === 'EQUITY_FUTURE');
+        $isContract = $isPerp || $isFuture;
+        $expiry = null;
+        $expiryDate = $this->safe_string($market, 'contract_expiry_date');
+        if ($expiryDate !== null) {
+            $expiry = $this->parse8601($expiryDate . 'T00:00:00Z');
+        }
+        $symbol = $base . '/' . $quote;
+        if ($isContract) {
+            $symbol = $symbol . ':' . $quote;
+            if ($isFuture && ($expiry !== null)) {
+                $symbol = $symbol . '-' . $this->yymmdd($expiry);
+            }
+        }
+        $marketType = 'spot';
+        if ($isPerp) {
+            $marketType = 'swap';
+        } elseif ($isFuture) {
+            $marketType = 'future';
+        }
+        return $this->safe_market_structure(array(
             'id' => $id,
-            'symbol' => $base . '/' . $quote,
+            'symbol' => $symbol,
             'base' => $base,
             'quote' => $quote,
-            'settle' => null,
+            'settle' => $isContract ? $quote : null,
             'baseId' => $baseId,
             'quoteId' => $quoteId,
-            'settleId' => null,
-            'type' => 'spot',
-            'spot' => true,
+            'settleId' => $isContract ? $quoteId : null,
+            'type' => $marketType,
+            'spot' => !$isContract,
             'margin' => false,
-            'swap' => false,
-            'future' => false,
+            'swap' => $isPerp,
+            'future' => $isFuture,
             'option' => false,
-            'active' => ($state === 'ACTIVE'),
-            'contract' => false,
-            'linear' => null,
-            'inverse' => null,
-            'contractSize' => null,
-            'expiry' => null,
-            'expiryDatetime' => null,
+            'active' => ($state === 'ACTIVE') || ($state === 'POST_ONLY'), // POST_ONLY markets accept maker orders and reject taker orders — deliberately flagged tradeable rather than hidden, ccxt has no partial-trading flag
+            'contract' => $isContract,
+            'linear' => $isContract ? true : null,
+            'inverse' => $isContract ? false : null,
+            'contractSize' => $isContract ? $this->parse_number('1') : null,
+            'expiry' => $expiry,
+            'expiryDatetime' => $this->iso8601($expiry),
             'strike' => null,
             'optionType' => null,
             'precision' => array(
@@ -435,100 +635,165 @@ class onetrading extends Exchange {
             ),
             'created' => null,
             'info' => $market,
-        );
+        ));
     }
 
-    public function fetch_trading_fees($params = array ()): array {
+    public function fetch_trading_fees($params = array()): array {
         /**
          * fetch the trading fees for multiple markets
+         *
+         * @see https://docs.onetrading.com/rest/public/fee-groups
+         * @see https://docs.onetrading.com/rest/trading/fees
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a dictionary of ~@link https://docs.ccxt.com/#/?id=fee-structure fee structures~ indexed by market symbols
+         * @param {string} [$params->method] fetchPrivateTradingFees or fetchPublicTradingFees
+         * @return {array} a dictionary of ~@link https://docs.ccxt.com/?id=fee-structure fee structures~ indexed by market symbols
          */
         $method = $this->safe_string($params, 'method');
-        $params = $this->omit($params, 'method');
+        $paramsOmitted = $this->omit($params, 'method');
         if ($method === null) {
-            $options = $this->safe_value($this->options, 'fetchTradingFees', array());
+            $options = $this->safe_dict($this->options, 'fetchTradingFees', array());
             $method = $this->safe_string($options, 'method', 'fetchPrivateTradingFees');
         }
-        return $this->$method ($params);
+        if ($method === 'fetchPrivateTradingFees') {
+            return $this->fetch_private_trading_fees($paramsOmitted);
+        } elseif ($method === 'fetchPublicTradingFees') {
+            return $this->fetch_public_trading_fees($paramsOmitted);
+        } else {
+            throw new NotSupported($this->id . ' fetchTradingFees() does not support ' . $method . ', fetchPrivateTradingFees and fetchPublicTradingFees are supported');
+        }
     }
 
-    public function fetch_public_trading_fees($params = array ()) {
-        $this->load_markets();
-        $response = $this->publicGetFees ($params);
+    public function fetch_public_trading_fees($params = array()): array {
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
+        $response = $this->publicGetFees($params);
         //
-        //     array(
-        //         {
-        //             "fee_group_id":"default",
-        //             "display_text":"The standard fee plan.",
-        //             "fee_tiers":array(
-        //                 array("volume":"0.0","fee_group_id":"default","maker_fee":"0.1","taker_fee":"0.15"),
-        //                 array("volume":"100.0","fee_group_id":"default","maker_fee":"0.1","taker_fee":"0.13"),
-        //                 array("volume":"250.0","fee_group_id":"default","maker_fee":"0.09","taker_fee":"0.13"),
-        //                 array("volume":"1000.0","fee_group_id":"default","maker_fee":"0.075","taker_fee":"0.1"),
-        //                 array("volume":"5000.0","fee_group_id":"default","maker_fee":"0.06","taker_fee":"0.09"),
-        //                 array("volume":"10000.0","fee_group_id":"default","maker_fee":"0.05","taker_fee":"0.075"),
-        //                 array("volume":"20000.0","fee_group_id":"default","maker_fee":"0.05","taker_fee":"0.065")
-        //             ),
-        //             "fee_discount_rate":"25.0",
-        //             "minimum_price_value":"0.12"
-        //         }
-        //     )
+        // [
+        //     {
+        //         'fee_group_id': 'SPOT',
+        //         'display_text': 'The fee plan for spot trading.',
+        //         'volume_currency': 'EUR',
+        //         'fee_tiers': [
+        //             {
+        //                 'volume': '0',
+        //                 'fee_group_id': 'SPOT',
+        //                 'maker_fee': '0.1000',
+        //                 'taker_fee': '0.2000',
+        //             },
+        //             {
+        //                 'volume': '10000',
+        //                 'fee_group_id': 'SPOT',
+        //                 'maker_fee': '0.0400',
+        //                 'taker_fee': '0.0800',
+        //             },
+        //         ],
+        //     },
+        //     {
+        //         'fee_group_id': 'FUTURES',
+        //         'display_text': 'The fee plan for futures trading.',
+        //         'volume_currency': 'EUR',
+        //         'fee_tiers': [
+        //             {
+        //                 'volume': '0',
+        //                 'fee_group_id': 'FUTURES',
+        //                 'maker_fee': '0.1000',
+        //                 'taker_fee': '0.2000',
+        //             },
+        //             {
+        //                 'volume': '10000',
+        //                 'fee_group_id': 'FUTURES',
+        //                 'maker_fee': '0.0400',
+        //                 'taker_fee': '0.0800',
+        //             },
+        //         ],
+        //     },
+        // ];
         //
-        $first = $this->safe_value($response, 0, array());
-        $feeTiers = $this->safe_value($first, 'fee_tiers');
-        $tiers = $this->parse_fee_tiers($feeTiers);
-        $firstTier = $this->safe_value($feeTiers, 0, array());
+        $spotFees = $this->safe_dict($response, 0, array());
+        $futuresFees = $this->safe_dict($response, 1, array());
+        $spotFeeTiers = $this->safe_list($spotFees, 'fee_tiers', array());
+        $futuresFeeTiers = $this->safe_list($futuresFees, 'fee_tiers', array());
+        $spotTiers = $this->parse_fee_tiers($spotFeeTiers);
+        $futuresTiers = $this->parse_fee_tiers($futuresFeeTiers);
+        $firstSpotTier = $this->safe_dict($spotTiers, 0, array());
+        $firstFuturesTier = $this->safe_dict($futuresTiers, 0, array());
         $result = array();
-        for ($i = 0; $i < count($this->symbols); $i++) {
-            $symbol = $this->symbols[$i];
+        $symbols = $this->symbols;
+        for ($i = 0; $i < count($symbols); $i++) {
+            $symbol = $symbols[$i];
+            $market = $this->market($symbol);
+            $tierObject = ($this->safe_bool($market, 'spot', false)) ? $firstSpotTier : $firstFuturesTier;
             $result[$symbol] = array(
-                'info' => $first,
+                'info' => $spotFees,
                 'symbol' => $symbol,
-                'maker' => $this->safe_number($firstTier, 'maker_fee'),
-                'taker' => $this->safe_number($firstTier, 'taker_fee'),
+                'maker' => $this->safe_number($tierObject, 'maker_fee'),
+                'taker' => $this->safe_number($tierObject, 'taker_fee'),
                 'percentage' => true,
                 'tierBased' => true,
-                'tiers' => $tiers,
+                'tiers' => $spotTiers,
             );
         }
         return $result;
     }
 
-    public function fetch_private_trading_fees($params = array ()) {
-        $this->load_markets();
-        $response = $this->privateGetAccountFees ($params);
+    public function fetch_private_trading_fees($params = array()): array {
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
+        $response = $this->privateGetAccountFees($params);
         //
-        //     {
-        //         "account_id" => "ed524d00-820a-11e9-8f1e-69602df16d85",
-        //         "running_trading_volume" => "0.0",
-        //         "fee_group_id" => "default",
-        //         "collect_fees_in_best" => false,
-        //         "fee_discount_rate" => "25.0",
-        //         "minimum_price_value" => "0.12",
-        //         "fee_tiers" => array(
-        //             array( "volume" => "0.0", "fee_group_id" => "default", "maker_fee" => "0.1", "taker_fee" => "0.1" ),
-        //             array( "volume" => "100.0", "fee_group_id" => "default", "maker_fee" => "0.09", "taker_fee" => "0.1" ),
-        //             array( "volume" => "250.0", "fee_group_id" => "default", "maker_fee" => "0.08", "taker_fee" => "0.1" ),
-        //             array( "volume" => "1000.0", "fee_group_id" => "default", "maker_fee" => "0.07", "taker_fee" => "0.09" ),
-        //             array( "volume" => "5000.0", "fee_group_id" => "default", "maker_fee" => "0.06", "taker_fee" => "0.08" ),
-        //             array( "volume" => "10000.0", "fee_group_id" => "default", "maker_fee" => "0.05", "taker_fee" => "0.07" ),
-        //             array( "volume" => "20000.0", "fee_group_id" => "default", "maker_fee" => "0.05", "taker_fee" => "0.06" ),
-        //             array( "volume" => "50000.0", "fee_group_id" => "default", "maker_fee" => "0.05", "taker_fee" => "0.05" )
-        //         ),
-        //         "active_fee_tier" => array( "volume" => "0.0", "fee_group_id" => "default", "maker_fee" => "0.1", "taker_fee" => "0.1" )
-        //     }
+        // {
+        //    "account_id":"b7f4e27e-b34a-493a-b0d4-4bd341a3f2e0",
+        //    "running_volumes":[
+        //       {
+        //          "fee_group_id":"SPOT",
+        //          "volume":"0",
+        //          "currency":"EUR"
+        //       },
+        //       {
+        //          "fee_group_id":"FUTURES",
+        //          "volume":"0",
+        //          "currency":"EUR"
+        //       }
+        //    ],
+        //    "active_fee_tiers":[
+        //       {
+        //          "fee_group_id":"SPOT",
+        //          "volume":"0",
+        //          "maker_fee":"0.1000",
+        //          "taker_fee":"0.2000"
+        //       },
+        //       {
+        //          "fee_group_id":"FUTURES",
+        //          "volume":"0",
+        //          "maker_fee":"0.1000",
+        //          "taker_fee":"0.2000"
+        //       }
+        //    ]
+        // }
         //
-        $activeFeeTier = $this->safe_value($response, 'active_fee_tier', array());
-        $makerFee = $this->safe_string($activeFeeTier, 'maker_fee');
-        $takerFee = $this->safe_string($activeFeeTier, 'taker_fee');
-        $makerFee = Precise::string_div($makerFee, '100');
-        $takerFee = Precise::string_div($takerFee, '100');
-        $feeTiers = $this->safe_value($response, 'fee_tiers');
+        $activeFeeTier = $this->safe_list($response, 'active_fee_tiers');
+        $spotFees = $this->safe_dict($activeFeeTier, 0, array());
+        $futuresFees = $this->safe_dict($activeFeeTier, 1, array());
+        $spotMakerFee = $this->safe_string($spotFees, 'maker_fee');
+        $spotTakerFee = $this->safe_string($spotFees, 'taker_fee');
+        $spotMakerFee = Precise::string_div($spotMakerFee, '100');
+        $spotTakerFee = Precise::string_div($spotTakerFee, '100');
+        // const feeTiers = this.safeValue (response, 'fee_tiers');
+        $futuresMakerFee = $this->safe_string($futuresFees, 'maker_fee');
+        $futuresTakerFee = $this->safe_string($futuresFees, 'taker_fee');
+        $futuresMakerFee = Precise::string_div($futuresMakerFee, '100');
+        $futuresTakerFee = Precise::string_div($futuresTakerFee, '100');
         $result = array();
-        $tiers = $this->parse_fee_tiers($feeTiers);
-        for ($i = 0; $i < count($this->symbols); $i++) {
-            $symbol = $this->symbols[$i];
+        // const tiers = this.parseFeeTiers (feeTiers);
+        $symbols = $this->symbols;
+        for ($i = 0; $i < count($symbols); $i++) {
+            $symbol = $symbols[$i];
+            $market = $this->market($symbol);
+            $makerFee = ($this->safe_bool($market, 'spot', false)) ? $spotMakerFee : $futuresMakerFee;
+            $takerFee = ($this->safe_bool($market, 'spot', false)) ? $spotTakerFee : $futuresTakerFee;
             $result[$symbol] = array(
                 'info' => $response,
                 'symbol' => $symbol,
@@ -536,17 +801,17 @@ class onetrading extends Exchange {
                 'taker' => $this->parse_number($takerFee),
                 'percentage' => true,
                 'tierBased' => true,
-                'tiers' => $tiers,
+                'tiers' => null,
             );
         }
         return $result;
     }
 
-    public function parse_fee_tiers($feeTiers, ?array $market = null) {
+    public function parse_fee_tiers(array $feeTiers, ?array $market = null): array {
         $takerFees = array();
         $makerFees = array();
         for ($i = 0; $i < count($feeTiers); $i++) {
-            $tier = $feeTiers[$i];
+            $tier = $this->safe_dict($feeTiers, $i);
             $volume = $this->safe_number($tier, 'volume');
             $taker = $this->safe_string($tier, 'taker_fee');
             $maker = $this->safe_string($tier, 'maker_fee');
@@ -614,19 +879,24 @@ class onetrading extends Exchange {
         ), $market);
     }
 
-    public function fetch_ticker(string $symbol, $params = array ()): array {
+    public function fetch_ticker(string $symbol, $params = array()): array {
         /**
          * fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific $market
+         *
+         * @see https://docs.onetrading.com/rest/public/market-ticker-instrument
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch the ticker for
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=ticker-structure ticker structure~
+         * @return {array} a ~@link https://docs.ccxt.com/?id=ticker-structure ticker structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'instrument_code' => $market['id'],
         );
-        $response = $this->publicGetMarketTickerInstrumentCode ($this->extend($request, $params));
+        $response = $this->publicGetMarketTickerInstrumentCode($this->extend($request, $params));
         //
         //     {
         //         "instrument_code":"BTC_EUR",
@@ -648,18 +918,23 @@ class onetrading extends Exchange {
         return $this->parse_ticker($response, $market);
     }
 
-    public function fetch_tickers(?array $symbols = null, $params = array ()): array {
+    public function fetch_tickers(?array $symbols = null, $params = array()): array {
         /**
          * fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-         * @param {string[]|null} $symbols unified $symbols of the markets to fetch the $ticker for, all market tickers are returned if not assigned
+         *
+         * @see https://docs.onetrading.com/rest/public/market-$ticker
+         *
+         * @param {string[]} [$symbols] unified $symbols of the markets to fetch the $ticker for, all market tickers are returned if not assigned
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a dictionary of ~@link https://docs.ccxt.com/#/?id=$ticker-structure $ticker structures~
+         * @return {array} a dictionary of ~@link https://docs.ccxt.com/?id=$ticker-structure $ticker structures~
          */
-        $this->load_markets();
-        $symbols = $this->market_symbols($symbols);
-        $response = $this->publicGetMarketTicker ($params);
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
+        $symbolsNormalized = $this->market_symbols($symbols);
+        $response = $this->publicGetMarketTicker($params);
         //
-        //     array(
+        //     [
         //         {
         //             "instrument_code":"BTC_EUR",
         //             "sequence":602562,
@@ -676,40 +951,48 @@ class onetrading extends Exchange {
         //             "high":"8337.45",
         //             "low":"8110.0"
         //         }
-        //     )
+        //     ]
         //
         $result = array();
-        for ($i = 0; $i < count($response); $i++) {
-            $ticker = $this->parse_ticker($response[$i]);
+        $rawTickers = $this->to_array($response);
+        for ($i = 0; $i < count($rawTickers); $i++) {
+            $ticker = $this->parse_ticker($rawTickers[$i]);
             $symbol = $ticker['symbol'];
-            $result[$symbol] = $ticker;
+            if ($symbol !== null) {
+                $result[$symbol] = $ticker;
+            }
         }
-        return $this->filter_by_array_tickers($result, 'symbol', $symbols);
+        return $this->filter_by_array_tickers($result, 'symbol', $symbolsNormalized);
     }
 
-    public function fetch_order_book(string $symbol, ?int $limit = null, $params = array ()): array {
+    public function fetch_order_book(string $symbol, ?int $limit = null, $params = array()): array {
         /**
          * fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+         *
+         * @see https://docs.onetrading.com/rest/public/orderbook
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch the order book for
          * @param {int} [$limit] the maximum amount of order book entries to return
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} A dictionary of ~@link https://docs.ccxt.com/#/?id=order-book-structure order book structures~ indexed by $market symbols
+         * @return {array} an ~@link https://docs.ccxt.com/?id=order-book-structure order book structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'instrument_code' => $market['id'],
             // level 1 means only the best bid and ask
-            // level 2 is a compiled order book up to $market precision
+            // level 2 is a compiled order book up to market precision
             // level 3 is a full orderbook
             // if you wish to get regular updates about orderbooks please use the Websocket channel
             // heavy usage of this endpoint may result in limited access according to rate limits rules
-            // 'level' => 3, // default
+            // 'level': 3, // default
         );
         if ($limit !== null) {
             $request['depth'] = $limit;
         }
-        $response = $this->publicGetOrderBookInstrumentCode ($this->extend($request, $params));
+        $response = $this->publicGetOrderBookInstrumentCode($this->extend($request, $params));
         //
         // level 1
         //
@@ -717,12 +1000,12 @@ class onetrading extends Exchange {
         //         "instrument_code":"BTC_EUR",
         //         "time":"2020-07-10T07:39:06.343Z",
         //         "asks":{
-        //             "value":array(
+        //             "value":{
         //                 "price":"8145.29",
         //                 "amount":"0.96538",
         //                 "number_of_orders":1
         //             }
-        //         ),
+        //         },
         //         "bids":{
         //             "value":{
         //                 "price":"8134.0",
@@ -736,16 +1019,16 @@ class onetrading extends Exchange {
         //
         //     {
         //         "instrument_code":"BTC_EUR","time":"2020-07-10T07:36:43.538Z",
-        //         "asks":array(
-        //             array("price":"8146.59","amount":"0.89691","number_of_orders":1),
-        //             array("price":"8146.89","amount":"1.92062","number_of_orders":1),
-        //             array("price":"8169.5","amount":"0.0663","number_of_orders":1),
-        //         ),
-        //         "bids":array(
-        //             array("price":"8143.49","amount":"0.01329","number_of_orders":1),
-        //             array("price":"8137.01","amount":"5.34748","number_of_orders":1),
-        //             array("price":"8137.0","amount":"2.0","number_of_orders":1),
-        //         )
+        //         "asks":[
+        //             {"price":"8146.59","amount":"0.89691","number_of_orders":1},
+        //             {"price":"8146.89","amount":"1.92062","number_of_orders":1},
+        //             {"price":"8169.5","amount":"0.0663","number_of_orders":1},
+        //         ],
+        //         "bids":[
+        //             {"price":"8143.49","amount":"0.01329","number_of_orders":1},
+        //             {"price":"8137.01","amount":"5.34748","number_of_orders":1},
+        //             {"price":"8137.0","amount":"2.0","number_of_orders":1},
+        //         ]
         //     }
         //
         // level 3
@@ -753,27 +1036,27 @@ class onetrading extends Exchange {
         //     {
         //         "instrument_code":"BTC_EUR",
         //         "time":"2020-07-10T07:32:31.525Z",
-        //         "bids":array(
-        //             array("price":"8146.79","amount":"0.01537","order_id":"5d717da1-a8f4-422d-afcc-03cb6ab66825"),
-        //             array("price":"8139.32","amount":"3.66009","order_id":"d0715c68-f28d-4cf1-a450-d56cf650e11c"),
-        //             array("price":"8137.51","amount":"2.61049","order_id":"085fd6f4-e835-4ca5-9449-a8f165772e60"),
-        //         ),
-        //         "asks":array(
-        //             array("price":"8153.49","amount":"0.93384","order_id":"755d3aa3-42b5-46fa-903d-98f42e9ae6c4"),
-        //             array("price":"8153.79","amount":"1.80456","order_id":"62034cf3-b70d-45ff-b285-ba6307941e7c"),
-        //             array("price":"8167.9","amount":"0.0018","order_id":"036354e0-71cd-492f-94f2-01f7d4b66422"),
-        //         )
+        //         "bids":[
+        //             {"price":"8146.79","amount":"0.01537","order_id":"5d717da1-a8f4-422d-afcc-03cb6ab66825"},
+        //             {"price":"8139.32","amount":"3.66009","order_id":"d0715c68-f28d-4cf1-a450-d56cf650e11c"},
+        //             {"price":"8137.51","amount":"2.61049","order_id":"085fd6f4-e835-4ca5-9449-a8f165772e60"},
+        //         ],
+        //         "asks":[
+        //             {"price":"8153.49","amount":"0.93384","order_id":"755d3aa3-42b5-46fa-903d-98f42e9ae6c4"},
+        //             {"price":"8153.79","amount":"1.80456","order_id":"62034cf3-b70d-45ff-b285-ba6307941e7c"},
+        //             {"price":"8167.9","amount":"0.0018","order_id":"036354e0-71cd-492f-94f2-01f7d4b66422"},
+        //         ]
         //     }
         //
         $timestamp = $this->parse8601($this->safe_string($response, 'time'));
         return $this->parse_order_book($response, $market['symbol'], $timestamp, 'bids', 'asks', 'price', 'amount');
     }
 
-    public function parse_ohlcv($ohlcv, ?array $market = null): array {
+    public function parse_ohlcv(mixed $ohlcv, ?array $market = null): array {
         //
         //     {
         //         "instrument_code":"BTC_EUR",
-        //         "granularity":array("unit":"HOURS","period":1),
+        //         "granularity":{"unit":"HOURS","period":1},
         //         "high":"9252.65",
         //         "low":"9115.27",
         //         "open":"9250.0",
@@ -784,7 +1067,7 @@ class onetrading extends Exchange {
         //         "last_sequence":461123
         //     }
         //
-        $granularity = $this->safe_value($ohlcv, 'granularity');
+        $granularity = $this->safe_dict($ohlcv, 'granularity');
         $unit = $this->safe_string($granularity, 'unit');
         $period = $this->safe_string($granularity, 'period');
         $units = array(
@@ -795,12 +1078,19 @@ class onetrading extends Exchange {
             'MONTHS' => 'M',
         );
         $lowercaseUnit = $this->safe_string($units, $unit);
+        if (($period === null) || ($lowercaseUnit === null)) {
+            throw new ExchangeError($this->id . ' parseOHLCV() missing period/unit');
+        }
         $timeframe = $period . $lowercaseUnit;
         $durationInSeconds = $this->parse_timeframe($timeframe);
         $duration = $durationInSeconds * 1000;
         $timestamp = $this->parse8601($this->safe_string($ohlcv, 'time'));
-        $alignedTimestamp = $duration * $this->parse_to_int($timestamp / $duration);
-        $options = $this->safe_value($this->options, 'fetchOHLCV', array());
+        if ($timestamp === null) {
+            throw new ExchangeError($this->id . ' parseOHLCV() missing timestamp');
+        }
+        $periods = $this->parse_to_int($timestamp / $duration);
+        $alignedTimestamp = $duration * $periods;
+        $options = $this->safe_dict($this->options, 'fetchOHLCV', array());
         $volumeField = $this->safe_string($options, 'volume', 'total_amount');
         return array(
             $alignedTimestamp,
@@ -812,49 +1102,58 @@ class onetrading extends Exchange {
         );
     }
 
-    public function fetch_ohlcv(string $symbol, $timeframe = '1m', ?int $since = null, ?int $limit = null, $params = array ()): array {
+    public function fetch_ohlcv(string $symbol, string $timeframe = '1m', ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetches historical candlestick data containing the open, high, low, and close price, and the volume of a $market
+         *
+         * @see https://docs.onetrading.com/rest/public/candlesticks
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch OHLCV data for
          * @param {string} $timeframe the length of time each candle represents
          * @param {int} [$since] timestamp in ms of the earliest candle to fetch
          * @param {int} [$limit] the maximum amount of candles to fetch
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {int[][]} A list of candles ordered, open, high, low, close, volume
+         * @return {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $periodUnit = $this->safe_string($this->timeframes, $timeframe);
-        list($period, $unit) = explode('/', $periodUnit);
+        if ($periodUnit === null) {
+            throw new ExchangeError($this->id . ' fetchOHLCV() missing periodUnit');
+        }
+        $periodUnitParts = explode('/', $periodUnit);
+        $period = $periodUnitParts[0];
+        $unit = $periodUnitParts[1];
         $durationInSeconds = $this->parse_timeframe($timeframe);
         $duration = $durationInSeconds * 1000;
-        if ($limit === null) {
-            $limit = 1500;
-        }
+        $limitResolved = ($limit === null) ? 1500 : $limit;
         $request = array(
             'instrument_code' => $market['id'],
-            // 'from' => $this->iso8601($since),
-            // 'to' => $this->iso8601($this->milliseconds()),
+            // 'from': this.iso8601 (since),
+            // 'to': this.iso8601 (this.milliseconds ()),
             'period' => $period,
             'unit' => $unit,
         );
         if ($since === null) {
             $now = $this->milliseconds();
             $request['to'] = $this->iso8601($now);
-            $request['from'] = $this->iso8601($now - $limit * $duration);
+            $request['from'] = $this->iso8601($now - $limitResolved * $duration);
         } else {
             $request['from'] = $this->iso8601($since);
-            $request['to'] = $this->iso8601($this->sum($since, $limit * $duration));
+            $request['to'] = $this->iso8601($this->sum($since, $limitResolved * $duration));
         }
-        $response = $this->publicGetCandlesticksInstrumentCode ($this->extend($request, $params));
+        $response = $this->publicGetCandlesticksInstrumentCode($this->extend($request, $params));
         //
-        //     array(
-        //         array("instrument_code":"BTC_EUR","granularity":array("unit":"HOURS","period":1),"high":"9252.65","low":"9115.27","open":"9250.0","close":"9132.35","total_amount":"33.85924","volume":"311958.9635744","time":"2020-05-08T22:59:59.999Z","last_sequence":461123),
-        //         array("instrument_code":"BTC_EUR","granularity":array("unit":"HOURS","period":1),"high":"9162.49","low":"9040.0","open":"9132.53","close":"9083.69","total_amount":"26.19685","volume":"238553.7812365","time":"2020-05-08T23:59:59.999Z","last_sequence":461376),
-        //         array("instrument_code":"BTC_EUR","granularity":array("unit":"HOURS","period":1),"high":"9135.7","low":"9002.59","open":"9055.45","close":"9133.98","total_amount":"26.21919","volume":"238278.8724959","time":"2020-05-09T00:59:59.999Z","last_sequence":461521),
-        //     )
+        //     [
+        //         {"instrument_code":"BTC_EUR","granularity":{"unit":"HOURS","period":1},"high":"9252.65","low":"9115.27","open":"9250.0","close":"9132.35","total_amount":"33.85924","volume":"311958.9635744","time":"2020-05-08T22:59:59.999Z","last_sequence":461123},
+        //         {"instrument_code":"BTC_EUR","granularity":{"unit":"HOURS","period":1},"high":"9162.49","low":"9040.0","open":"9132.53","close":"9083.69","total_amount":"26.19685","volume":"238553.7812365","time":"2020-05-08T23:59:59.999Z","last_sequence":461376},
+        //         {"instrument_code":"BTC_EUR","granularity":{"unit":"HOURS","period":1},"high":"9135.7","low":"9002.59","open":"9055.45","close":"9133.98","total_amount":"26.21919","volume":"238278.8724959","time":"2020-05-09T00:59:59.999Z","last_sequence":461521},
+        //     ]
         //
-        return $this->parse_ohlcvs($response, $market, $timeframe, $since, $limit);
+        $ohlcv = $this->safe_list($response, 'candlesticks');
+        return $this->parse_ohlcvs($ohlcv, $market, $timeframe, $since, $limitResolved);
     }
 
     public function parse_trade(array $trade, ?array $market = null): array {
@@ -875,38 +1174,38 @@ class onetrading extends Exchange {
         // fetchMyTrades, fetchOrder, fetchOpenOrders, fetchClosedOrders trades (private)
         //
         //     {
-        //         "fee" => array(
-        //             "fee_amount" => "0.0014",
-        //             "fee_currency" => "BTC",
-        //             "fee_percentage" => "0.1",
-        //             "fee_group_id" => "default",
-        //             "fee_type" => "TAKER",
-        //             "running_trading_volume" => "0.0"
-        //         ),
-        //         "trade" => {
-        //             "trade_id" => "fdff2bcc-37d6-4a2d-92a5-46e09c868664",
-        //             "order_id" => "36bb2437-7402-4794-bf26-4bdf03526439",
-        //             "account_id" => "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
-        //             "amount" => "1.4",
-        //             "side" => "BUY",
-        //             "instrument_code" => "BTC_EUR",
-        //             "price" => "7341.4",
-        //             "time" => "2019-09-27T15:05:32.564Z",
-        //             "sequence" => 48670
+        //         "fee": {
+        //             "fee_amount": "0.0014",
+        //             "fee_currency": "BTC",
+        //             "fee_percentage": "0.1",
+        //             "fee_group_id": "default",
+        //             "fee_type": "TAKER",
+        //             "running_trading_volume": "0.0"
+        //         },
+        //         "trade": {
+        //             "trade_id": "fdff2bcc-37d6-4a2d-92a5-46e09c868664",
+        //             "order_id": "36bb2437-7402-4794-bf26-4bdf03526439",
+        //             "account_id": "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
+        //             "amount": "1.4",
+        //             "side": "BUY",
+        //             "instrument_code": "BTC_EUR",
+        //             "price": "7341.4",
+        //             "time": "2019-09-27T15:05:32.564Z",
+        //             "sequence": 48670
         //         }
         //     }
         //
-        $feeInfo = $this->safe_value($trade, 'fee', array());
-        $trade = $this->safe_value($trade, 'trade', $trade);
-        $timestamp = $this->safe_integer($trade, 'trade_timestamp');
+        $feeInfo = $this->safe_dict($trade, 'fee', array());
+        $tradeValue = $this->safe_dict($trade, 'trade', $trade);
+        $timestamp = $this->safe_integer($tradeValue, 'trade_timestamp');
         if ($timestamp === null) {
-            $timestamp = $this->parse8601($this->safe_string($trade, 'time'));
+            $timestamp = $this->parse8601($this->safe_string($tradeValue, 'time'));
         }
-        $side = $this->safe_string_lower_2($trade, 'side', 'taker_side');
-        $priceString = $this->safe_string($trade, 'price');
-        $amountString = $this->safe_string($trade, 'amount');
-        $costString = $this->safe_string($trade, 'volume');
-        $marketId = $this->safe_string($trade, 'instrument_code');
+        $side = $this->safe_string_lower_2($tradeValue, 'side', 'taker_side');
+        $priceString = $this->safe_string($tradeValue, 'price');
+        $amountString = $this->safe_string($tradeValue, 'amount');
+        $costString = $this->safe_string($tradeValue, 'volume');
+        $marketId = $this->safe_string($tradeValue, 'instrument_code');
         $symbol = $this->safe_symbol($marketId, $market, '_');
         $feeCostString = $this->safe_string($feeInfo, 'fee_amount');
         $takerOrMaker = null;
@@ -923,8 +1222,8 @@ class onetrading extends Exchange {
             $takerOrMaker = $this->safe_string_lower($feeInfo, 'fee_type');
         }
         return $this->safe_trade(array(
-            'id' => $this->safe_string_2($trade, 'trade_id', 'sequence'),
-            'order' => $this->safe_string($trade, 'order_id'),
+            'id' => $this->safe_string_2($tradeValue, 'trade_id', 'sequence'),
+            'order' => $this->safe_string($tradeValue, 'order_id'),
             'timestamp' => $timestamp,
             'datetime' => $this->iso8601($timestamp),
             'symbol' => $symbol,
@@ -935,77 +1234,44 @@ class onetrading extends Exchange {
             'cost' => $costString,
             'takerOrMaker' => $takerOrMaker,
             'fee' => $fee,
-            'info' => $trade,
+            'info' => $tradeValue,
         ), $market);
     }
 
-    public function fetch_trades(string $symbol, ?int $since = null, ?int $limit = null, $params = array ()): array {
-        /**
-         * get the list of most recent trades for a particular $symbol
-         * @param {string} $symbol unified $symbol of the $market to fetch trades for
-         * @param {int} [$since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [$limit] the maximum amount of trades to fetch
-         * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/#/?id=public-trades trade structures~
-         */
-        $this->load_markets();
-        $market = $this->market($symbol);
-        $request = array(
-            'instrument_code' => $market['id'],
-            // 'from' => $this->iso8601($since),
-            // 'to' => $this->iso8601($this->milliseconds()),
-        );
-        if ($since !== null) {
-            // returns price ticks for a specific $market with an interval of maximum of 4 hours
-            // sorted by latest first
-            $request['from'] = $this->iso8601($since);
-            $request['to'] = $this->iso8601($this->sum($since, 14400000));
-        }
-        $response = $this->publicGetPriceTicksInstrumentCode ($this->extend($request, $params));
-        //
-        //     array(
-        //         {
-        //             "instrument_code":"BTC_EUR",
-        //             "price":"8137.28",
-        //             "amount":"0.22269",
-        //             "taker_side":"BUY",
-        //             "volume":"1812.0908832",
-        //             "time":"2020-07-10T14:44:32.299Z",
-        //             "trade_timestamp":1594392272299,
-        //             "sequence":603047
-        //         }
-        //     )
-        //
-        return $this->parse_trades($response, $market, $since, $limit);
-    }
-
-    public function parse_balance($response): array {
-        $balances = $this->safe_value($response, 'balances', array());
+    public function parse_balance(array $response): array {
+        $balances = $this->safe_list($response, 'balances', array());
         $result = array( 'info' => $response );
         for ($i = 0; $i < count($balances); $i++) {
-            $balance = $balances[$i];
+            $balance = $this->safe_dict($balances, $i);
             $currencyId = $this->safe_string($balance, 'currency_code');
             $code = $this->safe_currency_code($currencyId);
             $account = $this->account();
             $account['free'] = $this->safe_string($balance, 'available');
             $account['used'] = $this->safe_string($balance, 'locked');
-            $result[$code] = $account;
+            if ($code !== null) {
+                $result[$code] = $account;
+            }
         }
         return $this->safe_balance($result);
     }
 
-    public function fetch_balance($params = array ()): array {
+    public function fetch_balance($params = array()): array {
         /**
          * query for balance and get the amount of funds available for trading or funds locked in orders
+         *
+         * @see https://docs.onetrading.com/rest/trading/balances
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=balance-structure balance structure~
+         * @return {array} a ~@link https://docs.ccxt.com/?id=balance-structure balance structure~
          */
-        $this->load_markets();
-        $response = $this->privateGetAccountBalances ($params);
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
+        $response = $this->privateGetAccountBalances($params);
         //
         //     {
         //         "account_id":"4b95934f-55f1-460c-a525-bd5afc0cf071",
-        //         "balances":array(
+        //         "balances":[
         //             {
         //                 "account_id":"4b95934f-55f1-460c-a525-bd5afc0cf071",
         //                 "currency_code":"BTC",
@@ -1015,354 +1281,25 @@ class onetrading extends Exchange {
         //                 "sequence":142135994,
         //                 "time":"2020-07-01T10:57:32.959Z"
         //             }
-        //         )
+        //         ]
         //     }
         //
         return $this->parse_balance($response);
     }
 
-    public function parse_deposit_address($depositAddress, ?array $currency = null) {
-        $code = null;
-        if ($currency !== null) {
-            $code = $currency['code'];
-        }
-        $address = $this->safe_string($depositAddress, 'address');
-        $tag = $this->safe_string($depositAddress, 'destination_tag');
-        $this->check_address($address);
-        return array(
-            'currency' => $code,
-            'address' => $address,
-            'tag' => $tag,
-            'network' => null,
-            'info' => $depositAddress,
-        );
-    }
-
-    public function create_deposit_address(string $code, $params = array ()) {
-        /**
-         * create a $currency deposit address
-         * @param {string} $code unified $currency $code of the $currency for the deposit address
-         * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} an ~@link https://docs.ccxt.com/#/?id=address-structure address structure~
-         */
-        $this->load_markets();
-        $currency = $this->currency($code);
-        $request = array(
-            'currency' => $currency['id'],
-        );
-        $response = $this->privatePostAccountDepositCrypto ($this->extend($request, $params));
-        //
-        //     {
-        //         "address":"rBnNhk95FrdNisZtXcStzriFS8vEzz53DM",
-        //         "destination_tag":"865690307",
-        //         "enabled":true,
-        //         "is_smart_contract":false
-        //     }
-        //
-        return $this->parse_deposit_address($response, $currency);
-    }
-
-    public function fetch_deposit_address(string $code, $params = array ()) {
-        /**
-         * fetch the deposit address for a $currency associated with this account
-         * @param {string} $code unified $currency $code
-         * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} an ~@link https://docs.ccxt.com/#/?id=address-structure address structure~
-         */
-        $this->load_markets();
-        $currency = $this->currency($code);
-        $request = array(
-            'currency_code' => $currency['id'],
-        );
-        $response = $this->privateGetAccountDepositCryptoCurrencyCode ($this->extend($request, $params));
-        //
-        //     {
-        //         "address":"rBnNhk95FrdNisZtXcStzriFS8vEzz53DM",
-        //         "destination_tag":"865690307",
-        //         "enabled":true,
-        //         "is_smart_contract":false,
-        //         "can_create_more":false
-        //     }
-        //
-        return $this->parse_deposit_address($response, $currency);
-    }
-
-    public function fetch_deposits(?string $code = null, ?int $since = null, ?int $limit = null, $params = array ()): array {
-        /**
-         * fetch all deposits made $to an account
-         * @param {string} $code unified $currency $code
-         * @param {int} [$since] the earliest time in ms $to fetch deposits for
-         * @param {int} [$limit] the maximum number of deposits structures $to retrieve
-         * @param {array} [$params] extra parameters specific $to the exchange API endpoint
-         * @return {array[]} a list of ~@link https://docs.ccxt.com/#/?id=transaction-structure transaction structures~
-         */
-        $this->load_markets();
-        $request = array(
-            // 'cursor' => 'string', // pointer specifying the position from which the next pages should be returned
-        );
-        $currency = null;
-        if ($code !== null) {
-            $currency = $this->currency($code);
-            $request['currency_code'] = $currency['id'];
-        }
-        if ($limit !== null) {
-            $request['max_page_size'] = $limit;
-        }
-        if ($since !== null) {
-            $to = $this->safe_string($params, 'to');
-            if ($to === null) {
-                throw new ArgumentsRequired($this->id . ' fetchDeposits() requires a "to" iso8601 string param with the $since argument is specified');
-            }
-            $request['from'] = $this->iso8601($since);
-        }
-        $response = $this->privateGetAccountDeposits ($this->extend($request, $params));
-        //
-        //     {
-        //         "deposit_history" => array(
-        //             array(
-        //                 "transaction_id" => "e5342efcd-d5b7-4a56-8e12-b69ffd68c5ef",
-        //                 "account_id" => "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
-        //                 "amount" => "100",
-        //                 "type" => "CRYPTO",
-        //                 "funds_source" => "INTERNAL",
-        //                 "time" => "2020-04-22T09:57:47Z",
-        //                 "currency" => "BTC",
-        //                 "fee_amount" => "0.0",
-        //                 "fee_currency" => "BTC"
-        //             ),
-        //             {
-        //                 "transaction_id" => "79793d00-2899-4a4d-95b7-73ae6b31384f",
-        //                 "account_id" => "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
-        //                 "time" => "2020-05-05T11:22:07.925Z",
-        //                 "currency" => "EUR",
-        //                 "funds_source" => "EXTERNAL",
-        //                 "type" => "FIAT",
-        //                 "amount" => "50.0",
-        //                 "fee_amount" => "0.01",
-        //                 "fee_currency" => "EUR"
-        //             }
-        //         ),
-        //         "max_page_size" => 2,
-        //         "cursor" => "eyJhY2NvdW50X2lkIjp7InMiOiJlMzY5YWM4MC00NTc3LTExZTktYWUwOC05YmVkYzQ3OTBiODQiLCJzcyI6W10sIm5zIjpbXSwiYnMiOltdLCJtIjp7fSwibCI6W119LCJpdGVtX2tleSI6eyJzIjoiV0lUSERSQVdBTDo6MmFlMjYwY2ItOTk3MC00YmNiLTgxNmEtZGY4MDVmY2VhZTY1Iiwic3MiOltdLCJucyI6W10sImJzIjpbXSwibSI6e30sImwiOltdfSwiZ2xvYmFsX3dpdGhkcmF3YWxfaW5kZXhfaGFzaF9rZXkiOnsicyI6ImUzNjlhYzgwLTQ1NzctMTFlOS1hZTA4LTliZWRjNDc5MGI4NCIsInNzIjpbXSwibnMiOltdLCJicyI6W10sIm0iOnt9LCJsIjpbXX0sInRpbWVzdGFtcCI6eyJuIjoiMTU4ODA1ODc2Nzk0OCIsInNzIjpbXSwibnMiOltdLCJicyI6W10sIm0iOnt9LCJsIjpbXX19"
-        //     }
-        //
-        $depositHistory = $this->safe_list($response, 'deposit_history', array());
-        return $this->parse_transactions($depositHistory, $currency, $since, $limit, array( 'type' => 'deposit' ));
-    }
-
-    public function fetch_withdrawals(?string $code = null, ?int $since = null, ?int $limit = null, $params = array ()): array {
-        /**
-         * fetch all withdrawals made from an account
-         * @param {string} $code unified $currency $code
-         * @param {int} [$since] the earliest time in ms $to fetch withdrawals for
-         * @param {int} [$limit] the maximum number of withdrawals structures $to retrieve
-         * @param {array} [$params] extra parameters specific $to the exchange API endpoint
-         * @return {array[]} a list of ~@link https://docs.ccxt.com/#/?id=transaction-structure transaction structures~
-         */
-        $this->load_markets();
-        $request = array(
-            // 'cursor' => 'string', // pointer specifying the position from which the next pages should be returned
-        );
-        $currency = null;
-        if ($code !== null) {
-            $currency = $this->currency($code);
-            $request['currency_code'] = $currency['id'];
-        }
-        if ($limit !== null) {
-            $request['max_page_size'] = $limit;
-        }
-        if ($since !== null) {
-            $to = $this->safe_string($params, 'to');
-            if ($to === null) {
-                throw new ArgumentsRequired($this->id . ' fetchWithdrawals() requires a "to" iso8601 string param with the $since argument is specified');
-            }
-            $request['from'] = $this->iso8601($since);
-        }
-        $response = $this->privateGetAccountWithdrawals ($this->extend($request, $params));
-        //
-        //     {
-        //         "withdrawal_history" => array(
-        //             array(
-        //                 "account_id" => "e369ac80-4577-11e9-ae08-9bedc4790b84",
-        //                 "amount" => "0.1",
-        //                 "currency" => "BTC",
-        //                 "fee_amount" => "0.00002",
-        //                 "fee_currency" => "BTC",
-        //                 "funds_source" => "EXTERNAL",
-        //                 "related_transaction_id" => "e298341a-3855-405e-bce3-92db368a3157",
-        //                 "time" => "2020-05-05T11:11:32.110Z",
-        //                 "transaction_id" => "6693ff40-bb10-4dcf-ada7-3b287727c882",
-        //                 "type" => "CRYPTO"
-        //             ),
-        //             {
-        //                 "account_id" => "e369ac80-4577-11e9-ae08-9bedc4790b84",
-        //                 "amount" => "0.1",
-        //                 "currency" => "BTC",
-        //                 "fee_amount" => "0.0",
-        //                 "fee_currency" => "BTC",
-        //                 "funds_source" => "INTERNAL",
-        //                 "time" => "2020-05-05T10:29:53.464Z",
-        //                 "transaction_id" => "ec9703b1-954b-4f76-adea-faac66eabc0b",
-        //                 "type" => "CRYPTO"
-        //             }
-        //         ),
-        //         "cursor" => "eyJhY2NvdW50X2lkIjp7InMiOiJlMzY5YWM4MC00NTc3LTExZTktYWUwOC05YmVkYzQ3OTBiODQiLCJzcyI6W10sIm5zIjpbXSwiYnMiOltdLCJtIjp7fSwibCI6W119LCJpdGVtX2tleSI6eyJzIjoiV0lUSERSQVdBTDo6ZWM5NzAzYjEtOTU0Yi00Zjc2LWFkZWEtZmFhYzY2ZWFiYzBiIiwic3MiOltdLCJucyI6W10sImJzIjpbXSwibSI6e30sImwiOltdfSwiZ2xvYmFsX3dpdGhkcmF3YWxfaW5kZXhfaGFzaF9rZXkiOnsicyI6ImUzNjlhYzgwLTQ1NzctMTFlOS1hZTA4LTliZWRjNDc5MGI4NCIsInNzIjpbXSwibnMiOltdLCJicyI6W10sIm0iOnt9LCJsIjpbXX0sInRpbWVzdGFtcCI6eyJuIjoiMTU4ODY3NDU5MzQ2NCIsInNzIjpbXSwibnMiOltdLCJicyI6W10sIm0iOnt9LCJsIjpbXX19",
-        //         "max_page_size" => 2
-        //     }
-        //
-        $withdrawalHistory = $this->safe_list($response, 'withdrawal_history', array());
-        return $this->parse_transactions($withdrawalHistory, $currency, $since, $limit, array( 'type' => 'withdrawal' ));
-    }
-
-    public function withdraw(string $code, float $amount, string $address, $tag = null, $params = array ()) {
-        /**
-         * make a withdrawal
-         * @param {string} $code unified $currency $code
-         * @param {float} $amount the $amount to withdraw
-         * @param {string} $address the $address to withdraw to
-         * @param {string} $tag
-         * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=transaction-structure transaction structure~
-         */
-        list($tag, $params) = $this->handle_withdraw_tag_and_params($tag, $params);
-        $this->check_address($address);
-        $this->load_markets();
-        $currency = $this->currency($code);
-        $request = array(
-            'currency' => $code,
-            'amount' => $this->currency_to_precision($code, $amount),
-            // 'payout_account_id' => '66756a10-3e86-48f4-9678-b634c4b135b2', // fiat only
-            // 'recipient' => array( // crypto only
-            //     'address' => $address,
-            //     // 'destination_tag' => '',
-            // ),
-        );
-        $options = $this->safe_value($this->options, 'fiat', array());
-        $isFiat = $this->in_array($code, $options);
-        $method = $isFiat ? 'privatePostAccountWithdrawFiat' : 'privatePostAccountWithdrawCrypto';
-        if ($isFiat) {
-            $payoutAccountId = $this->safe_string($params, 'payout_account_id');
-            if ($payoutAccountId === null) {
-                throw new ArgumentsRequired($this->id . ' withdraw() requires a payout_account_id param for fiat ' . $code . ' withdrawals');
-            }
-        } else {
-            $recipient = array( 'address' => $address );
-            if ($tag !== null) {
-                $recipient['destination_tag'] = $tag;
-            }
-            $request['recipient'] = $recipient;
-        }
-        $response = $this->$method ($this->extend($request, $params));
-        //
-        // crypto
-        //
-        //     {
-        //         "amount" => "1234.5678",
-        //         "fee" => "1234.5678",
-        //         "recipient" => "3NacQ7rzZdhfyAtfJ5a11k8jFPdcMP2Bq7",
-        //         "destination_tag" => "",
-        //         "transaction_id" => "d0f8529f-f832-4e6a-9dc5-b8d5797badb2"
-        //     }
-        //
-        // fiat
-        //
-        //     {
-        //         "transaction_id" => "54236cd0-4413-11e9-93fb-5fea7e5b5df6"
-        //     }
-        //
-        return $this->parse_transaction($response, $currency);
-    }
-
-    public function parse_transaction(array $transaction, ?array $currency = null): array {
-        //
-        // fetchDeposits, fetchWithdrawals
-        //
-        //     {
-        //         "transaction_id" => "C2b42efcd-d5b7-4a56-8e12-b69ffd68c5ef",
-        //         "type" => "FIAT",
-        //         "account_id" => "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
-        //         "amount" => "1234.5678",
-        //         "time" => "2019-08-24T14:15:22Z",
-        //         "funds_source" => "INTERNAL",
-        //         "currency" => "BTC",
-        //         "fee_amount" => "1234.5678",
-        //         "fee_currency" => "BTC",
-        //         "blockchain_transaction_id" => "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16",
-        //         "related_transaction_id" => "e298341a-3855-405e-bce3-92db368a3157"
-        //     }
-        //
-        // withdraw
-        //
-        //
-        //     crypto
-        //
-        //     {
-        //         "amount" => "1234.5678",
-        //         "fee" => "1234.5678",
-        //         "recipient" => "3NacQ7rzZdhfyAtfJ5a11k8jFPdcMP2Bq7",
-        //         "destination_tag" => "",
-        //         "transaction_id" => "d0f8529f-f832-4e6a-9dc5-b8d5797badb2"
-        //     }
-        //
-        //     fiat
-        //
-        //     {
-        //         "transaction_id" => "54236cd0-4413-11e9-93fb-5fea7e5b5df6"
-        //     }
-        //
-        $id = $this->safe_string($transaction, 'transaction_id');
-        $amount = $this->safe_number($transaction, 'amount');
-        $timestamp = $this->parse8601($this->safe_string($transaction, 'time'));
-        $currencyId = $this->safe_string($transaction, 'currency');
-        $currency = $this->safe_currency($currencyId, $currency);
-        $status = 'ok'; // the exchange returns cleared transactions only
-        $feeCost = $this->safe_number_2($transaction, 'fee_amount', 'fee');
-        $fee = null;
-        $addressTo = $this->safe_string($transaction, 'recipient');
-        $tagTo = $this->safe_string($transaction, 'destination_tag');
-        if ($feeCost !== null) {
-            $feeCurrencyId = $this->safe_string($transaction, 'fee_currency', $currencyId);
-            $feeCurrencyCode = $this->safe_currency_code($feeCurrencyId);
-            $fee = array(
-                'cost' => $feeCost,
-                'currency' => $feeCurrencyCode,
-            );
-        }
-        return array(
-            'info' => $transaction,
-            'id' => $id,
-            'currency' => $currency['code'],
-            'amount' => $amount,
-            'network' => null,
-            'address' => $addressTo,
-            'addressFrom' => null,
-            'addressTo' => $addressTo,
-            'tag' => $tagTo,
-            'tagFrom' => null,
-            'tagTo' => $tagTo,
-            'status' => $status,
-            'type' => null,
-            'updated' => null,
-            'txid' => $this->safe_string($transaction, 'blockchain_transaction_id'),
-            'comment' => null,
-            'internal' => null,
-            'timestamp' => $timestamp,
-            'datetime' => $this->iso8601($timestamp),
-            'fee' => $fee,
-        );
-    }
-
-    public function parse_order_status(?string $status) {
+    public function parse_order_status(?string $status): ?string {
         $statuses = array(
-            'FILLED' => 'open',
+            'OPEN' => 'open',
+            'BOOKED' => 'open',
+            'FILL' => 'open',
+            'MOVED' => 'open',
             'FILLED_FULLY' => 'closed',
             'FILLED_CLOSED' => 'canceled',
             'FILLED_REJECTED' => 'rejected',
-            'OPEN' => 'open',
-            'REJECTED' => 'rejected',
-            'CLOSED' => 'canceled',
-            'FAILED' => 'failed',
-            'STOP_TRIGGERED' => 'triggered',
+            'CANCELLED' => 'canceled',
+            'INSUFFICIENT_FUNDS' => 'rejected',
+            'INSUFFICIENT_LIQUIDITY' => 'rejected',
+            'RISK_FAILED_OVER_MAX_POSITION' => 'rejected',
         );
         return $this->safe_string($statuses, $status, $status);
     }
@@ -1372,74 +1309,73 @@ class onetrading extends Exchange {
         // createOrder
         //
         //     {
-        //         "order_id" => "d5492c24-2995-4c18-993a-5b8bf8fffc0d",
-        //         "client_id" => "d75fb03b-b599-49e9-b926-3f0b6d103206",
-        //         "account_id" => "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
-        //         "instrument_code" => "BTC_EUR",
-        //         "time" => "2019-08-01T08:00:44.026Z",
-        //         "side" => "BUY",
-        //         "price" => "5000",
-        //         "amount" => "1",
-        //         "filled_amount" => "0.5",
-        //         "type" => "LIMIT",
-        //         "time_in_force" => "GOOD_TILL_CANCELLED"
+        //         "order_id": "d5492c24-2995-4c18-993a-5b8bf8fffc0d",
+        //         "client_id": "d75fb03b-b599-49e9-b926-3f0b6d103206",
+        //         "account_id": "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
+        //         "instrument_code": "BTC_EUR",
+        //         "time": "2019-08-01T08:00:44.026Z",
+        //         "side": "BUY",
+        //         "price": "5000",
+        //         "amount": "1",
+        //         "filled_amount": "0.5",
+        //         "type": "LIMIT",
+        //         "time_in_force": "GOOD_TILL_CANCELLED"
         //     }
         //
         // fetchOrder, fetchOpenOrders, fetchClosedOrders
         //
         //     {
-        //         "order" => array(
-        //             "order_id" => "66756a10-3e86-48f4-9678-b634c4b135b2",
-        //             "account_id" => "1eb2ad5d-55f1-40b5-bc92-7dc05869e905",
-        //             "instrument_code" => "BTC_EUR",
-        //             "amount" => "1234.5678",
-        //             "filled_amount" => "1234.5678",
-        //             "side" => "BUY",
-        //             "type" => "LIMIT",
-        //             "status" => "OPEN",
-        //             "sequence" => 123456789,
-        //             "price" => "1234.5678",
-        //             "average_price" => "1234.5678",
-        //             "reason" => "INSUFFICIENT_FUNDS",
-        //             "time" => "2019-08-24T14:15:22Z",
-        //             "time_in_force" => "GOOD_TILL_CANCELLED",
-        //             "time_last_updated" => "2019-08-24T14:15:22Z",
-        //             "expire_after" => "2019-08-24T14:15:22Z",
-        //             "is_post_only" => false,
-        //             "time_triggered" => "2019-08-24T14:15:22Z",
-        //             "trigger_price" => "1234.5678"
-        //         ),
-        //         "trades" => array(
+        //         "order": {
+        //             "order_id": "66756a10-3e86-48f4-9678-b634c4b135b2",
+        //             "account_id": "1eb2ad5d-55f1-40b5-bc92-7dc05869e905",
+        //             "instrument_code": "BTC_EUR",
+        //             "amount": "1234.5678",
+        //             "filled_amount": "1234.5678",
+        //             "side": "BUY",
+        //             "type": "LIMIT",
+        //             "status": "OPEN",
+        //             "sequence": 123456789,
+        //             "price": "1234.5678",
+        //             "average_price": "1234.5678",
+        //             "reason": "INSUFFICIENT_FUNDS",
+        //             "time": "2019-08-24T14:15:22Z",
+        //             "time_in_force": "GOOD_TILL_CANCELLED",
+        //             "time_last_updated": "2019-08-24T14:15:22Z",
+        //             "expire_after": "2019-08-24T14:15:22Z",
+        //             "is_post_only": false,
+        //             "time_triggered": "2019-08-24T14:15:22Z",
+        //             "trigger_price": "1234.5678"
+        //         },
+        //         "trades": [
         //             {
-        //                 "fee" => array(
-        //                     "fee_amount" => "0.0014",
-        //                     "fee_currency" => "BTC",
-        //                     "fee_percentage" => "0.1",
-        //                     "fee_group_id" => "default",
-        //                     "fee_type" => "TAKER",
-        //                     "running_trading_volume" => "0.0"
-        //                 ),
-        //                 "trade" => {
-        //                     "trade_id" => "fdff2bcc-37d6-4a2d-92a5-46e09c868664",
-        //                     "order_id" => "36bb2437-7402-4794-bf26-4bdf03526439",
-        //                     "account_id" => "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
-        //                     "amount" => "1.4",
-        //                     "side" => "BUY",
-        //                     "instrument_code" => "BTC_EUR",
-        //                     "price" => "7341.4",
-        //                     "time" => "2019-09-27T15:05:32.564Z",
-        //                     "sequence" => 48670
+        //                 "fee": {
+        //                     "fee_amount": "0.0014",
+        //                     "fee_currency": "BTC",
+        //                     "fee_percentage": "0.1",
+        //                     "fee_group_id": "default",
+        //                     "fee_type": "TAKER",
+        //                     "running_trading_volume": "0.0"
+        //                 },
+        //                 "trade": {
+        //                     "trade_id": "fdff2bcc-37d6-4a2d-92a5-46e09c868664",
+        //                     "order_id": "36bb2437-7402-4794-bf26-4bdf03526439",
+        //                     "account_id": "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
+        //                     "amount": "1.4",
+        //                     "side": "BUY",
+        //                     "instrument_code": "BTC_EUR",
+        //                     "price": "7341.4",
+        //                     "time": "2019-09-27T15:05:32.564Z",
+        //                     "sequence": 48670
         //                 }
         //             }
-        //         )
+        //         ]
         //     }
         //
-        $rawOrder = $this->safe_value($order, 'order', $order);
+        $rawOrder = $this->safe_dict($order, 'order', $order);
         $id = $this->safe_string($rawOrder, 'order_id');
         $clientOrderId = $this->safe_string($rawOrder, 'client_id');
         $timestamp = $this->parse8601($this->safe_string($rawOrder, 'time'));
-        $rawStatus = $this->parse_order_status($this->safe_string($rawOrder, 'status'));
-        $status = $this->parse_order_status($rawStatus);
+        $status = $this->parse_order_status($this->safe_string($rawOrder, 'status'));
         $marketId = $this->safe_string($rawOrder, 'instrument_code');
         $symbol = $this->safe_symbol($marketId, $market, '_');
         $price = $this->safe_string($rawOrder, 'price');
@@ -1448,9 +1384,8 @@ class onetrading extends Exchange {
         $side = $this->safe_string_lower($rawOrder, 'side');
         $type = $this->safe_string_lower($rawOrder, 'type');
         $timeInForce = $this->parse_time_in_force($this->safe_string($rawOrder, 'time_in_force'));
-        $stopPrice = $this->safe_number($rawOrder, 'trigger_price');
-        $postOnly = $this->safe_value($rawOrder, 'is_post_only');
-        $rawTrades = $this->safe_value($order, 'trades', array());
+        $postOnly = $this->safe_bool($rawOrder, 'is_post_only');
+        $rawTrades = $this->safe_list($order, 'trades', array());
         return $this->safe_order(array(
             'id' => $id,
             'clientOrderId' => $clientOrderId,
@@ -1464,56 +1399,61 @@ class onetrading extends Exchange {
             'postOnly' => $postOnly,
             'side' => $side,
             'price' => $price,
-            'stopPrice' => $stopPrice,
-            'triggerPrice' => $stopPrice,
+            'triggerPrice' => $this->safe_number($rawOrder, 'trigger_price'),
             'amount' => $amount,
             'cost' => null,
             'average' => null,
             'filled' => $filled,
             'remaining' => null,
             'status' => $status,
-            // 'fee' => null,
+            // 'fee': undefined,
             'trades' => $rawTrades,
         ), $market);
     }
 
-    public function parse_time_in_force(?string $timeInForce) {
+    public function parse_time_in_force(?string $timeInForce): ?string {
         $timeInForces = array(
             'GOOD_TILL_CANCELLED' => 'GTC',
             'GOOD_TILL_TIME' => 'GTT',
             'IMMEDIATE_OR_CANCELLED' => 'IOC',
             'FILL_OR_KILL' => 'FOK',
+            'POST_ONLY' => 'PO',
         );
         return $this->safe_string($timeInForces, $timeInForce, $timeInForce);
     }
 
-    public function create_order(string $symbol, string $type, string $side, float $amount, ?float $price = null, $params = array ()) {
+    public function create_order(string $symbol, string $type, string $side, float $amount, ?float $price = null, $params = array()): array {
         /**
          * create a trade order
-         * @see https://docs.onetrading.com/#create-order
+         *
+         * @see https://docs.onetrading.com/rest/trading/create-order
+         *
          * @param {string} $symbol unified $symbol of the $market to create an order in
-         * @param {string} $type 'market' or 'limit'
+         * @param {string} $type 'limit'
          * @param {string} $side 'buy' or 'sell'
          * @param {float} $amount how much of currency you want to trade in units of base currency
-         * @param {float} [$price] the $price at which the order is to be fullfilled, in units of the quote currency, ignored in $market orders
+         * @param {float} [$price] the $price at which the order is to be fulfilled, in units of the quote currency, ignored in $market orders
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
          * @param {float} [$params->triggerPrice] onetrading only does stop limit orders and does not do stop $market
-         * @return {array} an ~@link https://docs.ccxt.com/#/?id=order-structure order structure~
+         * @return {array} an ~@link https://docs.ccxt.com/?id=order-structure order structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $uppercaseType = strtoupper($type);
+        $this->check_required_argument('createOrder', $side, 'side');
         $request = array(
             'instrument_code' => $market['id'],
             'type' => $uppercaseType, // LIMIT, MARKET, STOP
             'side' => strtoupper($side), // or SELL
             'amount' => $this->amount_to_precision($symbol, $amount),
-            // "price" => "1234.5678", // required for LIMIT and STOP orders
-            // "client_id" => "d75fb03b-b599-49e9-b926-3f0b6d103206", // optional
-            // "time_in_force" => "GOOD_TILL_CANCELLED", // limit orders only, GOOD_TILL_CANCELLED, GOOD_TILL_TIME, IMMEDIATE_OR_CANCELLED and FILL_OR_KILL
-            // "expire_after" => "2020-07-02T19:40:13Z", // required for GOOD_TILL_TIME
-            // "is_post_only" => false, // limit orders only, optional
-            // "trigger_price" => "1234.5678" // required for stop orders
+            // "price": "1234.5678", // required for LIMIT and STOP orders
+            // "client_id": "d75fb03b-b599-49e9-b926-3f0b6d103206", // optional
+            // "time_in_force": "GOOD_TILL_CANCELLED", // limit orders only, GOOD_TILL_CANCELLED, GOOD_TILL_TIME, IMMEDIATE_OR_CANCELLED and FILL_OR_KILL
+            // "expire_after": "2020-07-02T19:40:13Z", // required for GOOD_TILL_TIME
+            // "is_post_only": false, // limit orders only, optional
+            // "trigger_price": "1234.5678" // required for stop orders
         );
         $priceIsRequired = false;
         if ($uppercaseType === 'LIMIT' || $uppercaseType === 'STOP') {
@@ -1522,13 +1462,12 @@ class onetrading extends Exchange {
         $triggerPrice = $this->safe_number_n($params, array( 'triggerPrice', 'trigger_price', 'stopPrice' ));
         if ($triggerPrice !== null) {
             if ($uppercaseType === 'MARKET') {
-                throw new BadRequest($this->id . ' createOrder() cannot place stop $market orders, only stop limit');
+                throw new BadRequest($this->id . ' createOrder() cannot place stop market orders, only stop limit');
             }
             $request['trigger_price'] = $this->price_to_precision($symbol, $triggerPrice);
             $request['type'] = 'STOP';
-            $params = $this->omit($params, array( 'triggerPrice', 'trigger_price', 'stopPrice' ));
         } elseif ($uppercaseType === 'STOP') {
-            throw new ArgumentsRequired($this->id . ' createOrder() requires a $triggerPrice param for ' . $type . ' orders');
+            throw new ArgumentsRequired($this->id . ' createOrder() requires a triggerPrice param for ' . $type . ' orders');
         }
         if ($priceIsRequired) {
             $request['price'] = $this->price_to_precision($symbol, $price);
@@ -1536,38 +1475,48 @@ class onetrading extends Exchange {
         $clientOrderId = $this->safe_string_2($params, 'clientOrderId', 'client_id');
         if ($clientOrderId !== null) {
             $request['client_id'] = $clientOrderId;
-            $params = $this->omit($params, array( 'clientOrderId', 'client_id' ));
         }
-        $response = $this->privatePostAccountOrders ($this->extend($request, $params));
+        $triggerKeys = ($triggerPrice !== null) ? array( 'triggerPrice', 'trigger_price', 'stopPrice' ) : array();
+        $clientOrderIdKeys = ($clientOrderId !== null) ? array( 'clientOrderId', 'client_id' ) : array();
+        $paramsOmitted = $this->omit($params, $this->array_concat($this->array_concat($triggerKeys, $clientOrderIdKeys), array( 'timeInForce' )));
+        $timeInForce = $this->safe_string_2($params, 'timeInForce', 'time_in_force', 'GOOD_TILL_CANCELLED');
+        $request['time_in_force'] = $timeInForce;
+        $response = $this->privatePostAccountOrders($this->extend($request, $paramsOmitted));
         //
         //     {
-        //         "order_id" => "d5492c24-2995-4c18-993a-5b8bf8fffc0d",
-        //         "client_id" => "d75fb03b-b599-49e9-b926-3f0b6d103206",
-        //         "account_id" => "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
-        //         "instrument_code" => "BTC_EUR",
-        //         "time" => "2019-08-01T08:00:44.026Z",
-        //         "side" => "BUY",
-        //         "price" => "5000",
-        //         "amount" => "1",
-        //         "filled_amount" => "0.5",
-        //         "type" => "LIMIT",
-        //         "time_in_force" => "GOOD_TILL_CANCELLED"
+        //         "order_id": "d5492c24-2995-4c18-993a-5b8bf8fffc0d",
+        //         "client_id": "d75fb03b-b599-49e9-b926-3f0b6d103206",
+        //         "account_id": "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
+        //         "instrument_code": "BTC_EUR",
+        //         "time": "2019-08-01T08:00:44.026Z",
+        //         "side": "BUY",
+        //         "price": "5000",
+        //         "amount": "1",
+        //         "filled_amount": "0.5",
+        //         "type": "LIMIT",
+        //         "time_in_force": "GOOD_TILL_CANCELLED"
         //     }
         //
         return $this->parse_order($response, $market);
     }
 
-    public function cancel_order(string $id, ?string $symbol = null, $params = array ()) {
+    public function cancel_order(string $id, ?string $symbol = null, $params = array()): array {
         /**
          * cancels an open order
+         *
+         * @see https://docs.onetrading.com/rest/trading/cancel-order-order-$id
+         * @see https://docs.onetrading.com/rest/trading/cancel-order-client-$id
+         *
          * @param {string} $id order $id
-         * @param {string} $symbol not used by bitmex cancelOrder ()
+         * @param {string} $symbol not used by cancelOrder ()
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} An ~@link https://docs.ccxt.com/#/?$id=order-structure order structure~
+         * @return {array} An ~@link https://docs.ccxt.com/?$id=order-structure order structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $clientOrderId = $this->safe_string_2($params, 'clientOrderId', 'client_id');
-        $params = $this->omit($params, array( 'clientOrderId', 'client_id' ));
+        $paramsOmitted = $this->omit($params, array( 'clientOrderId', 'client_id' ));
         $method = 'privateDeleteAccountOrdersOrderId';
         $request = array();
         if ($clientOrderId !== null) {
@@ -1576,131 +1525,159 @@ class onetrading extends Exchange {
         } else {
             $request['order_id'] = $id;
         }
-        $response = $this->$method ($this->extend($request, $params));
+        $response = null;
+        if ($method === 'privateDeleteAccountOrdersOrderId') {
+            $response = $this->privateDeleteAccountOrdersOrderId($this->extend($request, $paramsOmitted));
+        } else {
+            $response = $this->privateDeleteAccountOrdersClientClientId($this->extend($request, $paramsOmitted));
+        }
         //
         // responds with an empty body
         //
-        return $response;
+        return $this->parse_order($response);
     }
 
-    public function cancel_all_orders(?string $symbol = null, $params = array ()) {
+    public function cancel_all_orders(?string $symbol = null, $params = array()): array {
         /**
          * cancel all open orders
-         * @param {string} $symbol unified $market $symbol, only orders in the $market of this $symbol are cancelled when $symbol is not null
+         *
+         * @see https://docs.onetrading.com/rest/trading/cancel-all-orders
+         *
+         * @param {string} [$symbol] unified $market $symbol, only orders in the $market of this $symbol are cancelled when $symbol is not null
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array[]} a list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
+         * @return {array[]} a list of ~@link https://docs.ccxt.com/?id=order-structure order structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array();
         if ($symbol !== null) {
             $market = $this->market($symbol);
             $request['instrument_code'] = $market['id'];
         }
-        $response = $this->privateDeleteAccountOrders ($this->extend($request, $params));
+        $response = $this->privateDeleteAccountOrders($this->extend($request, $params));
         //
-        //     array(
+        //     [
         //         "a10e9bd1-8f72-4cfe-9f1b-7f1c8a9bd8ee"
-        //     )
+        //     ]
         //
-        return $response;
+        return array( $this->safe_order(array( 'info' => $response )) );
     }
 
-    public function cancel_orders($ids, ?string $symbol = null, $params = array ()) {
+    public function cancel_orders(array $ids, ?string $symbol = null, $params = array()): array {
         /**
          * cancel multiple orders
-         * @param {string[]} $ids order $ids
+         *
+         * @see https://docs.onetrading.com/rest/trading/cancel-all-orders
+         *
+         * @param {string[]} $ids $order $ids
          * @param {string} $symbol unified market $symbol, default is null
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} an list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
+         * @return {array} an list of ~@link https://docs.ccxt.com/?id=$order-structure $order structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array(
             'ids' => implode(',', $ids),
         );
-        $response = $this->privateDeleteAccountOrders ($this->extend($request, $params));
+        $response = $this->privateDeleteAccountOrders($this->extend($request, $params));
         //
-        //     array(
+        //     [
         //         "a10e9bd1-8f72-4cfe-9f1b-7f1c8a9bd8ee"
-        //     )
+        //     ]
         //
-        return $response;
+        $order = $this->safe_order(array( 'info' => $response ));
+        return array( $order );
     }
 
-    public function fetch_order(string $id, ?string $symbol = null, $params = array ()) {
+    public function fetch_order(string $id, ?string $symbol = null, $params = array()): array {
         /**
          * fetches information on an order made by the user
+         *
+         * @see https://docs.onetrading.com/rest/trading/get-order-order-$id
+         *
+         * @param {string} $id the order $id
          * @param {string} $symbol not used by onetrading fetchOrder
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} An ~@link https://docs.ccxt.com/#/?$id=order-structure order structure~
+         * @return {array} An ~@link https://docs.ccxt.com/?$id=order-structure order structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array(
             'order_id' => $id,
         );
-        $response = $this->privateGetAccountOrdersOrderId ($this->extend($request, $params));
+        $response = $this->privateGetAccountOrdersOrderId($this->extend($request, $params));
         //
         //     {
-        //         "order" => array(
-        //             "order_id" => "36bb2437-7402-4794-bf26-4bdf03526439",
-        //             "account_id" => "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
-        //             "time_last_updated" => "2019-09-27T15:05:35.096Z",
-        //             "sequence" => 48782,
-        //             "price" => "7349.2",
-        //             "filled_amount" => "100.0",
-        //             "status" => "FILLED_FULLY",
-        //             "amount" => "100.0",
-        //             "instrument_code" => "BTC_EUR",
-        //             "side" => "BUY",
-        //             "time" => "2019-09-27T15:05:32.063Z",
-        //             "type" => "MARKET"
-        //         ),
-        //         "trades" => array(
+        //         "order": {
+        //             "order_id": "36bb2437-7402-4794-bf26-4bdf03526439",
+        //             "account_id": "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
+        //             "time_last_updated": "2019-09-27T15:05:35.096Z",
+        //             "sequence": 48782,
+        //             "price": "7349.2",
+        //             "filled_amount": "100.0",
+        //             "status": "FILLED_FULLY",
+        //             "amount": "100.0",
+        //             "instrument_code": "BTC_EUR",
+        //             "side": "BUY",
+        //             "time": "2019-09-27T15:05:32.063Z",
+        //             "type": "MARKET"
+        //         },
+        //         "trades": [
         //             {
-        //                 "fee" => array(
-        //                     "fee_amount" => "0.0014",
-        //                     "fee_currency" => "BTC",
-        //                     "fee_percentage" => "0.1",
-        //                     "fee_group_id" => "default",
-        //                     "fee_type" => "TAKER",
-        //                     "running_trading_volume" => "0.0"
-        //                 ),
-        //                 "trade" => {
-        //                     "trade_id" => "fdff2bcc-37d6-4a2d-92a5-46e09c868664",
-        //                     "order_id" => "36bb2437-7402-4794-bf26-4bdf03526439",
-        //                     "account_id" => "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
-        //                     "amount" => "1.4",
-        //                     "side" => "BUY",
-        //                     "instrument_code" => "BTC_EUR",
-        //                     "price" => "7341.4",
-        //                     "time" => "2019-09-27T15:05:32.564Z",
-        //                     "sequence" => 48670
+        //                 "fee": {
+        //                     "fee_amount": "0.0014",
+        //                     "fee_currency": "BTC",
+        //                     "fee_percentage": "0.1",
+        //                     "fee_group_id": "default",
+        //                     "fee_type": "TAKER",
+        //                     "running_trading_volume": "0.0"
+        //                 },
+        //                 "trade": {
+        //                     "trade_id": "fdff2bcc-37d6-4a2d-92a5-46e09c868664",
+        //                     "order_id": "36bb2437-7402-4794-bf26-4bdf03526439",
+        //                     "account_id": "a4c699f6-338d-4a26-941f-8f9853bfc4b9",
+        //                     "amount": "1.4",
+        //                     "side": "BUY",
+        //                     "instrument_code": "BTC_EUR",
+        //                     "price": "7341.4",
+        //                     "time": "2019-09-27T15:05:32.564Z",
+        //                     "sequence": 48670
         //                 }
         //             }
-        //         )
+        //         ]
         //     }
         //
         return $this->parse_order($response);
     }
 
-    public function fetch_open_orders(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array ()): array {
+    public function fetch_open_orders(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetch all unfilled currently open orders
+         *
+         * @see https://docs.onetrading.com/rest/trading/get-orders
+         *
          * @param {string} $symbol unified $market $symbol
-         * @param {int} [$since] the earliest time in ms $to fetch open orders for
-         * @param {int} [$limit] the maximum number of  open orders structures $to retrieve
-         * @param {array} [$params] extra parameters specific $to the exchange API endpoint
-         * @return {Order[]} a list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
+         * @param {int} [$since] the earliest time in ms to fetch open orders for, the maximum window between $since and $until is 30 days
+         * @param {int} [$limit] the maximum number of  open orders structures to retrieve
+         * @param {array} [$params] extra parameters specific to the exchange API endpoint
+         * @param {int} [$params->until] timestamp in ms of the latest entry to fetch
+         * @return {Order[]} a list of ~@link https://docs.ccxt.com/?id=order-structure order structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array(
-            // 'from' => $this->iso8601($since),
-            // 'to' => $this->iso8601($this->milliseconds()), // max range is 100 days
-            // 'instrument_code' => $market['id'],
-            // 'with_cancelled_and_rejected' => false, // default is false, orders which have been cancelled by the user before being filled or rejected by the system, additionally, all inactive filled orders which would return with "with_just_filled_inactive"
-            // 'with_just_filled_inactive' => false, // orders which have been filled and are no longer open, use of "with_cancelled_and_rejected" extends "with_just_filled_inactive" and in case both are specified the latter is ignored
-            // 'with_just_orders' => false, // do not return any trades corresponsing $to the orders, it may be significanly faster and should be used if user is not interesting in trade information
-            // 'max_page_size' => 100,
-            // 'cursor' => 'string', // pointer specifying the position from which the next pages should be returned
+            // 'from': this.iso8601 (since),
+            // 'to': this.iso8601 (this.milliseconds ()), // max range is 30 days
+            // 'instrument_code': market['id'],
+            // 'with_cancelled_and_rejected': false, // default is false, orders which have been cancelled by the user before being filled or rejected by the system as invalid, additionally, all inactive filled orders which would return with "with_just_filled_inactive"
+            // 'with_just_filled_inactive': false, // orders which have been filled and are no longer open, use of "with_cancelled_and_rejected" extends "with_just_filled_inactive" and in case both are specified the latter is ignored
+            // 'with_just_orders': false, // do not return any trades corresponding to the orders, it may be significantly faster and should be used if user is not interesting in trade information
+            // 'max_page_size': 100,
+            // 'cursor': 'string', // pointer specifying the position from which the next pages should be returned
         );
         $market = null;
         if ($symbol !== null) {
@@ -1708,165 +1685,175 @@ class onetrading extends Exchange {
             $request['instrument_code'] = $market['id'];
         }
         if ($since !== null) {
-            $to = $this->safe_string($params, 'to');
-            if ($to === null) {
-                throw new ArgumentsRequired($this->id . ' fetchOpenOrders() requires a "to" iso8601 string param with the $since argument is specified, max range is 100 days');
-            }
             $request['from'] = $this->iso8601($since);
+        }
+        $until = $this->safe_integer($params, 'until');
+        $paramsOmitted = ($until !== null) ? $this->omit($params, 'until') : $params;
+        if ($until !== null) {
+            $request['to'] = $this->iso8601($until);
         }
         if ($limit !== null) {
             $request['max_page_size'] = $limit;
         }
-        $response = $this->privateGetAccountOrders ($this->extend($request, $params));
+        $response = $this->privateGetAccountOrders($this->extend($request, $paramsOmitted));
         //
         //     {
-        //         "order_history" => array(
+        //         "order_history": [
         //             {
-        //                 "order" => array(
-        //                     "trigger_price" => "12089.88",
-        //                     "order_id" => "d453ca12-c650-46dd-9dee-66910d96bfc0",
-        //                     "account_id" => "ef3a5f4c-cfcd-415e-ba89-5a9abf47b28a",
-        //                     "instrument_code" => "BTC_USDT",
-        //                     "time" => "2019-08-23T10:02:31.663Z",
-        //                     "side" => "SELL",
-        //                     "price" => "10159.76",
-        //                     "average_price" => "10159.76",
-        //                     "amount" => "0.2",
-        //                     "filled_amount" => "0.2",
-        //                     "type" => "STOP",
-        //                     "sequence" => 8,
-        //                     "status" => "FILLED_FULLY"
-        //                 ),
-        //                 "trades" => array(
+        //                 "order": {
+        //                     "trigger_price": "12089.88",
+        //                     "order_id": "d453ca12-c650-46dd-9dee-66910d96bfc0",
+        //                     "account_id": "ef3a5f4c-cfcd-415e-ba89-5a9abf47b28a",
+        //                     "instrument_code": "BTC_USDT",
+        //                     "time": "2019-08-23T10:02:31.663Z",
+        //                     "side": "SELL",
+        //                     "price": "10159.76",
+        //                     "average_price": "10159.76",
+        //                     "amount": "0.2",
+        //                     "filled_amount": "0.2",
+        //                     "type": "STOP",
+        //                     "sequence": 8,
+        //                     "status": "FILLED_FULLY"
+        //                 },
+        //                 "trades": [
         //                     {
-        //                         "fee" => array(
-        //                             "fee_amount" => "0.4188869",
-        //                             "fee_currency" => "USDT",
-        //                             "fee_percentage" => "0.1",
-        //                             "fee_group_id" => "default",
-        //                             "fee_type" => "TAKER",
-        //                             "running_trading_volume" => "0.0"
-        //                         ),
-        //                         "trade" => array(
-        //                             "trade_id" => "ec82896f-fd1b-4cbb-89df-a9da85ccbb4b",
-        //                             "order_id" => "d453ca12-c650-46dd-9dee-66910d96bfc0",
-        //                             "account_id" => "ef3a5f4c-cfcd-415e-ba89-5a9abf47b28a",
-        //                             "amount" => "0.2",
-        //                             "side" => "SELL",
-        //                             "instrument_code" => "BTC_USDT",
-        //                             "price" => "10159.76",
-        //                             "time" => "2019-08-23T10:02:32.663Z",
-        //                             "sequence" => 9
+        //                         "fee": {
+        //                             "fee_amount": "0.4188869",
+        //                             "fee_currency": "USDT",
+        //                             "fee_percentage": "0.1",
+        //                             "fee_group_id": "default",
+        //                             "fee_type": "TAKER",
+        //                             "running_trading_volume": "0.0"
+        //                         },
+        //                         "trade": {
+        //                             "trade_id": "ec82896f-fd1b-4cbb-89df-a9da85ccbb4b",
+        //                             "order_id": "d453ca12-c650-46dd-9dee-66910d96bfc0",
+        //                             "account_id": "ef3a5f4c-cfcd-415e-ba89-5a9abf47b28a",
+        //                             "amount": "0.2",
+        //                             "side": "SELL",
+        //                             "instrument_code": "BTC_USDT",
+        //                             "price": "10159.76",
+        //                             "time": "2019-08-23T10:02:32.663Z",
+        //                             "sequence": 9
         //                         }
         //                     }
-        //                 )
-        //             ),
-        //             array(
-        //                 "order" => array(
-        //                     "order_id" => "5151a99e-f414-418f-8cf1-2568d0a63ea5",
-        //                     "account_id" => "ef3a5f4c-cfcd-415e-ba89-5a9abf47b28a",
-        //                     "instrument_code" => "BTC_USDT",
-        //                     "time" => "2019-08-23T10:01:36.773Z",
-        //                     "side" => "SELL",
-        //                     "price" => "12289.88",
-        //                     "amount" => "0.5",
-        //                     "filled_amount" => "0.0",
-        //                     "type" => "LIMIT",
-        //                     "sequence" => 7,
-        //                     "status" => "OPEN"
-        //                 ),
-        //                 "trades" => array()
-        //             ),
+        //                 ]
+        //             },
         //             {
-        //                 "order" => array(
-        //                     "order_id" => "ac80d857-75e1-4733-9070-fd4288395fdc",
-        //                     "account_id" => "ef3a5f4c-cfcd-415e-ba89-5a9abf47b28a",
-        //                     "instrument_code" => "BTC_USDT",
-        //                     "time" => "2019-08-23T10:01:25.031Z",
-        //                     "side" => "SELL",
-        //                     "price" => "11089.88",
-        //                     "amount" => "0.1",
-        //                     "filled_amount" => "0.0",
-        //                     "type" => "LIMIT",
-        //                     "sequence" => 6,
-        //                     "status" => "OPEN"
-        //                 ),
-        //                 "trades" => array()
+        //                 "order": {
+        //                     "order_id": "5151a99e-f414-418f-8cf1-2568d0a63ea5",
+        //                     "account_id": "ef3a5f4c-cfcd-415e-ba89-5a9abf47b28a",
+        //                     "instrument_code": "BTC_USDT",
+        //                     "time": "2019-08-23T10:01:36.773Z",
+        //                     "side": "SELL",
+        //                     "price": "12289.88",
+        //                     "amount": "0.5",
+        //                     "filled_amount": "0.0",
+        //                     "type": "LIMIT",
+        //                     "sequence": 7,
+        //                     "status": "OPEN"
+        //                 },
+        //                 "trades": []
+        //             },
+        //             {
+        //                 "order": {
+        //                     "order_id": "ac80d857-75e1-4733-9070-fd4288395fdc",
+        //                     "account_id": "ef3a5f4c-cfcd-415e-ba89-5a9abf47b28a",
+        //                     "instrument_code": "BTC_USDT",
+        //                     "time": "2019-08-23T10:01:25.031Z",
+        //                     "side": "SELL",
+        //                     "price": "11089.88",
+        //                     "amount": "0.1",
+        //                     "filled_amount": "0.0",
+        //                     "type": "LIMIT",
+        //                     "sequence": 6,
+        //                     "status": "OPEN"
+        //                 },
+        //                 "trades": []
         //             }
-        //         ),
-        //         "max_page_size" => 100
+        //         ],
+        //         "max_page_size": 100
         //     }
         //
         $orderHistory = $this->safe_list($response, 'order_history', array());
         return $this->parse_orders($orderHistory, $market, $since, $limit);
     }
 
-    public function fetch_closed_orders(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array ()): array {
+    public function fetch_closed_orders(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetches information on multiple closed orders made by the user
+         *
+         * @see https://docs.onetrading.com/rest/trading/get-orders
+         *
          * @param {string} $symbol unified market $symbol of the market orders were made in
-         * @param {int} [$since] the earliest time in ms to fetch orders for
+         * @param {int} [$since] the earliest time in ms to fetch orders for, the maximum window between $since and until is 30 days
          * @param {int} [$limit] the maximum number of order structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Order[]} a list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
+         * @param {int} [$params->until] timestamp in ms of the latest entry to fetch
+         * @return {Order[]} a list of ~@link https://docs.ccxt.com/?id=order-structure order structures~
          */
         $request = array(
-            'with_cancelled_and_rejected' => true, // default is false, orders which have been cancelled by the user before being filled or rejected by the system, additionally, all inactive filled orders which would return with "with_just_filled_inactive"
+            'with_cancelled_and_rejected' => true, // default is false, orders which have been cancelled by the user before being filled or rejected by the system as invalid, additionally, all inactive filled orders which would return with "with_just_filled_inactive"
         );
         return $this->fetch_open_orders($symbol, $since, $limit, $this->extend($request, $params));
     }
 
-    public function fetch_order_trades(string $id, ?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array ()) {
+    public function fetch_order_trades(string $id, ?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetch all the trades made from a single order
+         *
+         * @see https://docs.onetrading.com/rest/trading/get-trades-for-order
+         *
          * @param {string} $id order $id
          * @param {string} $symbol unified $market $symbol
          * @param {int} [$since] the earliest time in ms to fetch trades for
          * @param {int} [$limit] the maximum number of trades to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array[]} a list of ~@link https://docs.ccxt.com/#/?$id=trade-structure trade structures~
+         * @return {array[]} a list of ~@link https://docs.ccxt.com/?$id=trade-structure trade structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array(
             'order_id' => $id,
-            // 'max_page_size' => 100,
-            // 'cursor' => 'string', // pointer specifying the position from which the next pages should be returned
+            // 'max_page_size': 100,
+            // 'cursor': 'string', // pointer specifying the position from which the next pages should be returned
         );
         if ($limit !== null) {
             $request['max_page_size'] = $limit;
         }
-        $response = $this->privateGetAccountOrdersOrderIdTrades ($this->extend($request, $params));
+        $response = $this->privateGetAccountOrdersOrderIdTrades($this->extend($request, $params));
         //
         //     {
-        //         "trade_history" => array(
+        //         "trade_history": [
         //             {
-        //                 "trade" => array(
-        //                     "trade_id" => "2b42efcd-d5b7-4a56-8e12-b69ffd68c5ef",
-        //                     "order_id" => "66756a10-3e86-48f4-9678-b634c4b135b2",
-        //                     "account_id" => "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
-        //                     "amount" => "1234.5678",
-        //                     "side" => "BUY",
-        //                     "instrument_code" => "BTC_EUR",
-        //                     "price" => "1234.5678",
-        //                     "time" => "2019-08-24T14:15:22Z",
-        //                     "price_tick_sequence" => 0,
-        //                     "sequence" => 123456789
-        //                 ),
-        //                 "fee" => {
-        //                     "fee_amount" => "1234.5678",
-        //                     "fee_percentage" => "1234.5678",
-        //                     "fee_group_id" => "default",
-        //                     "running_trading_volume" => "1234.5678",
-        //                     "fee_currency" => "BTC",
-        //                     "fee_type" => "TAKER"
+        //                 "trade": {
+        //                     "trade_id": "2b42efcd-d5b7-4a56-8e12-b69ffd68c5ef",
+        //                     "order_id": "66756a10-3e86-48f4-9678-b634c4b135b2",
+        //                     "account_id": "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
+        //                     "amount": "1234.5678",
+        //                     "side": "BUY",
+        //                     "instrument_code": "BTC_EUR",
+        //                     "price": "1234.5678",
+        //                     "time": "2019-08-24T14:15:22Z",
+        //                     "price_tick_sequence": 0,
+        //                     "sequence": 123456789
+        //                 },
+        //                 "fee": {
+        //                     "fee_amount": "1234.5678",
+        //                     "fee_percentage": "1234.5678",
+        //                     "fee_group_id": "default",
+        //                     "running_trading_volume": "1234.5678",
+        //                     "fee_currency": "BTC",
+        //                     "fee_type": "TAKER"
         //                 }
         //             }
-        //         ),
-        //         "max_page_size" => 0,
-        //         "cursor" => "string"
+        //         ],
+        //         "max_page_size": 0,
+        //         "cursor": "string"
         //     }
         //
-        $tradeHistory = $this->safe_value($response, 'trade_history', array());
+        $tradeHistory = $this->safe_list($response, 'trade_history', array());
         $market = null;
         if ($symbol !== null) {
             $market = $this->market($symbol);
@@ -1874,22 +1861,28 @@ class onetrading extends Exchange {
         return $this->parse_trades($tradeHistory, $market, $since, $limit);
     }
 
-    public function fetch_my_trades(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array ()) {
+    public function fetch_my_trades(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetch all trades made by the user
+         *
+         * @see https://docs.onetrading.com/rest/trading/get-trades
+         *
          * @param {string} $symbol unified $market $symbol
-         * @param {int} [$since] the earliest time in ms $to fetch trades for
-         * @param {int} [$limit] the maximum number of trades structures $to retrieve
-         * @param {array} [$params] extra parameters specific $to the exchange API endpoint
-         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/#/?id=trade-structure trade structures~
+         * @param {int} [$since] the earliest time in ms to fetch trades for, the maximum window between $since and $until is 30 days, when $until is omitted the exchange defaults to 7 days after $since
+         * @param {int} [$limit] the maximum number of trades structures to retrieve
+         * @param {array} [$params] extra parameters specific to the exchange API endpoint
+         * @param {int} [$params->until] timestamp in ms of the latest entry to fetch
+         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/?id=trade-structure trade structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array(
-            // 'from' => $this->iso8601($since),
-            // 'to' => $this->iso8601($this->milliseconds()), // max range is 100 days
-            // 'instrument_code' => $market['id'],
-            // 'max_page_size' => 100,
-            // 'cursor' => 'string', // pointer specifying the position from which the next pages should be returned
+            // 'from': this.iso8601 (since),
+            // 'to': this.iso8601 (this.milliseconds ()), // max range is 30 days
+            // 'instrument_code': market['id'],
+            // 'max_page_size': 100,
+            // 'cursor': 'string', // pointer specifying the position from which the next pages should be returned
         );
         $market = null;
         if ($symbol !== null) {
@@ -1897,90 +1890,97 @@ class onetrading extends Exchange {
             $request['instrument_code'] = $market['id'];
         }
         if ($since !== null) {
-            $to = $this->safe_string($params, 'to');
-            if ($to === null) {
-                throw new ArgumentsRequired($this->id . ' fetchMyTrades() requires a "to" iso8601 string param with the $since argument is specified, max range is 100 days');
-            }
             $request['from'] = $this->iso8601($since);
+        }
+        $until = $this->safe_integer($params, 'until');
+        $paramsOmitted = ($until !== null) ? $this->omit($params, 'until') : $params;
+        if ($until !== null) {
+            $request['to'] = $this->iso8601($until);
         }
         if ($limit !== null) {
             $request['max_page_size'] = $limit;
         }
-        $response = $this->privateGetAccountTrades ($this->extend($request, $params));
+        $response = $this->privateGetAccountTrades($this->extend($request, $paramsOmitted));
         //
         //     {
-        //         "trade_history" => array(
+        //         "trade_history": [
         //             {
-        //                 "trade" => array(
-        //                     "trade_id" => "2b42efcd-d5b7-4a56-8e12-b69ffd68c5ef",
-        //                     "order_id" => "66756a10-3e86-48f4-9678-b634c4b135b2",
-        //                     "account_id" => "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
-        //                     "amount" => "1234.5678",
-        //                     "side" => "BUY",
-        //                     "instrument_code" => "BTC_EUR",
-        //                     "price" => "1234.5678",
-        //                     "time" => "2019-08-24T14:15:22Z",
-        //                     "price_tick_sequence" => 0,
-        //                     "sequence" => 123456789
-        //                 ),
-        //                 "fee" => {
-        //                     "fee_amount" => "1234.5678",
-        //                     "fee_percentage" => "1234.5678",
-        //                     "fee_group_id" => "default",
-        //                     "running_trading_volume" => "1234.5678",
-        //                     "fee_currency" => "BTC",
-        //                     "fee_type" => "TAKER"
+        //                 "trade": {
+        //                     "trade_id": "2b42efcd-d5b7-4a56-8e12-b69ffd68c5ef",
+        //                     "order_id": "66756a10-3e86-48f4-9678-b634c4b135b2",
+        //                     "account_id": "c2d0076a-c20d-41f8-9e9a-1a1d028b2b58",
+        //                     "amount": "1234.5678",
+        //                     "side": "BUY",
+        //                     "instrument_code": "BTC_EUR",
+        //                     "price": "1234.5678",
+        //                     "time": "2019-08-24T14:15:22Z",
+        //                     "price_tick_sequence": 0,
+        //                     "sequence": 123456789
+        //                 },
+        //                 "fee": {
+        //                     "fee_amount": "1234.5678",
+        //                     "fee_percentage": "1234.5678",
+        //                     "fee_group_id": "default",
+        //                     "running_trading_volume": "1234.5678",
+        //                     "fee_currency": "BTC",
+        //                     "fee_type": "TAKER"
         //                 }
         //             }
-        //         ),
-        //         "max_page_size" => 0,
-        //         "cursor" => "string"
+        //         ],
+        //         "max_page_size": 0,
+        //         "cursor": "string"
         //     }
         //
         $tradeHistory = $this->safe_list($response, 'trade_history', array());
         return $this->parse_trades($tradeHistory, $market, $since, $limit);
     }
 
-    public function sign($path, $api = 'public', $method = 'GET', $params = array (), $headers = null, $body = null) {
-        $url = $this->urls['api'][$api] . '/' . $this->version . '/' . $this->implode_params($path, $params);
+    public function sign(string $path, array $api = array('public'), string $method = 'GET', $params = array()): array {
+        $apiName = $api[0];
+        $apiUrl = $this->safe_string($this->urls['api'], $apiName);
+        if ($apiUrl === null) {
+            throw new ExchangeError($this->id . ' sign() has no API URL for this endpoint');
+        }
+        $url = $apiUrl . '/' . $this->version . '/' . $this->implode_params($path, $params);
         $query = $this->omit($params, $this->extract_params($path));
-        if ($api === 'public') {
-            if ($query) {
+        if ($apiName === 'public') {
+            if (count($query) > 0) {
                 $url .= '?' . $this->urlencode($query);
             }
-        } elseif ($api === 'private') {
+        } elseif ($apiName === 'private') {
             $this->check_required_credentials();
-            $headers = array(
+            $headersSigned = array(
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $this->apiKey,
             );
+            $bodyJson = ($method === 'POST') ? $this->json($query) : null;
             if ($method === 'POST') {
-                $body = $this->json($query);
-                $headers['Content-Type'] = 'application/json';
+                $headersSigned['Content-Type'] = 'application/json';
             } else {
-                if ($query) {
+                if (count($query) > 0) {
                     $url .= '?' . $this->urlencode($query);
                 }
             }
+            return array( 'url' => $url, 'method' => $method, 'body' => $bodyJson, 'headers' => $headersSigned );
         }
-        return array( 'url' => $url, 'method' => $method, 'body' => $body, 'headers' => $headers );
+        return array( 'url' => $url, 'method' => $method, 'body' => null, 'headers' => null );
     }
 
-    public function handle_errors(int $code, string $reason, string $url, string $method, array $headers, string $body, $response, $requestHeaders, $requestBody) {
+    public function handle_errors(int $code, string $reason, string $url, string $method, array $headers, string $body, mixed $response, ?array $requestHeaders, ?string $requestBody) {
         if ($response === null) {
             return null;
         }
         //
-        //     array("error":"MISSING_FROM_PARAM")
-        //     array("error":"MISSING_TO_PARAM")
-        //     array("error":"CANDLESTICKS_TIME_RANGE_TOO_BIG")
+        //     {"error":"MISSING_FROM_PARAM"}
+        //     {"error":"MISSING_TO_PARAM"}
+        //     {"error":"CANDLESTICKS_TIME_RANGE_TOO_BIG"}
         //
         $message = $this->safe_string($response, 'error');
         if ($message !== null) {
             $feedback = $this->id . ' ' . $body;
             $this->throw_exactly_matched_exception($this->exceptions['exact'], $message, $feedback);
             $this->throw_broadly_matched_exception($this->exceptions['broad'], $message, $feedback);
-            throw new ExchangeError($feedback); // unknown $message
+            throw new ExchangeError($feedback); // unknown message
         }
         return null;
     }

@@ -8,20 +8,23 @@ namespace ccxt\pro;
 use Exception; // a common import
 
 class binancecoinm extends \ccxt\pro\binance {
-
-    public function describe() {
+    public function describe(): array {
         // eslint-disable-next-line new-cap
-        $restInstance = new \ccxt\async\binancecoinm ();
-        $restDescribe = $restInstance->describe ();
-        $extended = $this->deep_extend(parent::describe(), $restDescribe);
+        $restInstance = new \ccxt\async\binancecoinm();
+        $restDescribe = $restInstance->describe();
+        $parentWsDescribe = parent::describe_data();
+        $extended = $this->deep_extend($restDescribe, $parentWsDescribe);
         return $this->deep_extend($extended, array(
             'id' => 'binancecoinm',
             'name' => 'Binance COIN-M',
             'urls' => array(
                 'logo' => 'https://user-images.githubusercontent.com/1294454/117738721-668c8d80-b205-11eb-8c49-3fad84c4a07f.jpg',
+                'doc' => 'https://developers.binance.com/en',
             ),
             'options' => array(
-                'fetchMarkets' => array( 'inverse' ),
+                'fetchMarkets' => array(
+                    'types' => array( 'inverse' ),
+                ),
                 'defaultSubType' => 'inverse',
             ),
         ));

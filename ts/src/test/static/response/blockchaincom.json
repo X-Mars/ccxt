@@ -20,6 +20,7 @@
                         "address": "btcaddress"
                     },
                     "currency": "BTC",
+                    "network": null,
                     "address": null,
                     "tag": "btcaddress"
                 }
@@ -134,7 +135,7 @@
                 "description": "spot order",
                 "method": "fetchOrder",
                 "input": [
-                    844439434710384
+                    "844439434710384"
                 ],
                 "httpResponse": {
                     "clOrdId": "65a52ec30e1f44c9webd",
@@ -231,6 +232,8 @@
                     "average": 72297.34,
                     "baseVolume": 0.71952468,
                     "quoteVolume": null,
+                    "markPrice":  null,
+                    "indexPrice": null,
                     "info": {
                         "symbol": "BTC-USDT",
                         "price_24h": "71400.89",

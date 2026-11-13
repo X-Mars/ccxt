@@ -7,16 +7,24 @@ namespace ccxt.pro;
 public partial class binanceusdm { public binanceusdm(object args = null) : base(args) { } }
 public partial class binanceusdm : binance
 {
-    public override object describe()
+    public override Dictionary<string, object> describe()
     {
-        return this.deepExtend(base.describe(), new Dictionary<string, object>() {
+        // eslint-disable-next-line new-cap
+        var restInstance = new ccxt.binanceusdm();
+        Dictionary<string, object> restDescribe = restInstance.describe();
+        Dictionary<string, object> parentWsDescribe = base.describeData();
+        Dictionary<string, object> extended = this.deepExtend(restDescribe, parentWsDescribe);
+        return this.deepExtend(extended, new Dictionary<string, object>() {
             { "id", "binanceusdm" },
             { "name", "Binance USDⓈ-M" },
             { "urls", new Dictionary<string, object>() {
                 { "logo", "https://user-images.githubusercontent.com/1294454/117738721-668c8d80-b205-11eb-8c49-3fad84c4a07f.jpg" },
+                { "doc", "https://developers.binance.com/en" },
             } },
             { "options", new Dictionary<string, object>() {
-                { "fetchMarkets", new List<object>() {"linear"} },
+                { "fetchMarkets", new Dictionary<string, object>() {
+                    { "types", new List<object>() {"linear"} },
+                } },
                 { "defaultSubType", "linear" },
             } },
             { "exceptions", new Dictionary<string, object>() {

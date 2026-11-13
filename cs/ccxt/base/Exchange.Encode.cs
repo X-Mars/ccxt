@@ -1,4 +1,5 @@
 namespace ccxt;
+
 using System.Security.Cryptography;
 using System.Text;
 
@@ -9,10 +10,12 @@ using MiniMessagePack;
 using dict = Dictionary<string, object>;
 using list = List<object>;
 
-public partial class Exchange
+public partial class BaseExchange
 {
 
-    public object base16ToBinary(object str2)
+    // every return path hands back ConvertHexStringToByteArray's byte[] (the two stubs above
+    // are comments only), so the declared type names the box the value already has
+    public byte[] base16ToBinary(object str2)
     {
         // return (string)str; // stub
         // return Convert.FromHexString((string)str);
@@ -37,7 +40,10 @@ public partial class Exchange
         return bytes;
     }
 
-    public virtual object remove0xPrefix(object str2)
+    // Both return paths hand back `str`, the `(string)str2` unbox taken at the top of the
+    // body (a non-string argument throws there, before either return), so the signature names
+    // the box the value already has.
+    public virtual string remove0xPrefix(object str2)
     {
         var str = (string)str2;
         if (str.StartsWith("0x"))
@@ -70,42 +76,121 @@ public partial class Exchange
         return Base58.Decode(pt as string);
     }
 
-    public object binaryConcat(object a, object b)
+
+    // every return path is a byte[] box (the List<byte> builder's ToArray); the return type
+    // names the box the runtime value already has, so no call site changes
+    public byte[] binaryConcat(params object[] parts)
     {
-        byte[] first;
-        byte[] second;
-        if (a is string)
+        var resultList = new List<byte>();
+
+        foreach (var part in parts)
         {
-            first = Encoding.ASCII.GetBytes(a as string);
+            if (part is string str)
+            {
+                resultList.AddRange(Encoding.ASCII.GetBytes(str));
+            }
+            else if (part is byte[] bytes)
+            {
+                resultList.AddRange(bytes);
+            }
+            else
+            {
+                throw new ArgumentException("BinaryConcat: Unsupported type, only string and byte[] are allowed.");
+            }
         }
-        else
+
+        return resultList.ToArray();
+    }
+
+    // public object binaryConcat(object a, object b)
+    // {
+    //     byte[] first;
+    //     byte[] second;
+    //     if (a is string)
+    //     {
+    //         first = Encoding.ASCII.GetBytes(a as string);
+    //     }
+    //     else
+    //     {
+    //         first = (byte[])a;
+    //     }
+    //     if (b is string)
+    //     {
+    //         second = Encoding.ASCII.GetBytes(b as string);
+    //     }
+    //     else
+    //     {
+    //         second = (byte[])b;
+    //     }
+    //     var result = new byte[first.Length + second.Length];
+    //     first.CopyTo(result, 0);
+    //     second.CopyTo(result, first.Length);
+    //     return result;
+    //     // return (string)a + (string)b; // stub
+    // }
+
+    public byte[] binaryConcatArray(object arrays2)
+    {
+        // if (byteArrays is not IList arrays)
+        // {
+        //     throw new ArgumentException("Input must be an array or collection of byte arrays.", nameof(byteArrays));
+        // }
+
+        var arrays = (IList<object>)arrays2;
+        // Determine total length
+        int totalLength = 0;
+        foreach (var item in arrays)
         {
-            first = (byte[])a;
+            // if (item is not byte[] array)
+            // {
+            //     throw new ArgumentException("All elements in the collection must be byte arrays.", nameof(byteArrays));
+            // }
+            byte[] bytesItem;
+            if (item is string)
+            {
+                bytesItem = Encoding.ASCII.GetBytes(item as string);
+            }
+            else
+            {
+                bytesItem = (byte[])item;
+            }
+            totalLength += ((byte[])bytesItem).Length;
         }
-        if (b is string)
+
+        // Concatenate arrays
+        byte[] result = new byte[totalLength];
+        int offset = 0;
+
+        foreach (var item in arrays)
         {
-            second = Encoding.ASCII.GetBytes(b as string);
+            byte[] bytesItem;
+            if (item is string)
+            {
+                bytesItem = Encoding.ASCII.GetBytes(item as string);
+            }
+            else
+            {
+                bytesItem = (byte[])item;
+            }
+            byte[] array = (byte[])bytesItem;
+            Buffer.BlockCopy(array, 0, result, offset, array.Length);
+            offset += array.Length;
         }
-        else
-        {
-            second = (byte[])b;
-        }
-        var result = new byte[first.Length + second.Length];
-        first.CopyTo(result, 0);
-        second.CopyTo(result, first.Length);
+
         return result;
-        // return (string)a + (string)b; // stub
     }
 
-    public object binaryConcatArray(object a)
+    // BitConverter.GetBytes + range slice → byte[] on the only return path
+    public byte[] numberToBE(object n2, object size2 = null)
     {
-        return (string)a; // stub
-    }
-
-    public object numberToBE(object n, object padding = null)
-    {
-        // implement number to big endian
-        return (string)n; // stub
+        var n = Convert.ToInt64(n2);
+        var size = size2 == null ? 0 : Convert.ToInt32(size2);
+        byte[] bytes = BitConverter.GetBytes(n);
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(bytes);
+        }
+        return bytes[^size..]; // Extract the last 'size' bytes
     }
 
     public static string binaryToHex(byte[] buff)
@@ -119,25 +204,55 @@ public partial class Exchange
 
     public string binaryToBase16(object buff2)
     {
-        var buff = (byte[])buff2;
+        var buff = buff2 is string ? Encoding.UTF8.GetBytes((string)buff2) : (byte[])buff2;
         return binaryToHex(buff);
     }
 
     public string binaryToBase58(object buff2)
     {
         var buff = (byte[])buff2;
-        return binaryToHex(buff);
+        return Base58.Encode(buff);
     }
 
-    public string binaryToBase64(byte[] buff) => BinaryToBase64(buff);
+    public static string Base64ToBase64Url(string base64, bool stripPadding = true)
+    {
+        string base64Url = base64.Replace('+', '-').Replace('/', '_');
 
-    public static string BinaryToBase64(byte[] buff) => Convert.ToBase64String(buff);
+        if (stripPadding)
+        {
+            base64Url = base64Url.TrimEnd('=');
+        }
+
+        return base64Url;
+    }
+
+    public string binaryToBase64(object buff2)
+    {
+        var buff = (byte[])buff2;
+        return BinaryToBase64(buff);
+    }
+
+    public static string BinaryToBase64(object buff2)
+    {
+        var buff = (byte[])buff2;
+        return Convert.ToBase64String(buff);
+    }
 
     public byte[] stringToBinary(string buff) => StringToBinary(buff);
 
     public static byte[] StringToBinary(string buff)
     {
         return Encoding.UTF8.GetBytes(buff);
+    }
+
+    public string binaryToString(object buff)
+    {
+        return BinaryToString(buff);
+    }
+
+    public static string BinaryToString(object buff)
+    {
+        return Encoding.UTF8.GetString(buff as byte[]);
     }
 
     public string encode(object data)
@@ -152,17 +267,25 @@ public partial class Exchange
 
     public string intToBase16(object number)
     {
+        if (number is System.Numerics.BigInteger)
+        {
+            // BigInteger is not IConvertible; also trim the sign-guard nibble BigInteger
+            // prepends so the output matches the JS number.toString(16) form
+            var hex = ((System.Numerics.BigInteger)number).ToString("x").TrimStart('0');
+            return (hex.Length > 0) ? hex : "0";
+        }
         var n = Convert.ToInt64(number);
         return n.ToString("x");
     }
 
-    public object packb(object data)
+    // MiniMessagePacker.Pack (cs/ccxt/static/MiniMessagePack) already returns byte[]
+    public byte[] packb(object data)
     {
         var packer = new MiniMessagePacker();
         return packer.Pack(data);
     }
 
-    public string rawencode(object paramaters1)
+    public string rawencode(object paramaters1, object sort = null)
     {
         var paramaters = (dict)paramaters1;
         var keys = new List<string>(((dict)paramaters).Keys);
@@ -204,36 +327,44 @@ public partial class Exchange
 
     public string urlencodeNested(object paramaters)
     {
-        // stub check this out
-        var queryString = System.Web.HttpUtility.ParseQueryString(string.Empty);
-        var keys = new List<string>(((dict)paramaters).Keys);
-        foreach (string key in keys)
+        var outList = new List<string>();
+
+        void urlencodeNestedRecursive(string prefix, object value)
         {
-            var value = ((dict)paramaters)[key];
             if (value != null && value.GetType() == typeof(dict))
             {
-                var keys2 = new List<string>(((dict)value).Keys);
-                foreach (string key2 in keys2)
+                foreach (var key in ((dict)value).Keys)
                 {
-                    var value2 = ((dict)value)[key2];
-                    var finalValue = value2.ToString();
-                    if (value2.GetType() == typeof(bool))
-                    {
-                        finalValue = finalValue.ToLower(); // c# uses "True" and "False" instead of "true" and "false" $:(
-
-                    }
-                    queryString.Add(key + "[" + key2 + "]", finalValue);
+                    var val = ((dict)value)[key];
+                    var nextPrefix = string.IsNullOrEmpty(prefix) ? Uri.EscapeDataString(key) : prefix + "[" + Uri.EscapeDataString(key) + "]";
+                    urlencodeNestedRecursive(nextPrefix, val);
                 }
             }
-            else
+            else if (value is IList<object> listValue)
             {
-                queryString.Add(key, value.ToString());
+                for (int i = 0; i < listValue.Count; i++)
+                {
+                    var val = listValue[i];
+                    var nextPrefix = string.IsNullOrEmpty(prefix) ? i.ToString() : prefix + "[" + i + "]";
+                    urlencodeNestedRecursive(nextPrefix, val);
+                }
+            }
+            else if (value != null)
+            {
+                var valStr = value.ToString();
+                if (value is bool)
+                {
+                    valStr = valStr.ToLower();
+                }
+                outList.Add(prefix + "=" + Uri.EscapeDataString(valStr));
             }
         }
-        return queryString.ToString();
+
+        urlencodeNestedRecursive(string.Empty, paramaters);
+        return string.Join("&", outList);
     }
 
-    public string urlencode(object parameters2)
+    public string urlencode(object parameters2, bool sort = false)
     {
         var parameters = (dict)parameters2;
 
@@ -243,21 +374,14 @@ public partial class Exchange
         foreach (string key in keys)
         {
             var value = parameters[key];
-            string encodedKey = System.Web.HttpUtility.UrlEncode(key);
+            string encodedKey = Uri.EscapeDataString(key);
             var finalValue = value.ToString();
             if (value.GetType() == typeof(bool))
             {
                 finalValue = finalValue.ToLower(); // c# uses "True" and "False" instead of "true" and "false" $:(
 
             }
-            if (key.ToLower() == "timestamp")
-            {
-                finalValue = System.Web.HttpUtility.UrlEncode(finalValue).ToUpper();
-            }
-            else
-            {
-                finalValue = System.Web.HttpUtility.UrlEncode(finalValue);
-            }
+            finalValue = Uri.EscapeDataString(finalValue);
             queryString.Add($"{encodedKey}={finalValue}");
         }
         return string.Join("&", queryString);

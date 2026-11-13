@@ -46,12 +46,7 @@
                             "cost": null,
                             "currency": null
                         },
-                        "fees": [
-                            {
-                                "cost": null,
-                                "currency": null
-                            }
-                        ]
+                        "fees": []
                     }
                 ]
             }
@@ -92,6 +87,8 @@
                     "average": null,
                     "baseVolume": 0.3111,
                     "quoteVolume": null,
+                    "markPrice": null,
+                    "indexPrice": null,
                     "info": {
                         "pair": "XBTUSDT",
                         "timestamp": "1710328244969",
@@ -101,6 +98,37 @@
                         "rolling_24_hour_volume": "0.31110000",
                         "status": "ACTIVE"
                     }
+                }
+            }
+        ],
+        "fetchDepositWithdrawFee": [
+            {
+                "description": "send fee response parses into a deposit withdraw fee structure",
+                "method": "fetchDepositWithdrawFee",
+                "input": [
+                    "BTC",
+                    {
+                        "address": "3EyjZ6CtazwXbKPUwx4FiG1c7PrZygX2FZ"
+                    }
+                ],
+                "httpResponse": {
+                    "currency": "XBT",
+                    "fee": "0.00015"
+                },
+                "parsedResponse": {
+                    "info": {
+                        "currency": "XBT",
+                        "fee": "0.00015"
+                    },
+                    "withdraw": {
+                        "fee": 0.00015,
+                        "percentage": false
+                    },
+                    "deposit": {
+                        "fee": null,
+                        "percentage": null
+                    },
+                    "networks": {}
                 }
             }
         ]

@@ -2,6 +2,17 @@
     "exchange": "coinmate",
     "skipKeys": [],
     "methods": {
+        "fetchTime": [
+            {
+                "description": "fetchTime",
+                "method": "fetchTime",
+                "input": [],
+                "httpResponse": {
+                    "serverTime": 1765250791686
+                },
+                "parsedResponse": 1765250791686
+            }
+        ],
         "fetchTrades": [
             {
                 "description": "public spot trades",
@@ -52,15 +63,17 @@
                     "ask": 73667.9,
                     "vwap": null,
                     "askVolume": null,
-                    "open": null,
+                    "open": 71540,
                     "close": 73722.8,
                     "last": 73722.8,
                     "previousClose": null,
-                    "change": null,
-                    "percentage": null,
-                    "average": null,
+                    "change": 2182.8,
+                    "percentage": 3.05116019,
+                    "average": 72631.4,
                     "baseVolume": 0.15487888,
                     "quoteVolume": null,
+                    "markPrice": null,
+                    "indexPrice": null,
                     "info": {
                         "last": "73722.8",
                         "high": "73726.3",

@@ -9,8 +9,7 @@ use Exception; // a common import
 use ccxt\abstract\bitflyer as Exchange;
 
 class bitflyer extends Exchange {
-
-    public function describe() {
+    public function describe(): array {
         return $this->deep_extend(parent::describe(), array(
             'id' => 'bitflyer',
             'name' => 'bitFlyer',
@@ -25,16 +24,37 @@ class bitflyer extends Exchange {
                 'swap' => null, // has but not fully implemented
                 'future' => null, // has but not fully implemented
                 'option' => false,
+                'borrowCrossMargin' => false,
+                'borrowIsolatedMargin' => false,
+                'borrowMargin' => false,
                 'cancelAllOrders' => null,  // https://lightning.bitflyer.com/docs?lang=en#cancel-all-orders
                 'cancelOrder' => true,
                 'createOrder' => true,
+                'fetchAllGreeks' => false,
                 'fetchBalance' => true,
+                'fetchBorrowInterest' => false,
+                'fetchBorrowRate' => false,
+                'fetchBorrowRateHistories' => false,
+                'fetchBorrowRateHistory' => false,
+                'fetchBorrowRates' => false,
+                'fetchBorrowRatesPerSymbol' => false,
                 'fetchClosedOrders' => 'emulated',
+                'fetchCrossBorrowRate' => false,
+                'fetchCrossBorrowRates' => false,
+                'fetchCurrencies' => false,
                 'fetchDeposits' => true,
+                'fetchFundingRate' => true,
+                'fetchFundingRateHistory' => false,
+                'fetchFundingRates' => false,
+                'fetchGreeks' => false,
+                'fetchIsolatedBorrowRate' => false,
+                'fetchIsolatedBorrowRates' => false,
                 'fetchMarginMode' => false,
                 'fetchMarkets' => true,
                 'fetchMyTrades' => true,
                 'fetchOpenOrders' => 'emulated',
+                'fetchOption' => false,
+                'fetchOptionChain' => false,
                 'fetchOrder' => 'emulated',
                 'fetchOrderBook' => true,
                 'fetchOrders' => true,
@@ -46,12 +66,15 @@ class bitflyer extends Exchange {
                 'fetchTradingFees' => false,
                 'fetchTransfer' => false,
                 'fetchTransfers' => false,
+                'fetchVolatilityHistory' => false,
                 'fetchWithdrawals' => true,
+                'repayCrossMargin' => false,
+                'repayIsolatedMargin' => false,
                 'transfer' => false,
                 'withdraw' => true,
             ),
             'urls' => array(
-                'logo' => 'https://user-images.githubusercontent.com/1294454/28051642-56154182-660e-11e7-9b0d-6042d1e6edd8.jpg',
+                'logo' => 'https://github.com/user-attachments/assets/d0217747-e54d-4533-8416-0d553dca74bb',
                 'api' => array(
                     'rest' => 'https://api.{hostname}',
                 ),
@@ -61,46 +84,48 @@ class bitflyer extends Exchange {
             'api' => array(
                 'public' => array(
                     'get' => array(
-                        'getmarkets/usa', // new (wip)
-                        'getmarkets/eu',  // new (wip)
-                        'getmarkets',     // or 'markets'
-                        'getboard',       // ...
-                        'getticker',
-                        'getexecutions',
-                        'gethealth',
-                        'getboardstate',
-                        'getchats',
+                        'getmarkets/usa' => array( 'cost' => 1 ),
+                        'getmarkets/eu' => array( 'cost' => 1 ),
+                        'getmarkets' => array( 'cost' => 1 ),
+                        'getboard' => array( 'cost' => 1 ),
+                        'getticker' => array( 'cost' => 1 ),
+                        'getexecutions' => array( 'cost' => 1 ),
+                        'gethealth' => array( 'cost' => 1 ),
+                        'getboardstate' => array( 'cost' => 1 ),
+                        'getchats' => array( 'cost' => 1 ),
+                        'getfundingrate' => array( 'cost' => 1 ),
+                        'getfundingratehistory' => array( 'cost' => 1 ),
                     ),
                 ),
                 'private' => array(
                     'get' => array(
-                        'getpermissions',
-                        'getbalance',
-                        'getbalancehistory',
-                        'getcollateral',
-                        'getcollateralhistory',
-                        'getcollateralaccounts',
-                        'getaddresses',
-                        'getcoinins',
-                        'getcoinouts',
-                        'getbankaccounts',
-                        'getdeposits',
-                        'getwithdrawals',
-                        'getchildorders',
-                        'getparentorders',
-                        'getparentorder',
-                        'getexecutions',
-                        'getpositions',
-                        'gettradingcommission',
+                        'getpermissions' => array( 'cost' => 1 ),
+                        'getbalance' => array( 'cost' => 1 ),
+                        'getbalancehistory' => array( 'cost' => 1 ),
+                        'getcollateral' => array( 'cost' => 1 ),
+                        'getcollateralhistory' => array( 'cost' => 1 ),
+                        'getcollateralaccounts' => array( 'cost' => 1 ),
+                        'getaddresses' => array( 'cost' => 1 ),
+                        'getcoinins' => array( 'cost' => 1 ),
+                        'getcoinouts' => array( 'cost' => 1 ),
+                        'getbankaccounts' => array( 'cost' => 1 ),
+                        'getdeposits' => array( 'cost' => 1 ),
+                        'getwithdrawals' => array( 'cost' => 1 ),
+                        'getchildorders' => array( 'cost' => 1 ),
+                        'getparentorders' => array( 'cost' => 1 ),
+                        'getparentorder' => array( 'cost' => 1 ),
+                        'getexecutions' => array( 'cost' => 1 ),
+                        'getpositions' => array( 'cost' => 1 ),
+                        'gettradingcommission' => array( 'cost' => 1 ),
                     ),
                     'post' => array(
-                        'sendcoin',
-                        'withdraw',
-                        'sendchildorder',
-                        'cancelchildorder',
-                        'sendparentorder',
-                        'cancelparentorder',
-                        'cancelallchildorders',
+                        'sendcoin' => array( 'cost' => 1 ),
+                        'withdraw' => array( 'cost' => 1 ),
+                        'sendchildorder' => array( 'cost' => 1 ),
+                        'cancelchildorder' => array( 'cost' => 1 ),
+                        'sendparentorder' => array( 'cost' => 1 ),
+                        'cancelparentorder' => array( 'cost' => 1 ),
+                        'cancelallchildorders' => array( 'cost' => 1 ),
                     ),
                 ),
             ),
@@ -111,18 +136,94 @@ class bitflyer extends Exchange {
                 ),
             ),
             'precisionMode' => TICK_SIZE,
+            'features' => array(
+                'spot' => array(
+                    'sandbox' => false,
+                    'createOrder' => array(
+                        'marginMode' => false,
+                        'triggerPrice' => false,
+                        'triggerPriceType' => null,
+                        'triggerDirection' => false,
+                        'stopLossPrice' => false,
+                        'takeProfitPrice' => false,
+                        'attachedStopLossTakeProfit' => null,
+                        'timeInForce' => array(
+                            'IOC' => true,
+                            'FOK' => true,
+                            'PO' => true,
+                            'GTD' => true, // todo implement
+                        ),
+                        'hedged' => false,
+                        'trailing' => false, // todo recheck
+                        'leverage' => false,
+                        'marketBuyRequiresPrice' => false,
+                        'marketBuyByCost' => false,
+                        'selfTradePrevention' => false,
+                        'iceberg' => false,
+                    ),
+                    'createOrders' => null,
+                    'fetchMyTrades' => array(
+                        'marginMode' => false,
+                        'limit' => 100,
+                        'daysBack' => null,
+                        'untilDays' => null,
+                        'symbolRequired' => true,
+                    ),
+                    'fetchOrder' => array(
+                        'marginMode' => false,
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => true,
+                    ),
+                    'fetchOpenOrders' => array(
+                        'marginMode' => false,
+                        'limit' => 100,
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => true,
+                    ),
+                    'fetchOrders' => array(
+                        'marginMode' => false,
+                        'limit' => 100,
+                        'daysBack' => null,
+                        'untilDays' => null,
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => true,
+                    ),
+                    'fetchClosedOrders' => array(
+                        'marginMode' => false,
+                        'limit' => 100,
+                        'daysBack' => null,
+                        'daysBackCanceled' => null,
+                        'untilDays' => null,
+                        'trigger' => false,
+                        'trailing' => false,
+                        'symbolRequired' => true,
+                    ),
+                    'fetchOHLCV' => null,
+                ),
+                'swap' => array(
+                    'linear' => null,
+                    'inverse' => null,
+                ),
+                'future' => array(
+                    'linear' => null,
+                    'inverse' => null,
+                ),
+            ),
             'exceptions' => array(
                 'exact' => array(
-                    '-2' => '\\ccxt\\OnMaintenance', // array("status":-2,"error_message":"Under maintenance","data":null)
+                    '-2' => '\\ccxt\\OnMaintenance', // {"status":-2,"error_message":"Under maintenance","data":null}
                 ),
             ),
         ));
     }
 
-    public function parse_expiry_date($expiry) {
+    public function parse_expiry_date(string $expiry): ?int {
         $day = mb_substr($expiry, 0, 2 - 0);
         $monthName = mb_substr($expiry, 2, 5 - 2);
-        $year = mb_substr($expiry, 5, 9 - 5);
+        $expiryYear = mb_substr($expiry, 5, 9 - 5);
         $months = array(
             'JAN' => '01',
             'FEB' => '02',
@@ -138,7 +239,10 @@ class bitflyer extends Exchange {
             'DEC' => '12',
         );
         $month = $this->safe_string($months, $monthName);
-        return $this->parse8601($year . '-' . $month . '-' . $day . 'T00:00:00Z');
+        if ($month === null) {
+            return null;
+        }
+        return $this->parse8601($expiryYear . '-' . $month . '-' . $day . 'T00:00:00Z');
     }
 
     public function safe_market(?string $marketId = null, ?array $market = null, ?string $delimiter = null, ?string $marketType = null): array {
@@ -148,45 +252,48 @@ class bitflyer extends Exchange {
         return parent::safe_market($marketId, $market, $delimiter, 'spot');
     }
 
-    public function fetch_markets($params = array ()): array {
+    public function fetch_markets($params = array()): array {
         /**
          * retrieves data on all $markets for bitflyer
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#$market-list
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
          * @return {array[]} an array of objects representing $market data
          */
-        $jp_markets = $this->publicGetGetmarkets ($params);
+        $jp_markets = $this->publicGetGetmarkets($params);
         //
-        //     array(
-        //         // $spot
-        //         array( "product_code" => "BTC_JPY", "market_type" => "Spot" ),
-        //         array( "product_code" => "BCH_BTC", "market_type" => "Spot" ),
-        //         // forex $swap
-        //         array( "product_code" => "FX_BTC_JPY", "market_type" => "FX" ),
-        //         // $future
-        //         array(
-        //             "product_code" => "BTCJPY11FEB2022",
-        //             "alias" => "BTCJPY_MAT1WK",
-        //             "market_type" => "Futures",
-        //         ),
-        //     );
+        //     [
+        //         // spot
+        //         { "product_code": "BTC_JPY", "market_type": "Spot" },
+        //         { "product_code": "BCH_BTC", "market_type": "Spot" },
+        //         // forex swap
+        //         { "product_code": "FX_BTC_JPY", "market_type": "FX" },
         //
-        $us_markets = $this->publicGetGetmarketsUsa ($params);
+        //         // future
+        //         {
+        //             "product_code": "BTCJPY11FEB2022",
+        //             "alias": "BTCJPY_MAT1WK",
+        //             "market_type": "Futures",
+        //         },
+        //     ];
         //
-        //     array(
-        //         array( "product_code" => "BTC_USD", "market_type" => "Spot" ),
-        //         array( "product_code" => "BTC_JPY", "market_type" => "Spot" ),
-        //     );
+        $us_markets = $this->publicGetGetmarketsUsa($params);
         //
-        $eu_markets = $this->publicGetGetmarketsEu ($params);
+        //     [
+        //         { "product_code": "BTC_USD", "market_type": "Spot" },
+        //         { "product_code": "BTC_JPY", "market_type": "Spot" },
+        //     ];
         //
-        //     array(
-        //         array( "product_code" => "BTC_EUR", "market_type" => "Spot" ),
-        //         array( "product_code" => "BTC_JPY", "market_type" => "Spot" ),
-        //     );
+        $eu_markets = $this->publicGetGetmarketsEu($params);
         //
-        $markets = $this->array_concat($jp_markets, $us_markets);
-        $markets = $this->array_concat($markets, $eu_markets);
+        //     [
+        //         { "product_code": "BTC_EUR", "market_type": "Spot" },
+        //         { "product_code": "BTC_JPY", "market_type": "Spot" },
+        //     ];
+        //
+        $markets = $this->array_concat($this->to_array($jp_markets), $this->to_array($us_markets));
+        $markets = $this->array_concat($markets, $this->to_array($eu_markets));
         $result = array();
         for ($i = 0; $i < count($markets); $i++) {
             $market = $markets[$i];
@@ -211,12 +318,12 @@ class bitflyer extends Exchange {
             } elseif ($future) {
                 $alias = $this->safe_string($market, 'alias');
                 if ($alias === null) {
-                    // no $alias:
-                    // array( product_code => 'BTCJPY11MAR2022', market_type => 'Futures' )
+                    // no alias:
+                    // { product_code: 'BTCJPY11MAR2022', market_type: 'Futures' }
                     // TODO this will break if there are products with 4 chars
                     $baseId = mb_substr($id, 0, 3 - 0);
                     $quoteId = mb_substr($id, 3, 6 - 3);
-                    // last 9 chars are $expiry date
+                    // last 9 chars are expiry date
                     $expiryDate = mb_substr($id, -9);
                     $expiry = $this->parse_expiry_date($expiryDate);
                 } else {
@@ -226,15 +333,24 @@ class bitflyer extends Exchange {
                     $quoteId = mb_substr($currencyIds, -3);
                     $splitId = explode($currencyIds, $id);
                     $expiryDate = $this->safe_string($splitId, 1);
+                    if ($expiryDate === null) {
+                        continue;
+                    }
                     $expiry = $this->parse_expiry_date($expiryDate);
+                }
+                if ($expiry === null) {
+                    continue;
                 }
                 $type = 'future';
             }
             $base = $this->safe_currency_code($baseId);
             $quote = $this->safe_currency_code($quoteId);
+            if (($base === null) || ($quote === null)) {
+                continue;
+            }
             $symbol = $base . '/' . $quote;
-            $taker = $this->fees['trading']['taker'];
-            $maker = $this->fees['trading']['maker'];
+            $taker = $this->safe_number($this->fees['trading'], 'taker');
+            $maker = $this->safe_number($this->fees['trading'], 'maker');
             $contract = $swap || $future;
             if ($contract) {
                 $maker = 0.0;
@@ -300,66 +416,76 @@ class bitflyer extends Exchange {
         return $result;
     }
 
-    public function parse_balance($response): array {
+    public function parse_balance_list(array $response): array {
         $result = array( 'info' => $response );
         for ($i = 0; $i < count($response); $i++) {
-            $balance = $response[$i];
+            $balance = $this->safe_dict($response, $i);
             $currencyId = $this->safe_string($balance, 'currency_code');
             $code = $this->safe_currency_code($currencyId);
             $account = $this->account();
             $account['total'] = $this->safe_string($balance, 'amount');
             $account['free'] = $this->safe_string($balance, 'available');
-            $result[$code] = $account;
+            if ($code !== null) {
+                $result[$code] = $account;
+            }
         }
         return $this->safe_balance($result);
     }
 
-    public function fetch_balance($params = array ()): array {
+    public function fetch_balance($params = array()): array {
         /**
          * query for balance and get the amount of funds available for trading or funds locked in orders
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#get-account-asset-balance
+         *
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=balance-structure balance structure~
+         * @return {array} a ~@link https://docs.ccxt.com/?id=balance-structure balance structure~
          */
-        $this->load_markets();
-        $response = $this->privateGetGetbalance ($params);
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
+        $response = $this->privateGetGetbalance($params);
         //
-        //     array(
-        //         array(
-        //             "currency_code" => "JPY",
-        //             "amount" => 1024078,
-        //             "available" => 508000
-        //         ),
-        //         array(
-        //             "currency_code" => "BTC",
-        //             "amount" => 10.24,
-        //             "available" => 4.12
-        //         ),
+        //     [
         //         {
-        //             "currency_code" => "ETH",
-        //             "amount" => 20.48,
-        //             "available" => 16.38
+        //             "currency_code": "JPY",
+        //             "amount": 1024078,
+        //             "available": 508000
+        //         },
+        //         {
+        //             "currency_code": "BTC",
+        //             "amount": 10.24,
+        //             "available": 4.12
+        //         },
+        //         {
+        //             "currency_code": "ETH",
+        //             "amount": 20.48,
+        //             "available": 16.38
         //         }
-        //     )
+        //     ]
         //
-        return $this->parse_balance($response);
+        return $this->parse_balance_list($response);
     }
 
-    public function fetch_order_book(string $symbol, ?int $limit = null, $params = array ()): array {
+    public function fetch_order_book(string $symbol, ?int $limit = null, $params = array()): array {
         /**
          * fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#order-book
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch the order book for
          * @param {int} [$limit] the maximum amount of order book entries to return
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} A dictionary of ~@link https://docs.ccxt.com/#/?id=order-book-structure order book structures~ indexed by $market symbols
+         * @return {array} an ~@link https://docs.ccxt.com/?id=order-book-structure order book structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'product_code' => $market['id'],
         );
-        $orderbook = $this->publicGetGetboard ($this->extend($request, $params));
+        $orderbook = $this->publicGetGetboard($this->extend($request, $params));
         return $this->parse_order_book($orderbook, $market['symbol'], null, 'bids', 'asks', 'price', 'size');
     }
 
@@ -391,20 +517,24 @@ class bitflyer extends Exchange {
         ), $market);
     }
 
-    public function fetch_ticker(string $symbol, $params = array ()): array {
+    public function fetch_ticker(string $symbol, $params = array()): array {
         /**
          * fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific $market
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#ticker
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch the ticker for
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=ticker-structure ticker structure~
+         * @return {array} a ~@link https://docs.ccxt.com/?id=ticker-structure ticker structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'product_code' => $market['id'],
         );
-        $response = $this->publicGetGetticker ($this->extend($request, $params));
+        $response = $this->publicGetGetticker($this->extend($request, $params));
         return $this->parse_ticker($response, $market);
     }
 
@@ -424,16 +554,16 @@ class bitflyer extends Exchange {
         //
         // fetchMyTrades
         //
-        //      array(
-        //          "id" => 37233,
-        //          "side" => "BUY",
-        //          "price" => 33470,
-        //          "size" => 0.01,
-        //          "exec_date" => "2015-07-07T09:57:40.397",
-        //          "child_order_id" => "JOR20150707-060559-021935",
-        //          "child_order_acceptance_id" => "JRF20150707-060559-396699"
-        //          "commission" => 0,
-        //      ),
+        //      {
+        //          "id": 37233,
+        //          "side": "BUY",
+        //          "price": 33470,
+        //          "size": 0.01,
+        //          "exec_date": "2015-07-07T09:57:40.397",
+        //          "child_order_id": "JOR20150707-060559-021935",
+        //          "child_order_acceptance_id": "JRF20150707-060559-396699"
+        //          "commission": 0,
+        //      },
         //
         $side = $this->safe_string_lower($trade, 'side');
         if ($side !== null) {
@@ -443,10 +573,7 @@ class bitflyer extends Exchange {
         }
         $order = null;
         if ($side !== null) {
-            $idInner = $side . '_child_order_acceptance_id';
-            if (is_array($trade) && array_key_exists($idInner, $trade)) {
-                $order = $trade[$idInner];
-            }
+            $order = $this->safe_string($trade, $side . '_child_order_acceptance_id');
         }
         if ($order === null) {
             $order = $this->safe_string($trade, 'child_order_acceptance_id');
@@ -455,13 +582,13 @@ class bitflyer extends Exchange {
         $priceString = $this->safe_string($trade, 'price');
         $amountString = $this->safe_string($trade, 'size');
         $id = $this->safe_string($trade, 'id');
-        $market = $this->safe_market(null, $market);
+        $marketResolved = $this->safe_market(null, $market);
         return $this->safe_trade(array(
             'id' => $id,
             'info' => $trade,
             'timestamp' => $timestamp,
             'datetime' => $this->iso8601($timestamp),
-            'symbol' => $market['symbol'],
+            'symbol' => $marketResolved['symbol'],
             'order' => $order,
             'type' => null,
             'side' => $side,
@@ -470,20 +597,24 @@ class bitflyer extends Exchange {
             'amount' => $amountString,
             'cost' => null,
             'fee' => null,
-        ), $market);
+        ), $marketResolved);
     }
 
-    public function fetch_trades(string $symbol, ?int $since = null, ?int $limit = null, $params = array ()): array {
+    public function fetch_trades(string $symbol, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * get the list of most recent trades for a particular $symbol
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
+         *
          * @param {string} $symbol unified $symbol of the $market to fetch trades for
          * @param {int} [$since] timestamp in ms of the earliest trade to fetch
          * @param {int} [$limit] the maximum amount of trades to fetch
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/#/?id=public-trades trade structures~
+         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/?id=public-trades trade structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'product_code' => $market['id'],
@@ -491,40 +622,44 @@ class bitflyer extends Exchange {
         if ($limit !== null) {
             $request['count'] = $limit;
         }
-        $response = $this->publicGetGetexecutions ($this->extend($request, $params));
+        $response = $this->publicGetGetexecutions($this->extend($request, $params));
         //
-        //    array(
-        //     array(
-        //       "id" => 39287,
-        //       "side" => "BUY",
-        //       "price" => 31690,
-        //       "size" => 27.04,
-        //       "exec_date" => "2015-07-08T02:43:34.823",
-        //       "buy_child_order_acceptance_id" => "JRF20150707-200203-452209",
-        //       "sell_child_order_acceptance_id" => "JRF20150708-024334-060234"
-        //     ),
-        //    )
+        //    [
+        //     {
+        //       "id": 39287,
+        //       "side": "BUY",
+        //       "price": 31690,
+        //       "size": 27.04,
+        //       "exec_date": "2015-07-08T02:43:34.823",
+        //       "buy_child_order_acceptance_id": "JRF20150707-200203-452209",
+        //       "sell_child_order_acceptance_id": "JRF20150708-024334-060234"
+        //     },
+        //    ]
         //
         return $this->parse_trades($response, $market, $since, $limit);
     }
 
-    public function fetch_trading_fee(string $symbol, $params = array ()): array {
+    public function fetch_trading_fee(string $symbol, $params = array()): array {
         /**
          * fetch the trading fees for a $market
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#get-trading-commission
+         *
          * @param {string} $symbol unified $market $symbol
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=$fee-structure $fee structure~
+         * @return {array} a ~@link https://docs.ccxt.com/?id=$fee-structure $fee structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'product_code' => $market['id'],
         );
-        $response = $this->privateGetGettradingcommission ($this->extend($request, $params));
+        $response = $this->privateGetGettradingcommission($this->extend($request, $params));
         //
         //   {
-        //       commission_rate => '0.0020'
+        //       commission_rate: '0.0020'
         //   }
         //
         $fee = $this->safe_number($response, 'commission_rate');
@@ -538,19 +673,23 @@ class bitflyer extends Exchange {
         );
     }
 
-    public function create_order(string $symbol, string $type, string $side, float $amount, ?float $price = null, $params = array ()) {
+    public function create_order(string $symbol, string $type, string $side, float $amount, ?float $price = null, $params = array()): array {
         /**
          * create a trade order
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#send-a-new-order
+         *
          * @param {string} $symbol unified $symbol of the market to create an order in
          * @param {string} $type 'market' or 'limit'
          * @param {string} $side 'buy' or 'sell'
          * @param {float} $amount how much of currency you want to trade in units of base currency
-         * @param {float} [$price] the $price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
+         * @param {float} [$price] the $price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} an ~@link https://docs.ccxt.com/#/?$id=order-structure order structure~
+         * @return {array} an ~@link https://docs.ccxt.com/?$id=order-structure order structure~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array(
             'product_code' => $this->market_id($symbol),
             'child_order_type' => strtoupper($type),
@@ -558,8 +697,8 @@ class bitflyer extends Exchange {
             'price' => $price,
             'size' => $amount,
         );
-        $result = $this->privatePostSendchildorder ($this->extend($request, $params));
-        // array( "status" => - 200, "error_message" => "Insufficient funds", "data" => null )
+        $result = $this->privatePostSendchildorder($this->extend($request, $params));
+        // { "status": - 200, "error_message": "Insufficient funds", "data": null }
         $id = $this->safe_string($result, 'child_order_acceptance_id');
         return $this->safe_order(array(
             'id' => $id,
@@ -567,27 +706,37 @@ class bitflyer extends Exchange {
         ));
     }
 
-    public function cancel_order(string $id, ?string $symbol = null, $params = array ()) {
+    public function cancel_order(string $id, ?string $symbol = null, $params = array()): array {
         /**
          * cancels an open order
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#cancel-order
+         *
          * @param {string} $id order $id
          * @param {string} $symbol unified $symbol of the market the order was made in
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} An ~@link https://docs.ccxt.com/#/?$id=order-structure order structure~
+         * @return {array} An ~@link https://docs.ccxt.com/?$id=order-structure order structure~
          */
         if ($symbol === null) {
-            throw new ArgumentsRequired($this->id . ' cancelOrder() requires a $symbol argument');
+            throw new ArgumentsRequired($this->id . ' cancelOrder() requires a symbol argument');
         }
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array(
             'product_code' => $this->market_id($symbol),
             'child_order_acceptance_id' => $id,
         );
-        return $this->privatePostCancelchildorder ($this->extend($request, $params));
+        $response = $this->privatePostCancelchildorder($this->extend($request, $params));
+        //
+        //    200 OK.
+        //
+        return $this->safe_order(array(
+            'info' => $response,
+        ));
     }
 
-    public function parse_order_status(?string $status) {
+    public function parse_order_status(?string $status): ?string {
         $statuses = array(
             'ACTIVE' => 'open',
             'COMPLETED' => 'closed',
@@ -633,7 +782,6 @@ class bitflyer extends Exchange {
             'postOnly' => null,
             'side' => $side,
             'price' => $price,
-            'stopPrice' => null,
             'triggerPrice' => null,
             'cost' => null,
             'amount' => $amount,
@@ -645,42 +793,47 @@ class bitflyer extends Exchange {
         ), $market);
     }
 
-    public function fetch_orders(?string $symbol = null, ?int $since = null, ?int $limit = 100, $params = array ()): array {
+    public function fetch_orders(?string $symbol = null, ?int $since = null, ?int $limit = 100, $params = array()): array {
         /**
-         * fetches information on multiple $orders made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-$orders
-         * @param {string} $symbol unified $market $symbol of the $market $orders were made in
-         * @param {int} [$since] the earliest time in ms to fetch $orders for
+         * fetches information on multiple orders made by the user
+         *
+         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+         *
+         * @param {string} $symbol unified $market $symbol of the $market orders were made in
+         * @param {int} [$since] the earliest time in ms to fetch orders for
          * @param {int} [$limit] the maximum number of order structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Order[]} a list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
+         * @return {Order[]} a list of ~@link https://docs.ccxt.com/?id=order-structure order structures~
          */
         if ($symbol === null) {
-            throw new ArgumentsRequired($this->id . ' fetchOrders() requires a $symbol argument');
+            throw new ArgumentsRequired($this->id . ' fetchOrders() requires a symbol argument');
         }
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'product_code' => $market['id'],
             'count' => $limit,
         );
-        $response = $this->privateGetGetchildorders ($this->extend($request, $params));
-        $orders = $this->parse_orders($response, $market, $since, $limit);
+        $response = $this->privateGetGetchildorders($this->extend($request, $params));
         if ($symbol !== null) {
-            $orders = $this->filter_by($orders, 'symbol', $symbol);
+            return $this->filter_by($this->parse_orders($response, $market, $since, $limit), 'symbol', $symbol);
         }
-        return $orders;
+        return $this->parse_orders($response, $market, $since, $limit);
     }
 
-    public function fetch_open_orders(?string $symbol = null, ?int $since = null, ?int $limit = 100, $params = array ()): array {
+    public function fetch_open_orders(?string $symbol = null, ?int $since = null, ?int $limit = 100, $params = array()): array {
         /**
          * fetch all unfilled currently open orders
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+         *
          * @param {string} $symbol unified market $symbol
          * @param {int} [$since] the earliest time in ms to fetch open orders for
          * @param {int} [$limit] the maximum number of  open orders structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Order[]} a list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
+         * @return {Order[]} a list of ~@link https://docs.ccxt.com/?id=order-structure order structures~
          */
         $request = array(
             'child_order_state' => 'ACTIVE',
@@ -688,15 +841,17 @@ class bitflyer extends Exchange {
         return $this->fetch_orders($symbol, $since, $limit, $this->extend($request, $params));
     }
 
-    public function fetch_closed_orders(?string $symbol = null, ?int $since = null, ?int $limit = 100, $params = array ()): array {
+    public function fetch_closed_orders(?string $symbol = null, ?int $since = null, ?int $limit = 100, $params = array()): array {
         /**
          * fetches information on multiple closed orders made by the user
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+         *
          * @param {string} $symbol unified market $symbol of the market orders were made in
          * @param {int} [$since] the earliest time in ms to fetch orders for
          * @param {int} [$limit] the maximum number of order structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Order[]} a list of ~@link https://docs.ccxt.com/#/?id=order-structure order structures~
+         * @return {Order[]} a list of ~@link https://docs.ccxt.com/?id=order-structure order structures~
          */
         $request = array(
             'child_order_state' => 'COMPLETED',
@@ -704,39 +859,47 @@ class bitflyer extends Exchange {
         return $this->fetch_orders($symbol, $since, $limit, $this->extend($request, $params));
     }
 
-    public function fetch_order(string $id, ?string $symbol = null, $params = array ()) {
+    public function fetch_order(string $id, ?string $symbol = null, $params = array()): array {
         /**
          * fetches information on an order made by the user
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#list-$orders
+         *
+         * @param {string} $id the order $id
          * @param {string} $symbol unified $symbol of the market the order was made in
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} An ~@link https://docs.ccxt.com/#/?$id=order-structure order structure~
+         * @return {array} An ~@link https://docs.ccxt.com/?$id=order-structure order structure~
          */
         if ($symbol === null) {
-            throw new ArgumentsRequired($this->id . ' fetchOrder() requires a $symbol argument');
+            throw new ArgumentsRequired($this->id . ' fetchOrder() requires a symbol argument');
         }
         $orders = $this->fetch_orders($symbol);
         $ordersById = $this->index_by($orders, 'id');
-        if (is_array($ordersById) && array_key_exists($id, $ordersById)) {
-            return $ordersById[$id];
+        $found = $this->safe_dict($ordersById, $id);
+        if ($found !== null) {
+            return $found;
         }
-        throw new OrderNotFound($this->id . ' No order found with $id ' . $id);
+        throw new OrderNotFound($this->id . ' No order found with id ' . $id);
     }
 
-    public function fetch_my_trades(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array ()) {
+    public function fetch_my_trades(?string $symbol = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetch all trades made by the user
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
+         *
          * @param {string} $symbol unified $market $symbol
          * @param {int} [$since] the earliest time in ms to fetch trades for
          * @param {int} [$limit] the maximum number of trades structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/#/?id=trade-structure trade structures~
+         * @return {Trade[]} a list of ~@link https://docs.ccxt.com/?id=trade-structure trade structures~
          */
         if ($symbol === null) {
-            throw new ArgumentsRequired($this->id . ' fetchMyTrades() requires a $symbol argument');
+            throw new ArgumentsRequired($this->id . ' fetchMyTrades() requires a symbol argument');
         }
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $market = $this->market($symbol);
         $request = array(
             'product_code' => $market['id'],
@@ -744,74 +907,82 @@ class bitflyer extends Exchange {
         if ($limit !== null) {
             $request['count'] = $limit;
         }
-        $response = $this->privateGetGetexecutions ($this->extend($request, $params));
+        $response = $this->privateGetGetexecutions($this->extend($request, $params));
         //
-        //    array(
-        //     array(
-        //       "id" => 37233,
-        //       "side" => "BUY",
-        //       "price" => 33470,
-        //       "size" => 0.01,
-        //       "exec_date" => "2015-07-07T09:57:40.397",
-        //       "child_order_id" => "JOR20150707-060559-021935",
-        //       "child_order_acceptance_id" => "JRF20150707-060559-396699"
-        //       "commission" => 0,
-        //     ),
-        //    )
+        //    [
+        //     {
+        //       "id": 37233,
+        //       "side": "BUY",
+        //       "price": 33470,
+        //       "size": 0.01,
+        //       "exec_date": "2015-07-07T09:57:40.397",
+        //       "child_order_id": "JOR20150707-060559-021935",
+        //       "child_order_acceptance_id": "JRF20150707-060559-396699"
+        //       "commission": 0,
+        //     },
+        //    ]
         //
         return $this->parse_trades($response, $market, $since, $limit);
     }
 
-    public function fetch_positions(?array $symbols = null, $params = array ()) {
+    public function fetch_positions(?array $symbols = null, $params = array()): array {
         /**
          * fetch all open positions
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#get-open-interest-summary
+         *
          * @param {string[]} $symbols list of unified market $symbols
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array[]} a list of ~@link https://docs.ccxt.com/#/?id=position-structure position structure~
+         * @return {array[]} a list of ~@link https://docs.ccxt.com/?id=position-structure position structure~
          */
         if ($symbols === null) {
-            throw new ArgumentsRequired($this->id . ' fetchPositions() requires a `$symbols` argument, exactly one symbol in an array');
+            throw new ArgumentsRequired($this->id . ' fetchPositions() requires a `symbols` argument, exactly one symbol in an array');
         }
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $request = array(
             'product_code' => $this->market_ids($symbols),
         );
-        $response = $this->privateGetGetpositions ($this->extend($request, $params));
+        $response = $this->privateGetGetpositions($this->extend($request, $params));
         //
-        //     array(
+        //     [
         //         {
-        //             "product_code" => "FX_BTC_JPY",
-        //             "side" => "BUY",
-        //             "price" => 36000,
-        //             "size" => 10,
-        //             "commission" => 0,
-        //             "swap_point_accumulate" => -35,
-        //             "require_collateral" => 120000,
-        //             "open_date" => "2015-11-03T10:04:45.011",
-        //             "leverage" => 3,
-        //             "pnl" => 965,
-        //             "sfd" => -0.5
+        //             "product_code": "FX_BTC_JPY",
+        //             "side": "BUY",
+        //             "price": 36000,
+        //             "size": 10,
+        //             "commission": 0,
+        //             "swap_point_accumulate": -35,
+        //             "require_collateral": 120000,
+        //             "open_date": "2015-11-03T10:04:45.011",
+        //             "leverage": 3,
+        //             "pnl": 965,
+        //             "sfd": -0.5
         //         }
-        //     )
+        //     ]
         //
         // todo unify parsePosition/parsePositions
         return $response;
     }
 
-    public function withdraw(string $code, float $amount, string $address, $tag = null, $params = array ()) {
+    public function withdraw(string $code, float $amount, string $address, $params = array()): array {
         /**
          * make a withdrawal
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#withdrawing-funds
+         *
          * @param {string} $code unified $currency $code
          * @param {float} $amount the $amount to withdraw
          * @param {string} $address the $address to withdraw to
-         * @param {string} $tag
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array} a ~@link https://docs.ccxt.com/#/?id=transaction-structure transaction structure~
+         * @param {string} [$params->tag] memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+         * @return {array} a ~@link https://docs.ccxt.com/?id=transaction-structure transaction structure~
          */
         $this->check_address($address);
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         if ($code !== 'JPY' && $code !== 'USD' && $code !== 'EUR') {
             throw new ExchangeError($this->id . ' allows withdrawing JPY, USD, EUR only, ' . $code . ' is not supported');
         }
@@ -819,28 +990,32 @@ class bitflyer extends Exchange {
         $request = array(
             'currency_code' => $currency['id'],
             'amount' => $amount,
-            // 'bank_account_id' => 1234,
+            // 'bank_account_id': 1234,
         );
-        $response = $this->privatePostWithdraw ($this->extend($request, $params));
+        $response = $this->privatePostWithdraw($this->extend($request, $params));
         //
         //     {
-        //         "message_id" => "69476620-5056-4003-bcbe-42658a2b041b"
+        //         "message_id": "69476620-5056-4003-bcbe-42658a2b041b"
         //     }
         //
         return $this->parse_transaction($response, $currency);
     }
 
-    public function fetch_deposits(?string $code = null, ?int $since = null, ?int $limit = null, $params = array ()): array {
+    public function fetch_deposits(?string $code = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetch all deposits made to an account
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-deposit-history
+         *
          * @param {string} $code unified $currency $code
          * @param {int} [$since] the earliest time in ms to fetch deposits for
          * @param {int} [$limit] the maximum number of deposits structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array[]} a list of ~@link https://docs.ccxt.com/#/?id=transaction-structure transaction structures~
+         * @return {array[]} a list of ~@link https://docs.ccxt.com/?id=transaction-structure transaction structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $currency = null;
         $request = array();
         if ($code !== null) {
@@ -849,35 +1024,39 @@ class bitflyer extends Exchange {
         if ($limit !== null) {
             $request['count'] = $limit; // default 100
         }
-        $response = $this->privateGetGetcoinins ($this->extend($request, $params));
+        $response = $this->privateGetGetcoinins($this->extend($request, $params));
         //
-        //     array(
+        //     [
         //         {
-        //             "id" => 100,
-        //             "order_id" => "CDP20151227-024141-055555",
-        //             "currency_code" => "BTC",
-        //             "amount" => 0.00002,
-        //             "address" => "1WriteySQufKZ2pVuM1oMhPrTtTVFq35j",
-        //             "tx_hash" => "9f92ee65a176bb9545f7becb8706c50d07d4cee5ffca34d8be3ef11d411405ae",
-        //             "status" => "COMPLETED",
-        //             "event_date" => "2015-11-27T08:59:20.301"
+        //             "id": 100,
+        //             "order_id": "CDP20151227-024141-055555",
+        //             "currency_code": "BTC",
+        //             "amount": 0.00002,
+        //             "address": "1WriteySQufKZ2pVuM1oMhPrTtTVFq35j",
+        //             "tx_hash": "9f92ee65a176bb9545f7becb8706c50d07d4cee5ffca34d8be3ef11d411405ae",
+        //             "status": "COMPLETED",
+        //             "event_date": "2015-11-27T08:59:20.301"
         //         }
-        //     )
+        //     ]
         //
         return $this->parse_transactions($response, $currency, $since, $limit);
     }
 
-    public function fetch_withdrawals(?string $code = null, ?int $since = null, ?int $limit = null, $params = array ()): array {
+    public function fetch_withdrawals(?string $code = null, ?int $since = null, ?int $limit = null, $params = array()): array {
         /**
          * fetch all withdrawals made from an account
+         *
          * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-transaction-history
+         *
          * @param {string} $code unified $currency $code
          * @param {int} [$since] the earliest time in ms to fetch withdrawals for
          * @param {int} [$limit] the maximum number of withdrawals structures to retrieve
          * @param {array} [$params] extra parameters specific to the exchange API endpoint
-         * @return {array[]} a list of ~@link https://docs.ccxt.com/#/?id=transaction-structure transaction structures~
+         * @return {array[]} a list of ~@link https://docs.ccxt.com/?id=transaction-structure transaction structures~
          */
-        $this->load_markets();
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
         $currency = null;
         $request = array();
         if ($code !== null) {
@@ -886,27 +1065,27 @@ class bitflyer extends Exchange {
         if ($limit !== null) {
             $request['count'] = $limit; // default 100
         }
-        $response = $this->privateGetGetcoinouts ($this->extend($request, $params));
+        $response = $this->privateGetGetcoinouts($this->extend($request, $params));
         //
-        //     array(
+        //     [
         //         {
-        //             "id" => 500,
-        //             "order_id" => "CWD20151224-014040-077777",
-        //             "currency_code" => "BTC",
-        //             "amount" => 0.1234,
-        //             "address" => "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-        //             "tx_hash" => "724c07dfd4044abcb390b0412c3e707dd5c4f373f0a52b3bd295ce32b478c60a",
-        //             "fee" => 0.0005,
-        //             "additional_fee" => 0.0001,
-        //             "status" => "COMPLETED",
-        //             "event_date" => "2015-12-24T01:40:40.397"
+        //             "id": 500,
+        //             "order_id": "CWD20151224-014040-077777",
+        //             "currency_code": "BTC",
+        //             "amount": 0.1234,
+        //             "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        //             "tx_hash": "724c07dfd4044abcb390b0412c3e707dd5c4f373f0a52b3bd295ce32b478c60a",
+        //             "fee": 0.0005,
+        //             "additional_fee": 0.0001,
+        //             "status": "COMPLETED",
+        //             "event_date": "2015-12-24T01:40:40.397"
         //         }
-        //     )
+        //     ]
         //
         return $this->parse_transactions($response, $currency, $since, $limit);
     }
 
-    public function parse_deposit_status($status) {
+    public function parse_deposit_status(?string $status): ?string {
         $statuses = array(
             'PENDING' => 'pending',
             'COMPLETED' => 'ok',
@@ -914,7 +1093,7 @@ class bitflyer extends Exchange {
         return $this->safe_string($statuses, $status, $status);
     }
 
-    public function parse_withdrawal_status($status) {
+    public function parse_withdrawal_status(?string $status): ?string {
         $statuses = array(
             'PENDING' => 'pending',
             'COMPLETED' => 'ok',
@@ -927,35 +1106,35 @@ class bitflyer extends Exchange {
         // fetchDeposits
         //
         //     {
-        //         "id" => 100,
-        //         "order_id" => "CDP20151227-024141-055555",
-        //         "currency_code" => "BTC",
-        //         "amount" => 0.00002,
-        //         "address" => "1WriteySQufKZ2pVuM1oMhPrTtTVFq35j",
-        //         "tx_hash" => "9f92ee65a176bb9545f7becb8706c50d07d4cee5ffca34d8be3ef11d411405ae",
-        //         "status" => "COMPLETED",
-        //         "event_date" => "2015-11-27T08:59:20.301"
+        //         "id": 100,
+        //         "order_id": "CDP20151227-024141-055555",
+        //         "currency_code": "BTC",
+        //         "amount": 0.00002,
+        //         "address": "1WriteySQufKZ2pVuM1oMhPrTtTVFq35j",
+        //         "tx_hash": "9f92ee65a176bb9545f7becb8706c50d07d4cee5ffca34d8be3ef11d411405ae",
+        //         "status": "COMPLETED",
+        //         "event_date": "2015-11-27T08:59:20.301"
         //     }
         //
         // fetchWithdrawals
         //
         //     {
-        //         "id" => 500,
-        //         "order_id" => "CWD20151224-014040-077777",
-        //         "currency_code" => "BTC",
-        //         "amount" => 0.1234,
-        //         "address" => "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-        //         "tx_hash" => "724c07dfd4044abcb390b0412c3e707dd5c4f373f0a52b3bd295ce32b478c60a",
-        //         "fee" => 0.0005,
-        //         "additional_fee" => 0.0001,
-        //         "status" => "COMPLETED",
-        //         "event_date" => "2015-12-24T01:40:40.397"
+        //         "id": 500,
+        //         "order_id": "CWD20151224-014040-077777",
+        //         "currency_code": "BTC",
+        //         "amount": 0.1234,
+        //         "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        //         "tx_hash": "724c07dfd4044abcb390b0412c3e707dd5c4f373f0a52b3bd295ce32b478c60a",
+        //         "fee": 0.0005,
+        //         "additional_fee": 0.0001,
+        //         "status": "COMPLETED",
+        //         "event_date": "2015-12-24T01:40:40.397"
         //     }
         //
         // withdraw
         //
         //     {
-        //         "message_id" => "69476620-5056-4003-bcbe-42658a2b041b"
+        //         "message_id": "69476620-5056-4003-bcbe-42658a2b041b"
         //     }
         //
         $id = $this->safe_string_2($transaction, 'id', 'message_id');
@@ -969,7 +1148,7 @@ class bitflyer extends Exchange {
         $type = null;
         $status = null;
         $fee = null;
-        if (is_array($transaction) && array_key_exists('fee', $transaction)) {
+        if (is_array($transaction) && array_key_exists('fee' ?? '', $transaction)) {
             $type = 'withdrawal';
             $status = $this->parse_withdrawal_status($rawStatus);
             $feeCost = $this->safe_string($transaction, 'fee');
@@ -1003,50 +1182,118 @@ class bitflyer extends Exchange {
         );
     }
 
-    public function sign($path, $api = 'public', $method = 'GET', $params = array (), $headers = null, $body = null) {
+    public function fetch_funding_rate(string $symbol, $params = array()): array {
+        /**
+         * fetch the current funding rate
+         *
+         * @see https://lightning.bitflyer.com/docs#funding-rate
+         *
+         * @param {string} $symbol unified $market $symbol
+         * @param {array} [$params] extra parameters specific to the exchange API endpoint
+         * @return {array} a ~@link https://docs.ccxt.com/?id=funding-rate-structure funding rate structure~
+         */
+        if ($this->markets === null) {
+            $this->load_markets();
+        }
+        $market = $this->market($symbol);
+        $request = array(
+            'product_code' => $market['id'],
+        );
+        $response = $this->publicGetGetfundingrate($this->extend($request, $params));
+        //
+        //    {
+        //        "current_funding_rate": -0.003750000000
+        //        "next_funding_rate_settledate": "2024-04-15T13:00:00"
+        //    }
+        //
+        return $this->parse_funding_rate($response, $market);
+    }
+
+    public function parse_funding_rate(mixed $contract, ?array $market = null): array {
+        //
+        //    {
+        //        "current_funding_rate": -0.003750000000
+        //        "next_funding_rate_settledate": "2024-04-15T13:00:00"
+        //    }
+        //
+        $nextFundingDatetime = $this->safe_string($contract, 'next_funding_rate_settledate');
+        $nextFundingTimestamp = $this->parse8601($nextFundingDatetime);
+        return array(
+            'info' => $contract,
+            'symbol' => $this->safe_string($market, 'symbol'),
+            'markPrice' => null,
+            'indexPrice' => null,
+            'interestRate' => null,
+            'estimatedSettlePrice' => null,
+            'timestamp' => null,
+            'datetime' => null,
+            'fundingRate' => null,
+            'fundingTimestamp' => null,
+            'fundingDatetime' => null,
+            'nextFundingRate' => $this->safe_number($contract, 'current_funding_rate'),
+            'nextFundingTimestamp' => $nextFundingTimestamp,
+            'nextFundingDatetime' => $this->iso8601($nextFundingTimestamp),
+            'previousFundingRate' => null,
+            'previousFundingTimestamp' => null,
+            'previousFundingDatetime' => null,
+            'interval' => null,
+        );
+    }
+
+    public function sign(string $path, array $api = array('public'), string $method = 'GET', $params = array()): array {
+        $apiName = $api[0];
+        $bodySigned = null;
+        $headersSigned = null;
         $request = '/' . $this->version . '/';
-        if ($api === 'private') {
+        if ($apiName === 'private') {
             $request .= 'me/';
         }
         $request .= $path;
         if ($method === 'GET') {
-            if ($params) {
-                $request .= '?' . $this->urlencode($params);
+            $query = $this->urlencode($params);
+            if ($query !== '') {
+                $request .= '?' . $query;
             }
         }
-        $baseUrl = $this->implode_hostname($this->urls['api']['rest']);
-        $url = $baseUrl . $request;
-        if ($api === 'private') {
+        $apiUrl = $this->safe_string($this->urls['api'], 'rest');
+        if ($apiUrl === null) {
+            throw new ExchangeError($this->id . ' sign() has no API URL for this endpoint');
+        }
+        $url = $this->implode_hostname($apiUrl) . $request;
+        if ($apiName === 'private') {
             $this->check_required_credentials();
             $nonce = (string) $this->nonce();
-            $auth = implode('', array($nonce, $method, $request));
-            if ($params) {
+            $auth = $nonce . $method . $request;
+            if (count($params) > 0) {
                 if ($method !== 'GET') {
                     $body = $this->json($params);
+                    $bodySigned = $body;
                     $auth .= $body;
                 }
             }
-            $headers = array(
+            $headersSigned = array(
                 'ACCESS-KEY' => $this->apiKey,
                 'ACCESS-TIMESTAMP' => $nonce,
                 'ACCESS-SIGN' => $this->hmac($this->encode($auth), $this->encode($this->secret), 'sha256'),
                 'Content-Type' => 'application/json',
             );
         }
-        return array( 'url' => $url, 'method' => $method, 'body' => $body, 'headers' => $headers );
+        $headersResolved = $headersSigned;
+        $bodyResolved = $bodySigned;
+        return array( 'url' => $url, 'method' => $method, 'body' => $bodyResolved, 'headers' => $headersResolved );
     }
 
-    public function handle_errors(int $code, string $reason, string $url, string $method, array $headers, string $body, $response, $requestHeaders, $requestBody) {
+    public function handle_errors(int $code, string $reason, string $url, string $method, array $headers, string $body, mixed $response, ?array $requestHeaders, ?string $requestBody) {
         if ($response === null) {
             return null; // fallback to the default error handler
         }
         $feedback = $this->id . ' ' . $body;
-        // i.e. array("status":-2,"error_message":"Under maintenance","data":null)
+        // i.e. {"status":-2,"error_message":"Under maintenance","data":null}
         $errorMessage = $this->safe_string($response, 'error_message');
-        $statusCode = $this->safe_number($response, 'status');
+        $statusCode = $this->safe_string($response, 'status');
         if ($errorMessage !== null) {
             $this->throw_exactly_matched_exception($this->exceptions['exact'], $statusCode, $feedback);
-            $this->throw_broadly_matched_exception($this->exceptions['broad'], $errorMessage, $feedback);
+            throw new ExchangeError($feedback);
         }
         return null;
     }

@@ -29,26 +29,27 @@ SOFTWARE.
 
 /* eslint-disable */
 
-import { Exchange }  from './src/base/Exchange.js'
+import { Exchange, BaseExchange }  from './src/base/Exchange.js'
+import PredictionExchange from './src/base/PredictionExchange.js'
 import { Precise }   from './src/base/Precise.js'
+import { OrderRouter } from './src/base/OrderRouter.js'
 import * as functions from './src/base/functions.js'
 import * as errors   from './src/base/errors.js'
-import type { Market, Trade , Fee, Ticker, OrderBook, Order, Transaction, Tickers, Currency, Balance, DepositAddress, WithdrawalResponse, DepositAddressResponse, OHLCV, Balances, PartialBalances, Dictionary, MinMax, Position, FundingRateHistory, Liquidation, FundingHistory, MarginMode, Greeks, Leverage, Leverages, Option, OptionChain, Conversion } from './src/base/types.js'
-import {BaseError, ExchangeError, AuthenticationError, PermissionDenied, AccountNotEnabled, AccountSuspended, ArgumentsRequired, BadRequest, BadSymbol, OperationRejected, NoChange, MarginModeAlreadySet, MarketClosed, BadResponse, NullResponse, InsufficientFunds, InvalidAddress, AddressPending, InvalidOrder, OrderNotFound, OrderNotCached, CancelPending, OrderImmediatelyFillable, OrderNotFillable, DuplicateOrderId, ContractUnavailable, NotSupported, ProxyError, ExchangeClosedByUser, OperationFailed, NetworkError, DDoSProtection, RateLimitExceeded, ExchangeNotAvailable, OnMaintenance, InvalidNonce, RequestTimeout}  from './src/base/errors.js'
+import type { Int, int, Str, NetworkCode, Strings, Num, Bool, IndexType, NullableIndexType, OrderSide, OrderType, MarketType, SubType, DefaultType, DefaultSubType, ExchangeOptions, Dict, NullableDict, List, NullableList, Fee, FeeString, OHLCV, OHLCVC, safeInputType, Market, Currency, Dictionary, Endpoint, NestedDictionary, MinMax, FeeInterface, FeeStringInterface, TradingFeeInterface, MarketInterface, Precision, PredictionEvent, PredictionOutcome, PredictionOutcomeMarket, PredictionMarket, PredictionSettlement, PredictionFees, PredictionOrder, PredictionTrade, PredictionPosition, PredictionTicker, PredictionOrderBook, PredictionTickers, PredictionTradingFee, PredictionOpenInterest, PredictionOrderRequest, fetchEventsParams, Trade, Order, OrderBook, OrderBookL3, Ticker, Transaction, Tickers, CurrencyInterface, Balance, BalanceAccount, Account, PartialBalances, Balances, DepositAddress, DepositAddresses, WithdrawalResponse, FundingRate, FundingRates, Position, BorrowInterest, LeverageTier, LedgerEntry, DepositWithdrawFeeNetwork, DepositWithdrawFeeNetworkEntry, DepositWithdrawFee, DepositWithdrawFees, TransferEntry, CrossBorrowRate, IsolatedBorrowRate, FundingRateHistory, OpenInterest, Liquidation, OrderRequest, CancellationRequest, FundingHistory, MarketMarginModes, MarginMode, Greeks, AllGreeks, Conversion, Option, LastPrice, Leverage, MarginModification, MarginLoan, Leverages, LastPrices, Currencies, TradingFees, MarginModes, OptionChain, IsolatedBorrowRates, CrossBorrowRates, LeverageTiers, LongShortRatio, OrderBooks, OpenInterests, ConstructorArgs, ADL, Status, PositionModeInfo } from './src/base/types.js'
+import {BaseError, ExchangeError, AuthenticationError, PermissionDenied, AccountNotEnabled, AccountSuspended, ArgumentsRequired, BadRequest, BadSymbol, OperationRejected, NoChange, MarginModeAlreadySet, MarketClosed, ManualInteractionNeeded, RestrictedLocation, InsufficientFunds, InvalidAddress, AddressPending, InvalidOrder, OrderNotFound, OrderNotCached, OrderImmediatelyFillable, OrderNotFillable, DuplicateOrderId, ContractUnavailable, NotSupported, InvalidProxySettings, ExchangeClosedByUser, OperationFailed, NetworkError, DDoSProtection, RateLimitExceeded, ExchangeNotAvailable, OnMaintenance, InvalidNonce, ChecksumError, RequestTimeout, BadResponse, NullResponse, CancelPending, UnsubscribeError}  from './src/base/errors.js'
 
 
 //-----------------------------------------------------------------------------
 // this is updated by vss.js when building
 
-const version = '4.3.40';
-
-(Exchange as any).ccxtVersion = version
+const version = '4.5.92';
 
 //-----------------------------------------------------------------------------
 
-import ace from  './src/ace.js'
 import alpaca from  './src/alpaca.js'
-import ascendex from  './src/ascendex.js'
+import apex from  './src/apex.js'
+import aster from  './src/aster.js'
+import backpack from  './src/backpack.js'
 import bequant from  './src/bequant.js'
 import bigone from  './src/bigone.js'
 import binance from  './src/binance.js'
@@ -58,172 +59,190 @@ import binanceusdm from  './src/binanceusdm.js'
 import bingx from  './src/bingx.js'
 import bit2c from  './src/bit2c.js'
 import bitbank from  './src/bitbank.js'
-import bitbay from  './src/bitbay.js'
 import bitbns from  './src/bitbns.js'
-import bitcoincom from  './src/bitcoincom.js'
 import bitfinex from  './src/bitfinex.js'
-import bitfinex2 from  './src/bitfinex2.js'
 import bitflyer from  './src/bitflyer.js'
 import bitget from  './src/bitget.js'
 import bithumb from  './src/bithumb.js'
-import bitmart from  './src/bitmart.js'
-import bitmex from  './src/bitmex.js'
 import bitopro from  './src/bitopro.js'
-import bitpanda from  './src/bitpanda.js'
 import bitrue from  './src/bitrue.js'
 import bitso from  './src/bitso.js'
 import bitstamp from  './src/bitstamp.js'
 import bitteam from  './src/bitteam.js'
+import bittrade from  './src/bittrade.js'
 import bitvavo from  './src/bitvavo.js'
-import bl3p from  './src/bl3p.js'
 import blockchaincom from  './src/blockchaincom.js'
 import blofin from  './src/blofin.js'
-import btcalpha from  './src/btcalpha.js'
 import btcbox from  './src/btcbox.js'
 import btcmarkets from  './src/btcmarkets.js'
 import btcturk from  './src/btcturk.js'
+import btse from  './src/btse.js'
+import bullish from  './src/bullish.js'
 import bybit from  './src/bybit.js'
+import bybiteu from  './src/bybiteu.js'
+import bybitid from  './src/bybitid.js'
 import cex from  './src/cex.js'
 import coinbase from  './src/coinbase.js'
-import coinbaseadvanced from  './src/coinbaseadvanced.js'
 import coinbaseexchange from  './src/coinbaseexchange.js'
 import coinbaseinternational from  './src/coinbaseinternational.js'
 import coincheck from  './src/coincheck.js'
-import coinex from  './src/coinex.js'
-import coinlist from  './src/coinlist.js'
 import coinmate from  './src/coinmate.js'
-import coinmetro from  './src/coinmetro.js'
 import coinone from  './src/coinone.js'
 import coinsph from  './src/coinsph.js'
 import coinspot from  './src/coinspot.js'
 import cryptocom from  './src/cryptocom.js'
-import currencycom from  './src/currencycom.js'
+import cryptomus from  './src/cryptomus.js'
+import deepcoin from  './src/deepcoin.js'
 import delta from  './src/delta.js'
 import deribit from  './src/deribit.js'
+import derive from  './src/derive.js'
 import digifinex from  './src/digifinex.js'
-import exmo from  './src/exmo.js'
+import dydx from  './src/dydx.js'
+import extended from  './src/extended.js'
 import fmfwio from  './src/fmfwio.js'
+import foxbit from  './src/foxbit.js'
 import gate from  './src/gate.js'
-import gateio from  './src/gateio.js'
+import gateeu from  './src/gateeu.js'
 import gemini from  './src/gemini.js'
+import grvt from  './src/grvt.js'
+import hashkey from  './src/hashkey.js'
+import hibachi from  './src/hibachi.js'
 import hitbtc from  './src/hitbtc.js'
-import hitbtc3 from  './src/hitbtc3.js'
 import hollaex from  './src/hollaex.js'
 import htx from  './src/htx.js'
-import huobi from  './src/huobi.js'
-import huobijp from  './src/huobijp.js'
 import hyperliquid from  './src/hyperliquid.js'
-import idex from  './src/idex.js'
 import independentreserve from  './src/independentreserve.js'
 import indodax from  './src/indodax.js'
 import kraken from  './src/kraken.js'
 import krakenfutures from  './src/krakenfutures.js'
 import kucoin from  './src/kucoin.js'
 import kucoinfutures from  './src/kucoinfutures.js'
-import kuna from  './src/kuna.js'
 import latoken from  './src/latoken.js'
 import lbank from  './src/lbank.js'
+import lighter from  './src/lighter.js'
 import luno from  './src/luno.js'
-import lykke from  './src/lykke.js'
 import mercado from  './src/mercado.js'
 import mexc from  './src/mexc.js'
+import modetrade from  './src/modetrade.js'
+import mudrex from  './src/mudrex.js'
+import myokx from  './src/myokx.js'
+import nado from  './src/nado.js'
 import ndax from  './src/ndax.js'
-import novadax from  './src/novadax.js'
-import oceanex from  './src/oceanex.js'
-import okcoin from  './src/okcoin.js'
 import okx from  './src/okx.js'
+import okxus from  './src/okxus.js'
 import onetrading from  './src/onetrading.js'
 import p2b from  './src/p2b.js'
+import pacifica from  './src/pacifica.js'
+import paradex from  './src/paradex.js'
 import paymium from  './src/paymium.js'
 import phemex from  './src/phemex.js'
 import poloniex from  './src/poloniex.js'
-import poloniexfutures from  './src/poloniexfutures.js'
-import probit from  './src/probit.js'
-import timex from  './src/timex.js'
+import polymarket from  './src/polymarket.js'
+import revolutx from  './src/revolutx.js'
 import tokocrypto from  './src/tokocrypto.js'
-import tradeogre from  './src/tradeogre.js'
+import toobit from  './src/toobit.js'
 import upbit from  './src/upbit.js'
-import wavesexchange from  './src/wavesexchange.js'
-import wazirx from  './src/wazirx.js'
+import weex from  './src/weex.js'
 import whitebit from  './src/whitebit.js'
 import woo from  './src/woo.js'
 import woofipro from  './src/woofipro.js'
-import yobit from  './src/yobit.js'
+import xt from  './src/xt.js'
 import zaif from  './src/zaif.js'
-import zonda from  './src/zonda.js'
+import zebpay from  './src/zebpay.js'
 
 
 // pro exchanges
 import alpacaPro from  './src/pro/alpaca.js'
-import ascendexPro from  './src/pro/ascendex.js'
+import apexPro from  './src/pro/apex.js'
+import asterPro from  './src/pro/aster.js'
+import backpackPro from  './src/pro/backpack.js'
 import bequantPro from  './src/pro/bequant.js'
 import binancePro from  './src/pro/binance.js'
 import binancecoinmPro from  './src/pro/binancecoinm.js'
 import binanceusPro from  './src/pro/binanceus.js'
 import binanceusdmPro from  './src/pro/binanceusdm.js'
 import bingxPro from  './src/pro/bingx.js'
-import bitcoincomPro from  './src/pro/bitcoincom.js'
 import bitfinexPro from  './src/pro/bitfinex.js'
-import bitfinex2Pro from  './src/pro/bitfinex2.js'
 import bitgetPro from  './src/pro/bitget.js'
 import bithumbPro from  './src/pro/bithumb.js'
-import bitmartPro from  './src/pro/bitmart.js'
-import bitmexPro from  './src/pro/bitmex.js'
 import bitoproPro from  './src/pro/bitopro.js'
-import bitpandaPro from  './src/pro/bitpanda.js'
 import bitruePro from  './src/pro/bitrue.js'
 import bitstampPro from  './src/pro/bitstamp.js'
+import bittradePro from  './src/pro/bittrade.js'
 import bitvavoPro from  './src/pro/bitvavo.js'
 import blockchaincomPro from  './src/pro/blockchaincom.js'
+import blofinPro from  './src/pro/blofin.js'
+import bullishPro from  './src/pro/bullish.js'
 import bybitPro from  './src/pro/bybit.js'
+import bybiteuPro from  './src/pro/bybiteu.js'
+import bybitidPro from  './src/pro/bybitid.js'
 import cexPro from  './src/pro/cex.js'
 import coinbasePro from  './src/pro/coinbase.js'
 import coinbaseexchangePro from  './src/pro/coinbaseexchange.js'
 import coinbaseinternationalPro from  './src/pro/coinbaseinternational.js'
 import coincheckPro from  './src/pro/coincheck.js'
-import coinexPro from  './src/pro/coinex.js'
 import coinonePro from  './src/pro/coinone.js'
 import cryptocomPro from  './src/pro/cryptocom.js'
-import currencycomPro from  './src/pro/currencycom.js'
+import deepcoinPro from  './src/pro/deepcoin.js'
 import deribitPro from  './src/pro/deribit.js'
-import exmoPro from  './src/pro/exmo.js'
+import derivePro from  './src/pro/derive.js'
+import dydxPro from  './src/pro/dydx.js'
+import extendedPro from  './src/pro/extended.js'
 import gatePro from  './src/pro/gate.js'
-import gateioPro from  './src/pro/gateio.js'
+import gateeuPro from  './src/pro/gateeu.js'
 import geminiPro from  './src/pro/gemini.js'
+import grvtPro from  './src/pro/grvt.js'
+import hashkeyPro from  './src/pro/hashkey.js'
 import hitbtcPro from  './src/pro/hitbtc.js'
 import hollaexPro from  './src/pro/hollaex.js'
 import htxPro from  './src/pro/htx.js'
-import huobiPro from  './src/pro/huobi.js'
-import huobijpPro from  './src/pro/huobijp.js'
 import hyperliquidPro from  './src/pro/hyperliquid.js'
-import idexPro from  './src/pro/idex.js'
 import independentreservePro from  './src/pro/independentreserve.js'
 import krakenPro from  './src/pro/kraken.js'
 import krakenfuturesPro from  './src/pro/krakenfutures.js'
 import kucoinPro from  './src/pro/kucoin.js'
 import kucoinfuturesPro from  './src/pro/kucoinfutures.js'
 import lbankPro from  './src/pro/lbank.js'
+import lighterPro from  './src/pro/lighter.js'
 import lunoPro from  './src/pro/luno.js'
 import mexcPro from  './src/pro/mexc.js'
+import modetradePro from  './src/pro/modetrade.js'
+import mudrexPro from  './src/pro/mudrex.js'
+import myokxPro from  './src/pro/myokx.js'
+import nadoPro from  './src/pro/nado.js'
 import ndaxPro from  './src/pro/ndax.js'
-import okcoinPro from  './src/pro/okcoin.js'
 import okxPro from  './src/pro/okx.js'
+import okxusPro from  './src/pro/okxus.js'
 import onetradingPro from  './src/pro/onetrading.js'
 import p2bPro from  './src/pro/p2b.js'
+import pacificaPro from  './src/pro/pacifica.js'
+import paradexPro from  './src/pro/paradex.js'
 import phemexPro from  './src/pro/phemex.js'
 import poloniexPro from  './src/pro/poloniex.js'
-import poloniexfuturesPro from  './src/pro/poloniexfutures.js'
-import probitPro from  './src/pro/probit.js'
+import polymarketPro from  './src/pro/polymarket.js'
+import toobitPro from  './src/pro/toobit.js'
 import upbitPro from  './src/pro/upbit.js'
-import wazirxPro from  './src/pro/wazirx.js'
+import weexPro from  './src/pro/weex.js'
 import whitebitPro from  './src/pro/whitebit.js'
 import wooPro from  './src/pro/woo.js'
 import woofiproPro from  './src/pro/woofipro.js'
+import xtPro from  './src/pro/xt.js'
+
+import binancePrediction from  './src/prediction/binance.js'
+import hyperliquidPrediction from  './src/prediction/hyperliquid.js'
+import kalshiPrediction from  './src/prediction/kalshi.js'
+import limitlessPrediction from  './src/prediction/limitless.js'
+import myriadPrediction from  './src/prediction/myriad.js'
+import opinionPrediction from  './src/prediction/opinion.js'
+import polymarketPrediction from  './src/prediction/polymarket.js'
+import predictfunPrediction from  './src/prediction/predictfun.js'
+import sxbetPrediction from  './src/prediction/sxbet.js'
 
 const exchanges = {
-    'ace':                    ace,
     'alpaca':                 alpaca,
-    'ascendex':               ascendex,
+    'apex':                   apex,
+    'aster':                  aster,
+    'backpack':               backpack,
     'bequant':                bequant,
     'bigone':                 bigone,
     'binance':                binance,
@@ -233,190 +252,210 @@ const exchanges = {
     'bingx':                  bingx,
     'bit2c':                  bit2c,
     'bitbank':                bitbank,
-    'bitbay':                 bitbay,
     'bitbns':                 bitbns,
-    'bitcoincom':             bitcoincom,
     'bitfinex':               bitfinex,
-    'bitfinex2':              bitfinex2,
     'bitflyer':               bitflyer,
     'bitget':                 bitget,
     'bithumb':                bithumb,
-    'bitmart':                bitmart,
-    'bitmex':                 bitmex,
     'bitopro':                bitopro,
-    'bitpanda':               bitpanda,
     'bitrue':                 bitrue,
     'bitso':                  bitso,
     'bitstamp':               bitstamp,
     'bitteam':                bitteam,
+    'bittrade':               bittrade,
     'bitvavo':                bitvavo,
-    'bl3p':                   bl3p,
     'blockchaincom':          blockchaincom,
     'blofin':                 blofin,
-    'btcalpha':               btcalpha,
     'btcbox':                 btcbox,
     'btcmarkets':             btcmarkets,
     'btcturk':                btcturk,
+    'btse':                   btse,
+    'bullish':                bullish,
     'bybit':                  bybit,
+    'bybiteu':                bybiteu,
+    'bybitid':                bybitid,
     'cex':                    cex,
     'coinbase':               coinbase,
-    'coinbaseadvanced':       coinbaseadvanced,
     'coinbaseexchange':       coinbaseexchange,
     'coinbaseinternational':  coinbaseinternational,
     'coincheck':              coincheck,
-    'coinex':                 coinex,
-    'coinlist':               coinlist,
     'coinmate':               coinmate,
-    'coinmetro':              coinmetro,
     'coinone':                coinone,
     'coinsph':                coinsph,
     'coinspot':               coinspot,
     'cryptocom':              cryptocom,
-    'currencycom':            currencycom,
+    'cryptomus':              cryptomus,
+    'deepcoin':               deepcoin,
     'delta':                  delta,
     'deribit':                deribit,
+    'derive':                 derive,
     'digifinex':              digifinex,
-    'exmo':                   exmo,
+    'dydx':                   dydx,
+    'extended':               extended,
     'fmfwio':                 fmfwio,
+    'foxbit':                 foxbit,
     'gate':                   gate,
-    'gateio':                 gateio,
+    'gateeu':                 gateeu,
     'gemini':                 gemini,
+    'grvt':                   grvt,
+    'hashkey':                hashkey,
+    'hibachi':                hibachi,
     'hitbtc':                 hitbtc,
-    'hitbtc3':                hitbtc3,
     'hollaex':                hollaex,
     'htx':                    htx,
-    'huobi':                  huobi,
-    'huobijp':                huobijp,
     'hyperliquid':            hyperliquid,
-    'idex':                   idex,
     'independentreserve':     independentreserve,
     'indodax':                indodax,
     'kraken':                 kraken,
     'krakenfutures':          krakenfutures,
     'kucoin':                 kucoin,
     'kucoinfutures':          kucoinfutures,
-    'kuna':                   kuna,
     'latoken':                latoken,
     'lbank':                  lbank,
+    'lighter':                lighter,
     'luno':                   luno,
-    'lykke':                  lykke,
     'mercado':                mercado,
     'mexc':                   mexc,
+    'modetrade':              modetrade,
+    'mudrex':                 mudrex,
+    'myokx':                  myokx,
+    'nado':                   nado,
     'ndax':                   ndax,
-    'novadax':                novadax,
-    'oceanex':                oceanex,
-    'okcoin':                 okcoin,
     'okx':                    okx,
+    'okxus':                  okxus,
     'onetrading':             onetrading,
     'p2b':                    p2b,
+    'pacifica':               pacifica,
+    'paradex':                paradex,
     'paymium':                paymium,
     'phemex':                 phemex,
     'poloniex':               poloniex,
-    'poloniexfutures':        poloniexfutures,
-    'probit':                 probit,
-    'timex':                  timex,
+    'polymarket':             polymarket,
+    'revolutx':               revolutx,
     'tokocrypto':             tokocrypto,
-    'tradeogre':              tradeogre,
+    'toobit':                 toobit,
     'upbit':                  upbit,
-    'wavesexchange':          wavesexchange,
-    'wazirx':                 wazirx,
+    'weex':                   weex,
     'whitebit':               whitebit,
     'woo':                    woo,
     'woofipro':               woofipro,
-    'yobit':                  yobit,
+    'xt':                     xt,
     'zaif':                   zaif,
-    'zonda':                  zonda,
+    'zebpay':                 zebpay,
 }
 
 const pro = {
     'alpaca':                 alpacaPro,
-    'ascendex':               ascendexPro,
+    'apex':                   apexPro,
+    'aster':                  asterPro,
+    'backpack':               backpackPro,
     'bequant':                bequantPro,
     'binance':                binancePro,
     'binancecoinm':           binancecoinmPro,
     'binanceus':              binanceusPro,
     'binanceusdm':            binanceusdmPro,
     'bingx':                  bingxPro,
-    'bitcoincom':             bitcoincomPro,
     'bitfinex':               bitfinexPro,
-    'bitfinex2':              bitfinex2Pro,
     'bitget':                 bitgetPro,
     'bithumb':                bithumbPro,
-    'bitmart':                bitmartPro,
-    'bitmex':                 bitmexPro,
     'bitopro':                bitoproPro,
-    'bitpanda':               bitpandaPro,
     'bitrue':                 bitruePro,
     'bitstamp':               bitstampPro,
+    'bittrade':               bittradePro,
     'bitvavo':                bitvavoPro,
     'blockchaincom':          blockchaincomPro,
+    'blofin':                 blofinPro,
+    'bullish':                bullishPro,
     'bybit':                  bybitPro,
+    'bybiteu':                bybiteuPro,
+    'bybitid':                bybitidPro,
     'cex':                    cexPro,
     'coinbase':               coinbasePro,
     'coinbaseexchange':       coinbaseexchangePro,
     'coinbaseinternational':  coinbaseinternationalPro,
     'coincheck':              coincheckPro,
-    'coinex':                 coinexPro,
     'coinone':                coinonePro,
     'cryptocom':              cryptocomPro,
-    'currencycom':            currencycomPro,
+    'deepcoin':               deepcoinPro,
     'deribit':                deribitPro,
-    'exmo':                   exmoPro,
+    'derive':                 derivePro,
+    'dydx':                   dydxPro,
+    'extended':               extendedPro,
     'gate':                   gatePro,
-    'gateio':                 gateioPro,
+    'gateeu':                 gateeuPro,
     'gemini':                 geminiPro,
+    'grvt':                   grvtPro,
+    'hashkey':                hashkeyPro,
     'hitbtc':                 hitbtcPro,
     'hollaex':                hollaexPro,
     'htx':                    htxPro,
-    'huobi':                  huobiPro,
-    'huobijp':                huobijpPro,
     'hyperliquid':            hyperliquidPro,
-    'idex':                   idexPro,
     'independentreserve':     independentreservePro,
     'kraken':                 krakenPro,
     'krakenfutures':          krakenfuturesPro,
     'kucoin':                 kucoinPro,
     'kucoinfutures':          kucoinfuturesPro,
     'lbank':                  lbankPro,
+    'lighter':                lighterPro,
     'luno':                   lunoPro,
     'mexc':                   mexcPro,
+    'modetrade':              modetradePro,
+    'mudrex':                 mudrexPro,
+    'myokx':                  myokxPro,
+    'nado':                   nadoPro,
     'ndax':                   ndaxPro,
-    'okcoin':                 okcoinPro,
     'okx':                    okxPro,
+    'okxus':                  okxusPro,
     'onetrading':             onetradingPro,
     'p2b':                    p2bPro,
+    'pacifica':               pacificaPro,
+    'paradex':                paradexPro,
     'phemex':                 phemexPro,
     'poloniex':               poloniexPro,
-    'poloniexfutures':        poloniexfuturesPro,
-    'probit':                 probitPro,
+    'polymarket':             polymarketPro,
+    'toobit':                 toobitPro,
     'upbit':                  upbitPro,
-    'wazirx':                 wazirxPro,
+    'weex':                   weexPro,
     'whitebit':               whitebitPro,
     'woo':                    wooPro,
     'woofipro':               woofiproPro,
-}
+    'xt':                     xtPro,
+};
 
-for (const exchange in pro) {
-    // const ccxtExchange = exchanges[exchange]
-    // const baseExchange = Object.getPrototypeOf (ccxtExchange)
-    // if (baseExchange.name === 'Exchange') {
-    //     Object.setPrototypeOf (ccxtExchange, wsExchange)
-    //     Object.setPrototypeOf (ccxtExchange.prototype, wsExchange.prototype)
-    // }
-}
-
-(pro as any).exchanges = Object.keys (pro)
-pro['Exchange'] = Exchange // now the same for rest and ts
+(pro as any).exchanges = Object.keys (pro);
+(pro as Dict)['Exchange'] = Exchange // now the same for rest and ts
 //-----------------------------------------------------------------------------
 
-const ccxt = Object.assign ({ version, Exchange, Precise, 'exchanges': Object.keys (exchanges), 'pro': pro}, exchanges, functions, errors)
+const prediction = {
+    'binance':                binancePrediction,
+    'hyperliquid':            hyperliquidPrediction,
+    'kalshi':                 kalshiPrediction,
+    'limitless':              limitlessPrediction,
+    'myriad':                 myriadPrediction,
+    'opinion':                opinionPrediction,
+    'polymarket':             polymarketPrediction,
+    'predictfun':             predictfunPrediction,
+    'sxbet':                  sxbetPrediction,
+};
+
+(prediction as any).exchanges = Object.keys (prediction);
+// the namespace's `Exchange` alias must be the prediction base, not the crypto Exchange —
+// prediction instances are `instanceof PredictionExchange`, NOT `instanceof Exchange` (siblings)
+(prediction as Dict)['Exchange'] = PredictionExchange
+//-----------------------------------------------------------------------------
+
+const ccxt = Object.assign ({ version, Exchange, BaseExchange, PredictionExchange, Precise, OrderRouter, 'exchanges': Object.keys (exchanges), 'pro': pro, 'prediction': prediction}, exchanges, functions, errors)
 
 export {
     version,
     Exchange,
+    BaseExchange,
+    PredictionExchange,
     exchanges,
     pro,
+    prediction,
     Precise,
+    OrderRouter,
     functions,
     errors,
     BaseError,
@@ -432,21 +471,20 @@ export {
     NoChange,
     MarginModeAlreadySet,
     MarketClosed,
-    BadResponse,
-    NullResponse,
+    ManualInteractionNeeded,
+    RestrictedLocation,
     InsufficientFunds,
     InvalidAddress,
     AddressPending,
     InvalidOrder,
     OrderNotFound,
     OrderNotCached,
-    CancelPending,
     OrderImmediatelyFillable,
     OrderNotFillable,
     DuplicateOrderId,
     ContractUnavailable,
     NotSupported,
-    ProxyError,
+    InvalidProxySettings,
     ExchangeClosedByUser,
     OperationFailed,
     NetworkError,
@@ -455,39 +493,129 @@ export {
     ExchangeNotAvailable,
     OnMaintenance,
     InvalidNonce,
+    ChecksumError,
     RequestTimeout,
-    Market,
-    Trade,
+    BadResponse,
+    NullResponse,
+    CancelPending,
+    UnsubscribeError,
+    Int,
+    int,
+    Str,
+    NetworkCode,
+    Strings,
+    Num,
+    Bool,
+    IndexType,
+    NullableIndexType,
+    OrderSide,
+    OrderType,
+    MarketType,
+    SubType,
+    DefaultType,
+    DefaultSubType,
+    Dict,
+    NullableDict,
+    List,
+    NullableList,
     Fee,
-    Ticker,
-    OrderBook,
+    FeeString,
+    OHLCV,
+    OHLCVC,
+    safeInputType,
+    Market,
+    Currency,
+    ConstructorArgs,
+    ExchangeOptions,
+    Dictionary,
+    NestedDictionary,
+    Endpoint,
+    MinMax,
+    FeeInterface,
+    FeeStringInterface,
+    TradingFeeInterface,
+    MarketMarginModes,
+    Precision,
+    MarketInterface,
+    PredictionFees,
+    PredictionEvent,
+    PredictionMarket,
+    PredictionOutcome,
+    PredictionOutcomeMarket,
+    PredictionOrder,
+    PredictionTrade,
+    PredictionPosition,
+    PredictionTicker,
+    PredictionOrderBook,
+    PredictionTickers,
+    PredictionTradingFee,
+    PredictionOpenInterest,
+    PredictionSettlement,
+    fetchEventsParams,
+    Trade,
     Order,
+    OrderBook,
+    OrderBookL3,
+    OrderBooks,
+    Ticker,
     Transaction,
     Tickers,
-    Currency,
+    CurrencyInterface,
     Balance,
-    DepositAddress,
-    WithdrawalResponse,
-    DepositAddressResponse,
-    OHLCV,
-    Balances,
+    BalanceAccount,
+    Account,
     PartialBalances,
-    Dictionary,
-    MinMax,
+    Balances,
+    DepositAddress,
+    DepositAddresses,
+    WithdrawalResponse,
+    FundingRate,
+    FundingRates,
     Position,
+    BorrowInterest,
+    LeverageTier,
+    LedgerEntry,
+    DepositWithdrawFeeNetwork,
+    DepositWithdrawFeeNetworkEntry,
+    DepositWithdrawFee,
+    DepositWithdrawFees,
+    TransferEntry,
+    CrossBorrowRate,
+    IsolatedBorrowRate,
     FundingRateHistory,
+    OpenInterest,
+    OpenInterests,
     Liquidation,
+    OrderRequest,
+    PredictionOrderRequest,
+    CancellationRequest,
     FundingHistory,
     MarginMode,
     Greeks,
-    Leverage,
-    Leverages,
-    Option,
-    OptionChain,
+    AllGreeks,
     Conversion,
-    ace,
+    Option,
+    LastPrice,
+    Leverage,
+    LongShortRatio,
+    ADL,
+    MarginModification,
+    MarginLoan,
+    Status,
+    PositionModeInfo,
+    Leverages,
+    LastPrices,
+    Currencies,
+    TradingFees,
+    MarginModes,
+    OptionChain,
+    IsolatedBorrowRates,
+    CrossBorrowRates,
+    LeverageTiers,
     alpaca,
-    ascendex,
+    apex,
+    aster,
+    backpack,
     bequant,
     bigone,
     binance,
@@ -497,99 +625,96 @@ export {
     bingx,
     bit2c,
     bitbank,
-    bitbay,
     bitbns,
-    bitcoincom,
     bitfinex,
-    bitfinex2,
     bitflyer,
     bitget,
     bithumb,
-    bitmart,
-    bitmex,
     bitopro,
-    bitpanda,
     bitrue,
     bitso,
     bitstamp,
     bitteam,
+    bittrade,
     bitvavo,
-    bl3p,
     blockchaincom,
     blofin,
-    btcalpha,
     btcbox,
     btcmarkets,
     btcturk,
+    btse,
+    bullish,
     bybit,
+    bybiteu,
+    bybitid,
     cex,
     coinbase,
-    coinbaseadvanced,
     coinbaseexchange,
     coinbaseinternational,
     coincheck,
-    coinex,
-    coinlist,
     coinmate,
-    coinmetro,
     coinone,
     coinsph,
     coinspot,
     cryptocom,
-    currencycom,
+    cryptomus,
+    deepcoin,
     delta,
     deribit,
+    derive,
     digifinex,
-    exmo,
+    dydx,
+    extended,
     fmfwio,
+    foxbit,
     gate,
-    gateio,
+    gateeu,
     gemini,
+    grvt,
+    hashkey,
+    hibachi,
     hitbtc,
-    hitbtc3,
     hollaex,
     htx,
-    huobi,
-    huobijp,
     hyperliquid,
-    idex,
     independentreserve,
     indodax,
     kraken,
     krakenfutures,
     kucoin,
     kucoinfutures,
-    kuna,
     latoken,
     lbank,
+    lighter,
     luno,
-    lykke,
     mercado,
     mexc,
+    modetrade,
+    mudrex,
+    myokx,
+    nado,
     ndax,
-    novadax,
-    oceanex,
-    okcoin,
     okx,
+    okxus,
     onetrading,
     p2b,
+    pacifica,
+    paradex,
     paymium,
     phemex,
     poloniex,
-    poloniexfutures,
-    probit,
-    timex,
+    polymarket,
+    revolutx,
     tokocrypto,
-    tradeogre,
+    toobit,
     upbit,
-    wavesexchange,
-    wazirx,
+    weex,
     whitebit,
     woo,
     woofipro,
-    yobit,
+    xt,
     zaif,
-    zonda,    
+    zebpay,    
 }
 
 export default ccxt;

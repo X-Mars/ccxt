@@ -1,5 +1,4 @@
-import assert from 'assert';
-import { Exchange } from "../../../ccxt";
+import { Exchange } from "../../../ccxt.js";
 import testFundingRateHistory from './base/test.fundingRateHistory.js';
 import testSharedMethods from './base/test.sharedMethods.js';
 
@@ -11,6 +10,7 @@ async function testFetchFundingRateHistory (exchange: Exchange, skippedPropertie
         testFundingRateHistory (exchange, skippedProperties, method, fundingRatesHistory[i], symbol);
     }
     testSharedMethods.assertTimestampOrder (exchange, method, symbol, fundingRatesHistory);
+    return true;
 }
 
 export default testFetchFundingRateHistory;

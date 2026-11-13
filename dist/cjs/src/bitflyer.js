@@ -1,43 +1,66 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var sha2_js = require('@noble/hashes/sha2.js');
 var bitflyer$1 = require('./abstract/bitflyer.js');
 var errors = require('./base/errors.js');
 var number = require('./base/functions/number.js');
-var sha256 = require('./static_dependencies/noble-hashes/sha256.js');
 var Precise = require('./base/Precise.js');
 
-//  ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 //  ---------------------------------------------------------------------------
 /**
  * @class bitflyer
  * @augments Exchange
  */
-class bitflyer extends bitflyer$1 {
+class bitflyer extends bitflyer$1["default"] {
     describe() {
         return this.deepExtend(super.describe(), {
             'id': 'bitflyer',
             'name': 'bitFlyer',
             'countries': ['JP'],
             'version': 'v1',
-            'rateLimit': 1000,
-            'hostname': 'bitflyer.com',
+            'rateLimit': 1000, // their nonce-timestamp is in seconds...
+            'hostname': 'bitflyer.com', // or bitflyer.com
             'has': {
                 'CORS': undefined,
                 'spot': true,
                 'margin': false,
-                'swap': undefined,
-                'future': undefined,
+                'swap': undefined, // has but not fully implemented
+                'future': undefined, // has but not fully implemented
                 'option': false,
-                'cancelAllOrders': undefined,
+                'borrowCrossMargin': false,
+                'borrowIsolatedMargin': false,
+                'borrowMargin': false,
+                'cancelAllOrders': undefined, // https://lightning.bitflyer.com/docs?lang=en#cancel-all-orders
                 'cancelOrder': true,
                 'createOrder': true,
+                'fetchAllGreeks': false,
                 'fetchBalance': true,
+                'fetchBorrowInterest': false,
+                'fetchBorrowRate': false,
+                'fetchBorrowRateHistories': false,
+                'fetchBorrowRateHistory': false,
+                'fetchBorrowRates': false,
+                'fetchBorrowRatesPerSymbol': false,
                 'fetchClosedOrders': 'emulated',
+                'fetchCrossBorrowRate': false,
+                'fetchCrossBorrowRates': false,
+                'fetchCurrencies': false,
                 'fetchDeposits': true,
+                'fetchFundingRate': true,
+                'fetchFundingRateHistory': false,
+                'fetchFundingRates': false,
+                'fetchGreeks': false,
+                'fetchIsolatedBorrowRate': false,
+                'fetchIsolatedBorrowRates': false,
                 'fetchMarginMode': false,
                 'fetchMarkets': true,
                 'fetchMyTrades': true,
                 'fetchOpenOrders': 'emulated',
+                'fetchOption': false,
+                'fetchOptionChain': false,
                 'fetchOrder': 'emulated',
                 'fetchOrderBook': true,
                 'fetchOrders': true,
@@ -49,12 +72,15 @@ class bitflyer extends bitflyer$1 {
                 'fetchTradingFees': false,
                 'fetchTransfer': false,
                 'fetchTransfers': false,
+                'fetchVolatilityHistory': false,
                 'fetchWithdrawals': true,
+                'repayCrossMargin': false,
+                'repayIsolatedMargin': false,
                 'transfer': false,
                 'withdraw': true,
             },
             'urls': {
-                'logo': 'https://user-images.githubusercontent.com/1294454/28051642-56154182-660e-11e7-9b0d-6042d1e6edd8.jpg',
+                'logo': 'https://github.com/user-attachments/assets/d0217747-e54d-4533-8416-0d553dca74bb',
                 'api': {
                     'rest': 'https://api.{hostname}',
                 },
@@ -63,48 +89,50 @@ class bitflyer extends bitflyer$1 {
             },
             'api': {
                 'public': {
-                    'get': [
-                        'getmarkets/usa',
-                        'getmarkets/eu',
-                        'getmarkets',
-                        'getboard',
-                        'getticker',
-                        'getexecutions',
-                        'gethealth',
-                        'getboardstate',
-                        'getchats',
-                    ],
+                    'get': {
+                        'getmarkets/usa': { 'cost': 1 },
+                        'getmarkets/eu': { 'cost': 1 },
+                        'getmarkets': { 'cost': 1 },
+                        'getboard': { 'cost': 1 },
+                        'getticker': { 'cost': 1 },
+                        'getexecutions': { 'cost': 1 },
+                        'gethealth': { 'cost': 1 },
+                        'getboardstate': { 'cost': 1 },
+                        'getchats': { 'cost': 1 },
+                        'getfundingrate': { 'cost': 1 },
+                        'getfundingratehistory': { 'cost': 1 },
+                    },
                 },
                 'private': {
-                    'get': [
-                        'getpermissions',
-                        'getbalance',
-                        'getbalancehistory',
-                        'getcollateral',
-                        'getcollateralhistory',
-                        'getcollateralaccounts',
-                        'getaddresses',
-                        'getcoinins',
-                        'getcoinouts',
-                        'getbankaccounts',
-                        'getdeposits',
-                        'getwithdrawals',
-                        'getchildorders',
-                        'getparentorders',
-                        'getparentorder',
-                        'getexecutions',
-                        'getpositions',
-                        'gettradingcommission',
-                    ],
-                    'post': [
-                        'sendcoin',
-                        'withdraw',
-                        'sendchildorder',
-                        'cancelchildorder',
-                        'sendparentorder',
-                        'cancelparentorder',
-                        'cancelallchildorders',
-                    ],
+                    'get': {
+                        'getpermissions': { 'cost': 1 },
+                        'getbalance': { 'cost': 1 },
+                        'getbalancehistory': { 'cost': 1 },
+                        'getcollateral': { 'cost': 1 },
+                        'getcollateralhistory': { 'cost': 1 },
+                        'getcollateralaccounts': { 'cost': 1 },
+                        'getaddresses': { 'cost': 1 },
+                        'getcoinins': { 'cost': 1 },
+                        'getcoinouts': { 'cost': 1 },
+                        'getbankaccounts': { 'cost': 1 },
+                        'getdeposits': { 'cost': 1 },
+                        'getwithdrawals': { 'cost': 1 },
+                        'getchildorders': { 'cost': 1 },
+                        'getparentorders': { 'cost': 1 },
+                        'getparentorder': { 'cost': 1 },
+                        'getexecutions': { 'cost': 1 },
+                        'getpositions': { 'cost': 1 },
+                        'gettradingcommission': { 'cost': 1 },
+                    },
+                    'post': {
+                        'sendcoin': { 'cost': 1 },
+                        'withdraw': { 'cost': 1 },
+                        'sendchildorder': { 'cost': 1 },
+                        'cancelchildorder': { 'cost': 1 },
+                        'sendparentorder': { 'cost': 1 },
+                        'cancelparentorder': { 'cost': 1 },
+                        'cancelallchildorders': { 'cost': 1 },
+                    },
                 },
             },
             'fees': {
@@ -114,6 +142,82 @@ class bitflyer extends bitflyer$1 {
                 },
             },
             'precisionMode': number.TICK_SIZE,
+            'features': {
+                'spot': {
+                    'sandbox': false,
+                    'createOrder': {
+                        'marginMode': false,
+                        'triggerPrice': false,
+                        'triggerPriceType': undefined,
+                        'triggerDirection': false,
+                        'stopLossPrice': false,
+                        'takeProfitPrice': false,
+                        'attachedStopLossTakeProfit': undefined,
+                        'timeInForce': {
+                            'IOC': true,
+                            'FOK': true,
+                            'PO': true,
+                            'GTD': true, // todo implement
+                        },
+                        'hedged': false,
+                        'trailing': false, // todo recheck
+                        'leverage': false,
+                        'marketBuyRequiresPrice': false,
+                        'marketBuyByCost': false,
+                        'selfTradePrevention': false,
+                        'iceberg': false,
+                    },
+                    'createOrders': undefined,
+                    'fetchMyTrades': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrder': {
+                        'marginMode': false,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchClosedOrders': {
+                        'marginMode': false,
+                        'limit': 100,
+                        'daysBack': undefined,
+                        'daysBackCanceled': undefined,
+                        'untilDays': undefined,
+                        'trigger': false,
+                        'trailing': false,
+                        'symbolRequired': true,
+                    },
+                    'fetchOHLCV': undefined,
+                },
+                'swap': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+                'future': {
+                    'linear': undefined,
+                    'inverse': undefined,
+                },
+            },
             'exceptions': {
                 'exact': {
                     '-2': errors.OnMaintenance, // {"status":-2,"error_message":"Under maintenance","data":null}
@@ -124,7 +228,7 @@ class bitflyer extends bitflyer$1 {
     parseExpiryDate(expiry) {
         const day = expiry.slice(0, 2);
         const monthName = expiry.slice(2, 5);
-        const year = expiry.slice(5, 9);
+        const expiryYear = expiry.slice(5, 9);
         const months = {
             'JAN': '01',
             'FEB': '02',
@@ -140,7 +244,10 @@ class bitflyer extends bitflyer$1 {
             'DEC': '12',
         };
         const month = this.safeString(months, monthName);
-        return this.parse8601(year + '-' + month + '-' + day + 'T00:00:00Z');
+        if (month === undefined) {
+            return undefined;
+        }
+        return this.parse8601(expiryYear + '-' + month + '-' + day + 'T00:00:00Z');
     }
     safeMarket(marketId = undefined, market = undefined, delimiter = undefined, marketType = undefined) {
         // Bitflyer has a different type of conflict in markets, because
@@ -148,15 +255,15 @@ class bitflyer extends bitflyer$1 {
         // Since they're the same we just need to return one
         return super.safeMarket(marketId, market, delimiter, 'spot');
     }
+    /**
+     * @method
+     * @name bitflyer#fetchMarkets
+     * @description retrieves data on all markets for bitflyer
+     * @see https://lightning.bitflyer.com/docs?lang=en#market-list
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
     async fetchMarkets(params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchMarkets
-         * @description retrieves data on all markets for bitflyer
-         * @see https://lightning.bitflyer.com/docs?lang=en#market-list
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} an array of objects representing market data
-         */
         const jp_markets = await this.publicGetGetmarkets(params);
         //
         //     [
@@ -165,6 +272,7 @@ class bitflyer extends bitflyer$1 {
         //         { "product_code": "BCH_BTC", "market_type": "Spot" },
         //         // forex swap
         //         { "product_code": "FX_BTC_JPY", "market_type": "FX" },
+        //
         //         // future
         //         {
         //             "product_code": "BTCJPY11FEB2022",
@@ -187,8 +295,8 @@ class bitflyer extends bitflyer$1 {
         //         { "product_code": "BTC_JPY", "market_type": "Spot" },
         //     ];
         //
-        let markets = this.arrayConcat(jp_markets, us_markets);
-        markets = this.arrayConcat(markets, eu_markets);
+        let markets = this.arrayConcat(this.toArray(jp_markets), this.toArray(us_markets));
+        markets = this.arrayConcat(markets, this.toArray(eu_markets));
         const result = [];
         for (let i = 0; i < markets.length; i++) {
             const market = markets[i];
@@ -231,15 +339,24 @@ class bitflyer extends bitflyer$1 {
                     quoteId = currencyIds.slice(-3);
                     const splitId = id.split(currencyIds);
                     const expiryDate = this.safeString(splitId, 1);
+                    if (expiryDate === undefined) {
+                        continue;
+                    }
                     expiry = this.parseExpiryDate(expiryDate);
+                }
+                if (expiry === undefined) {
+                    continue;
                 }
                 type = 'future';
             }
             const base = this.safeCurrencyCode(baseId);
             const quote = this.safeCurrencyCode(quoteId);
+            if ((base === undefined) || (quote === undefined)) {
+                continue;
+            }
             let symbol = base + '/' + quote;
-            let taker = this.fees['trading']['taker'];
-            let maker = this.fees['trading']['maker'];
+            let taker = this.safeNumber(this.fees['trading'], 'taker');
+            let maker = this.safeNumber(this.fees['trading'], 'maker');
             const contract = swap || future;
             if (contract) {
                 maker = 0.0;
@@ -304,29 +421,33 @@ class bitflyer extends bitflyer$1 {
         }
         return result;
     }
-    parseBalance(response) {
+    parseBalanceList(response) {
         const result = { 'info': response };
         for (let i = 0; i < response.length; i++) {
-            const balance = response[i];
+            const balance = this.safeDict(response, i);
             const currencyId = this.safeString(balance, 'currency_code');
             const code = this.safeCurrencyCode(currencyId);
             const account = this.account();
             account['total'] = this.safeString(balance, 'amount');
             account['free'] = this.safeString(balance, 'available');
-            result[code] = account;
+            if (code !== undefined) {
+                result[code] = account;
+            }
         }
         return this.safeBalance(result);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchBalance
+     * @description query for balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-account-asset-balance
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
     async fetchBalance(params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchBalance
-         * @description query for balance and get the amount of funds available for trading or funds locked in orders
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-account-asset-balance
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const response = await this.privateGetGetbalance(params);
         //
         //     [
@@ -347,20 +468,22 @@ class bitflyer extends bitflyer$1 {
         //         }
         //     ]
         //
-        return this.parseBalance(response);
+        return this.parseBalanceList(response);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchOrderBook
+     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://lightning.bitflyer.com/docs?lang=en#order-book
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async fetchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchOrderBook
-         * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @see https://lightning.bitflyer.com/docs?lang=en#order-book
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'product_code': market['id'],
@@ -395,17 +518,19 @@ class bitflyer extends bitflyer$1 {
             'info': ticker,
         }, market);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchTicker
+     * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @see https://lightning.bitflyer.com/docs?lang=en#ticker
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async fetchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchTicker
-         * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see https://lightning.bitflyer.com/docs?lang=en#ticker
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'product_code': market['id'],
@@ -448,10 +573,7 @@ class bitflyer extends bitflyer$1 {
         }
         let order = undefined;
         if (side !== undefined) {
-            const idInner = side + '_child_order_acceptance_id';
-            if (idInner in trade) {
-                order = trade[idInner];
-            }
+            order = this.safeString(trade, side + '_child_order_acceptance_id');
         }
         if (order === undefined) {
             order = this.safeString(trade, 'child_order_acceptance_id');
@@ -460,13 +582,13 @@ class bitflyer extends bitflyer$1 {
         const priceString = this.safeString(trade, 'price');
         const amountString = this.safeString(trade, 'size');
         const id = this.safeString(trade, 'id');
-        market = this.safeMarket(undefined, market);
+        const marketResolved = this.safeMarket(undefined, market);
         return this.safeTrade({
             'id': id,
             'info': trade,
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'order': order,
             'type': undefined,
             'side': side,
@@ -475,21 +597,23 @@ class bitflyer extends bitflyer$1 {
             'amount': amountString,
             'cost': undefined,
             'fee': undefined,
-        }, market);
+        }, marketResolved);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
     async fetchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'product_code': market['id'],
@@ -513,17 +637,19 @@ class bitflyer extends bitflyer$1 {
         //
         return this.parseTrades(response, market, since, limit);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchTradingFee
+     * @description fetch the trading fees for a market
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-trading-commission
+     * @param {string} symbol unified market symbol
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [fee structure]{@link https://docs.ccxt.com/?id=fee-structure}
+     */
     async fetchTradingFee(symbol, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchTradingFee
-         * @description fetch the trading fees for a market
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-trading-commission
-         * @param {string} symbol unified market symbol
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [fee structure]{@link https://docs.ccxt.com/#/?id=fee-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'product_code': market['id'],
@@ -544,21 +670,23 @@ class bitflyer extends bitflyer$1 {
             'tierBased': undefined,
         };
     }
+    /**
+     * @method
+     * @name bitflyer#createOrder
+     * @description create a trade order
+     * @see https://lightning.bitflyer.com/docs?lang=en#send-a-new-order
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of currency you want to trade in units of base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async createOrder(symbol, type, side, amount, price = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#createOrder
-         * @description create a trade order
-         * @see https://lightning.bitflyer.com/docs?lang=en#send-a-new-order
-         * @param {string} symbol unified symbol of the market to create an order in
-         * @param {string} type 'market' or 'limit'
-         * @param {string} side 'buy' or 'sell'
-         * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'product_code': this.marketId(symbol),
             'child_order_type': type.toUpperCase(),
@@ -574,26 +702,34 @@ class bitflyer extends bitflyer$1 {
             'info': result,
         });
     }
+    /**
+     * @method
+     * @name bitflyer#cancelOrder
+     * @description cancels an open order
+     * @see https://lightning.bitflyer.com/docs?lang=en#cancel-order
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async cancelOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#cancelOrder
-         * @description cancels an open order
-         * @see https://lightning.bitflyer.com/docs?lang=en#cancel-order
-         * @param {string} id order id
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         if (symbol === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' cancelOrder() requires a symbol argument');
         }
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'product_code': this.marketId(symbol),
             'child_order_acceptance_id': id,
         };
-        return await this.privatePostCancelchildorder(this.extend(request, params));
+        const response = await this.privatePostCancelchildorder(this.extend(request, params));
+        //
+        //    200 OK.
+        //
+        return this.safeOrder({
+            'info': response,
+        });
     }
     parseOrderStatus(status) {
         const statuses = {
@@ -640,7 +776,6 @@ class bitflyer extends bitflyer$1 {
             'postOnly': undefined,
             'side': side,
             'price': price,
-            'stopPrice': undefined,
             'triggerPrice': undefined,
             'cost': undefined,
             'amount': amount,
@@ -651,104 +786,109 @@ class bitflyer extends bitflyer$1 {
             'trades': undefined,
         }, market);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchOrders
+     * @description fetches information on multiple orders made by the user
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOrders(symbol = undefined, since = undefined, limit = 100, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchOrders
-         * @description fetches information on multiple orders made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         if (symbol === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' fetchOrders() requires a symbol argument');
         }
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'product_code': market['id'],
             'count': limit,
         };
         const response = await this.privateGetGetchildorders(this.extend(request, params));
-        let orders = this.parseOrders(response, market, since, limit);
         if (symbol !== undefined) {
-            orders = this.filterBy(orders, 'symbol', symbol);
+            return this.filterBy(this.parseOrders(response, market, since, limit), 'symbol', symbol);
         }
-        return orders;
+        return this.parseOrders(response, market, since, limit);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchOpenOrders
+     * @description fetch all unfilled currently open orders
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOpenOrders(symbol = undefined, since = undefined, limit = 100, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchOpenOrders
-         * @description fetch all unfilled currently open orders
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch open orders for
-         * @param {int} [limit] the maximum number of  open orders structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const request = {
             'child_order_state': 'ACTIVE',
         };
         return await this.fetchOrders(symbol, since, limit, this.extend(request, params));
     }
+    /**
+     * @method
+     * @name bitflyer#fetchClosedOrders
+     * @description fetches information on multiple closed orders made by the user
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchClosedOrders(symbol = undefined, since = undefined, limit = 100, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchClosedOrders
-         * @description fetches information on multiple closed orders made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         const request = {
             'child_order_state': 'COMPLETED',
         };
         return await this.fetchOrders(symbol, since, limit, this.extend(request, params));
     }
+    /**
+     * @method
+     * @name bitflyer#fetchOrder
+     * @description fetches information on an order made by the user
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
+     * @param {string} id the order id
+     * @param {string} symbol unified symbol of the market the order was made in
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async fetchOrder(id, symbol = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchOrder
-         * @description fetches information on an order made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-orders
-         * @param {string} symbol unified symbol of the market the order was made in
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
         if (symbol === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' fetchOrder() requires a symbol argument');
         }
         const orders = await this.fetchOrders(symbol);
         const ordersById = this.indexBy(orders, 'id');
-        if (id in ordersById) {
-            return ordersById[id];
+        const found = this.safeDict(ordersById, id);
+        if (found !== undefined) {
+            return found;
         }
         throw new errors.OrderNotFound(this.id + ' No order found with id ' + id);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchMyTrades
+     * @description fetch all trades made by the user
+     * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trades structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
     async fetchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchMyTrades
-         * @description fetch all trades made by the user
-         * @see https://lightning.bitflyer.com/docs?lang=en#list-executions
-         * @param {string} symbol unified market symbol
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trades structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure}
-         */
         if (symbol === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' fetchMyTrades() requires a symbol argument');
         }
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
         const request = {
             'product_code': market['id'],
@@ -773,20 +913,22 @@ class bitflyer extends bitflyer$1 {
         //
         return this.parseTrades(response, market, since, limit);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchPositions
+     * @description fetch all open positions
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-open-interest-summary
+     * @param {string[]} symbols list of unified market symbols
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/?id=position-structure}
+     */
     async fetchPositions(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchPositions
-         * @description fetch all open positions
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-open-interest-summary
-         * @param {string[]} symbols list of unified market symbols
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/#/?id=position-structure}
-         */
         if (symbols === undefined) {
             throw new errors.ArgumentsRequired(this.id + ' fetchPositions() requires a `symbols` argument, exactly one symbol in an array');
         }
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const request = {
             'product_code': this.marketIds(symbols),
         };
@@ -811,21 +953,23 @@ class bitflyer extends bitflyer$1 {
         // todo unify parsePosition/parsePositions
         return response;
     }
-    async withdraw(code, amount, address, tag = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#withdraw
-         * @description make a withdrawal
-         * @see https://lightning.bitflyer.com/docs?lang=en#withdrawing-funds
-         * @param {string} code unified currency code
-         * @param {float} amount the amount to withdraw
-         * @param {string} address the address to withdraw to
-         * @param {string} tag
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
+    /**
+     * @method
+     * @name bitflyer#withdraw
+     * @description make a withdrawal
+     * @see https://lightning.bitflyer.com/docs?lang=en#withdrawing-funds
+     * @param {string} code unified currency code
+     * @param {float} amount the amount to withdraw
+     * @param {string} address the address to withdraw to
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.tag] memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
+    async withdraw(code, amount, address, params = {}) {
         this.checkAddress(address);
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         if (code !== 'JPY' && code !== 'USD' && code !== 'EUR') {
             throw new errors.ExchangeError(this.id + ' allows withdrawing JPY, USD, EUR only, ' + code + ' is not supported');
         }
@@ -843,19 +987,21 @@ class bitflyer extends bitflyer$1 {
         //
         return this.parseTransaction(response, currency);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchDeposits
+     * @description fetch all deposits made to an account
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-deposit-history
+     * @param {string} code unified currency code
+     * @param {int} [since] the earliest time in ms to fetch deposits for
+     * @param {int} [limit] the maximum number of deposits structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
     async fetchDeposits(code = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchDeposits
-         * @description fetch all deposits made to an account
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-deposit-history
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch deposits for
-         * @param {int} [limit] the maximum number of deposits structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let currency = undefined;
         const request = {};
         if (code !== undefined) {
@@ -881,19 +1027,21 @@ class bitflyer extends bitflyer$1 {
         //
         return this.parseTransactions(response, currency, since, limit);
     }
+    /**
+     * @method
+     * @name bitflyer#fetchWithdrawals
+     * @description fetch all withdrawals made from an account
+     * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-transaction-history
+     * @param {string} code unified currency code
+     * @param {int} [since] the earliest time in ms to fetch withdrawals for
+     * @param {int} [limit] the maximum number of withdrawals structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/?id=transaction-structure}
+     */
     async fetchWithdrawals(code = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitflyer#fetchWithdrawals
-         * @description fetch all withdrawals made from an account
-         * @see https://lightning.bitflyer.com/docs?lang=en#get-crypto-assets-transaction-history
-         * @param {string} code unified currency code
-         * @param {int} [since] the earliest time in ms to fetch withdrawals for
-         * @param {int} [limit] the maximum number of withdrawals structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [transaction structures]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let currency = undefined;
         const request = {};
         if (code !== undefined) {
@@ -1016,37 +1164,103 @@ class bitflyer extends bitflyer$1 {
             'fee': fee,
         };
     }
-    sign(path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
+    /**
+     * @method
+     * @name bitflyer#fetchFundingRate
+     * @description fetch the current funding rate
+     * @see https://lightning.bitflyer.com/docs#funding-rate
+     * @param {string} symbol unified market symbol
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [funding rate structure]{@link https://docs.ccxt.com/?id=funding-rate-structure}
+     */
+    async fetchFundingRate(symbol, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const market = this.market(symbol);
+        const request = {
+            'product_code': market['id'],
+        };
+        const response = await this.publicGetGetfundingrate(this.extend(request, params));
+        //
+        //    {
+        //        "current_funding_rate": -0.003750000000
+        //        "next_funding_rate_settledate": "2024-04-15T13:00:00"
+        //    }
+        //
+        return this.parseFundingRate(response, market);
+    }
+    parseFundingRate(contract, market = undefined) {
+        //
+        //    {
+        //        "current_funding_rate": -0.003750000000
+        //        "next_funding_rate_settledate": "2024-04-15T13:00:00"
+        //    }
+        //
+        const nextFundingDatetime = this.safeString(contract, 'next_funding_rate_settledate');
+        const nextFundingTimestamp = this.parse8601(nextFundingDatetime);
+        return {
+            'info': contract,
+            'symbol': this.safeString(market, 'symbol'),
+            'markPrice': undefined,
+            'indexPrice': undefined,
+            'interestRate': undefined,
+            'estimatedSettlePrice': undefined,
+            'timestamp': undefined,
+            'datetime': undefined,
+            'fundingRate': undefined,
+            'fundingTimestamp': undefined,
+            'fundingDatetime': undefined,
+            'nextFundingRate': this.safeNumber(contract, 'current_funding_rate'),
+            'nextFundingTimestamp': nextFundingTimestamp,
+            'nextFundingDatetime': this.iso8601(nextFundingTimestamp),
+            'previousFundingRate': undefined,
+            'previousFundingTimestamp': undefined,
+            'previousFundingDatetime': undefined,
+            'interval': undefined,
+        };
+    }
+    sign(path, api = ['public'], method = 'GET', params = {}) {
+        const apiName = api[0];
+        let bodySigned = undefined;
+        let headersSigned = undefined;
         let request = '/' + this.version + '/';
-        if (api === 'private') {
+        if (apiName === 'private') {
             request += 'me/';
         }
         request += path;
         if (method === 'GET') {
-            if (Object.keys(params).length) {
-                request += '?' + this.urlencode(params);
+            const query = this.urlencode(params);
+            if (query !== '') {
+                request += '?' + query;
             }
         }
-        const baseUrl = this.implodeHostname(this.urls['api']['rest']);
-        const url = baseUrl + request;
-        if (api === 'private') {
+        const apiUrl = this.safeString(this.urls['api'], 'rest');
+        if (apiUrl === undefined) {
+            throw new errors.ExchangeError(this.id + ' sign() has no API URL for this endpoint');
+        }
+        const url = this.implodeHostname(apiUrl) + request;
+        if (apiName === 'private') {
             this.checkRequiredCredentials();
             const nonce = this.nonce().toString();
-            let auth = [nonce, method, request].join('');
-            if (Object.keys(params).length) {
+            let auth = nonce + method + request;
+            if (Object.keys(params).length > 0) {
                 if (method !== 'GET') {
-                    body = this.json(params);
+                    const body = this.json(params);
+                    bodySigned = body;
                     auth += body;
                 }
             }
-            headers = {
+            headersSigned = {
                 'ACCESS-KEY': this.apiKey,
                 'ACCESS-TIMESTAMP': nonce,
-                'ACCESS-SIGN': this.hmac(this.encode(auth), this.encode(this.secret), sha256.sha256),
+                'ACCESS-SIGN': this.hmac(this.encode(auth), this.encode(this.secret), sha2_js.sha256),
                 'Content-Type': 'application/json',
             };
         }
-        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+        const headersResolved = headersSigned;
+        const bodyResolved = bodySigned;
+        return { 'url': url, 'method': method, 'body': bodyResolved, 'headers': headersResolved };
     }
     handleErrors(code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
@@ -1055,13 +1269,13 @@ class bitflyer extends bitflyer$1 {
         const feedback = this.id + ' ' + body;
         // i.e. {"status":-2,"error_message":"Under maintenance","data":null}
         const errorMessage = this.safeString(response, 'error_message');
-        const statusCode = this.safeNumber(response, 'status');
+        const statusCode = this.safeString(response, 'status');
         if (errorMessage !== undefined) {
             this.throwExactlyMatchedException(this.exceptions['exact'], statusCode, feedback);
-            this.throwBroadlyMatchedException(this.exceptions['broad'], errorMessage, feedback);
+            throw new errors.ExchangeError(feedback);
         }
         return undefined;
     }
 }
 
-module.exports = bitflyer;
+exports["default"] = bitflyer;

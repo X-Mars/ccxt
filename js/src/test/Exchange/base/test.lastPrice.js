@@ -11,10 +11,10 @@ function testLastPrice(exchange, skippedProperties, method, entry, symbol) {
         'symbol': 'ETH/BTC',
         'timestamp': 1502962946216,
         'datetime': '2017-09-01T00:00:00',
-        'price': exchange.parseNumber('1.234'),
+        'price': exchange.parseNumber('1.234'), // price of last trade (closing price for current period)
         'side': 'buy', // buy or sell
     };
-    const emptyAllowedFor = ['timestamp', 'datetime', 'side'];
+    const emptyAllowedFor = ['timestamp', 'datetime', 'side', 'price']; // binance sometimes provides empty prices for old pairs
     testSharedMethods.assertStructure(exchange, skippedProperties, method, entry, format, emptyAllowedFor);
     testSharedMethods.assertTimestampAndDatetime(exchange, skippedProperties, method, entry);
     //

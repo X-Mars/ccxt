@@ -1,99 +1,193 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 
 namespace ccxt;
 
 using dict = Dictionary<string, object>;
+
+public class ThrottlerConfig
+{
+    public double RefillRate { get; set; } = 1.0;
+    public double Delay { get; set; } = 0.001;
+    public double Cost { get; set; } = 1.0;
+    public double Tokens { get; set; } = 0.0;
+    public int MaxLimiterRequests { get; set; } = 2000;
+    public double Capacity { get; set; } = 1.0;
+    public string Algorithm { get; set; } = "leakyBucket";
+    public double RateLimit { get; set; } = 0.0;
+    public double WindowSize { get; set; } = 60000.0;
+    public double MaxWeight { get; set; }
+}
+
 public class Throttler
 {
+    private ThrottlerConfig config = new ThrottlerConfig();
 
-    private dict config = new dict();
-    private Queue<(Task, double)> queue = new Queue<(Task, double)>();
+    //  Callers post a request and park on its completion; the owner thread below drains
+    //  the channel in arrival order and is the only reader or writer of the pending
+    //  order, the tokens and the timestamps. The channel is the whole hand-off.
+    private readonly Handoff arrivals = new Handoff();
 
-    private bool running = false;
-
-    public Throttler(dict config)
+    private sealed class ThrottleRequest
     {
-        this.config = new Dictionary<string, object>()
-        {
-            {"refillRate",1.0},
-            {"delay", 0.001},
-            {"cost", 1.0},
-            {"tokens", 0},
-            {"maxCapacity", 2000},
-            {"capacity", 1.0},
-        };
-        this.config = extend(this.config, config);
-
+        public double cost;
+        public readonly TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    private async Task loop()
+    //  in-box netstandard2.0 channel: producers never block, the owner parks in Take()
+    private sealed class Handoff
     {
-        var lastTimestamp = milliseconds();
-        while (this.running)
-        {
-            // do we need this check here?
-            if (this.queue.Count == 0)
-            {
-                this.running = false;
-                continue;
-            }
-            var first = this.queue.Peek();
-            var task = first.Item1;
-            var cost = first.Item2;
-            var tokensAsString = Convert.ToString(this.config["tokens"], CultureInfo.InvariantCulture);
-            var floatTokens = double.Parse(tokensAsString, CultureInfo.InvariantCulture);
-            if (floatTokens >= 0)
-            {
-                this.config["tokens"] = floatTokens - cost;
-                await Task.Delay(0);
-                if (task != null)
-                {
-                    if (task.Status == TaskStatus.Created)
-                    {
-                        task.Start();
-                    }
-                }
-                this.queue.Dequeue();
+        private readonly BlockingCollection<ThrottleRequest> queue = new BlockingCollection<ThrottleRequest>();
 
-                if (this.queue.Count == 0)
-                {
-                    this.running = false;
-                }
+        public void post(ThrottleRequest item)
+        {
+            this.queue.Add(item);
+        }
+
+        public ThrottleRequest next()
+        {
+            return this.queue.Take();
+        }
+
+        public bool tryNext(out ThrottleRequest item)
+        {
+            return this.queue.TryTake(out item);
+        }
+    }
+
+    public Throttler(Dictionary<string, object> configInput)
+    {
+        // Convert the dictionary input to our typed config
+        if (configInput != null)
+        {
+            config.RefillRate = configInput.TryGetValue("refillRate", out var refillRate) ? Convert.ToDouble(refillRate) : config.RefillRate;       // leaky bucket refill rate in tokens per second
+            config.Delay = configInput.TryGetValue("delay", out var delay) ? Convert.ToDouble(delay) : config.Delay;                                // leaky bucket seconds before checking the queue after waiting
+            config.Cost = configInput.TryGetValue("cost", out var cost) ? Convert.ToDouble(cost) : config.Cost;                                     // leaky bucket and rolling window
+            config.Tokens = configInput.TryGetValue("tokens", out var tokens) ? Convert.ToDouble(tokens) : config.Tokens;                           // leaky bucket
+            config.Capacity = configInput.TryGetValue("capacity", out var capacity) ? Convert.ToDouble(capacity) : config.Capacity;                 // leaky bucket
+            config.Algorithm = configInput.TryGetValue("algorithm", out var algorithm) ? Convert.ToString(algorithm) : config.Algorithm;
+            config.RateLimit = configInput.TryGetValue("rateLimit", out var rateLimit) ? Convert.ToDouble(rateLimit) : config.RateLimit;
+            config.WindowSize = configInput.TryGetValue("windowSize", out var windowSize) ? Convert.ToDouble(windowSize) : config.WindowSize;       // rolling window size in milliseconds
+            if (this.config.Algorithm != "leakyBucket"){
+                this.config.MaxWeight = this.config.WindowSize / this.config.RateLimit;
+            }
+        }
+        //  The owner runs for the lifetime of the instance, parked on the channel.
+        Task.Factory.StartNew(this.loop, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+    }
+
+    /// <summary>
+    /// Moves everything handed over so far into the owner's own pending order. Only the
+    /// owner thread calls this, so the queue is drained by its single reader.
+    /// </summary>
+    private void fillPending(Queue<ThrottleRequest> pending)
+    {
+        pending.Enqueue(this.arrivals.next());
+        ThrottleRequest arrived;
+        while (this.arrivals.tryNext(out arrived))
+        {
+            pending.Enqueue(arrived);
+        }
+    }
+
+    private void leakyBucketLoop()
+    {
+        var pending = new Queue<ThrottleRequest>();
+        var lastTimestamp = milliseconds();
+        var tokens = this.config.Tokens;
+        while (true)
+        {
+            if (pending.Count == 0)
+            {
+                this.fillPending(pending);
+            }
+            var first = pending.Peek();
+            var cost = first.cost;
+            if (tokens >= 0)
+            {
+                tokens = tokens - cost;
+                first.completion.TrySetResult(true);
+                pending.Dequeue();
             }
             else
             {
-                await Task.Delay((int)((double)this.config["delay"] * 1000));
+                Thread.Sleep((int)(this.config.Delay * 1000));
                 var current = milliseconds();
                 var elapsed = current - lastTimestamp;
                 lastTimestamp = current;
-                var tokens = (double)this.config["tokens"] + ((double)this.config["refillRate"] * elapsed);
-                this.config["tokens"] = Math.Min(tokens, (int)this.config["capacity"]);
+                tokens = Math.Min(tokens + ((double)this.config.RefillRate * elapsed), (double)this.config.Capacity);
             }
         }
-
     }
 
-    public async Task<Task> throttle(object cost2)
+    private void rollingWindowLoop()
     {
-
-        var cost = (cost2 != null) ? Convert.ToDouble(cost2) : Convert.ToDouble(this.config["cost"]);
-        if (this.queue.Count > (int)this.config["maxCapacity"])
+        var pending = new Queue<ThrottleRequest>();
+        var timestamps = new List<(long timestamp, double cost)>();
+        while (true)
         {
-            throw new Exception("throttle queue is over maxCapacity (" + this.config["maxCapacity"].ToString() + "), see https://github.com/ccxt/ccxt/issues/11645#issuecomment-1195695526");
+            if (pending.Count == 0)
+            {
+                this.fillPending(pending);
+            }
+            var first = pending.Peek();
+            var cost = first.cost;
+            var now = milliseconds();
+            var windowSize = this.config.WindowSize;
+            timestamps.RemoveAll(t => now - t.timestamp >= windowSize);
+            var totalCost = timestamps.Sum(t => t.cost);
+            if (totalCost + cost <= this.config.MaxWeight)
+            {
+                timestamps.Add((now, cost));
+                first.completion.TrySetResult(true);
+                pending.Dequeue();
+            }
+            else if (timestamps.Count == 0)
+            {
+                //  a single cost above the whole window can never fit: grant it rather
+                //  than leave the owner and every caller behind it waiting forever
+                first.completion.TrySetResult(true);
+                pending.Dequeue();
+            }
+            else
+            {
+                var earliest = timestamps[0].timestamp;
+                var waitTime = (earliest + windowSize) - now;
+                if (waitTime > 0)
+                {
+                    Thread.Sleep((int)waitTime);
+                }
+            }
         }
-        var t = new Task(() => { });
-        this.queue.Enqueue((t, cost));
-        if (!this.running)
-        {
-            this.running = true;
-            // Task.Run(() => { this.loop(); });
-            this.loop();
-        }
-        return t;
     }
+
+    private void loop()
+    {
+        if (this.config.Algorithm == "leakyBucket")
+        {
+            this.leakyBucketLoop();
+        }
+        else
+        {
+            this.rollingWindowLoop();
+        }
+    }
+
+    /// <summary>
+    /// Hands one request to the owner and returns the task that completes when the slot
+    /// is granted — the caller awaits it exactly as it awaited the task before.
+    /// </summary>
+    public Task<Task> throttle(object cost2)
+    {
+        var cost = (cost2 != null) ? Convert.ToDouble(cost2) : Convert.ToDouble(this.config.Cost);
+        var request = new ThrottleRequest { cost = cost };
+        this.arrivals.post(request);
+        return Task.FromResult<Task>(request.completion.Task);
+    }
+
 
     // move this elsewhere later
-    private dict extend(object aa, object bb)
+    private Dictionary<string, object> extend(object aa, object bb)
     {
 
         var a = (dict)aa;

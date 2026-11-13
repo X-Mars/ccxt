@@ -6,19 +6,20 @@
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.p2b import ImplicitAPI
 import hashlib
-from ccxt.base.types import Int, Market, Num, Order, OrderSide, OrderType, Str, Strings, Ticker, Tickers
-from typing import List
+from ccxt.base.types import Balances, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade
+from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
 from ccxt.base.errors import ArgumentsRequired
 from ccxt.base.errors import BadRequest
 from ccxt.base.errors import InsufficientFunds
+from ccxt.base.errors import RateLimitExceeded
 from ccxt.base.errors import ExchangeNotAvailable
 from ccxt.base.decimal_to_precision import TICK_SIZE
 
 
 class p2b(Exchange, ImplicitAPI):
 
-    def describe(self):
+    def describe(self) -> dict:
         return self.deep_extend(super(p2b, self).describe(), {
             'id': 'p2b',
             'name': 'p2b',
@@ -34,6 +35,9 @@ class p2b(Exchange, ImplicitAPI):
                 'future': False,
                 'option': False,
                 'addMargin': False,
+                'borrowCrossMargin': False,
+                'borrowIsolatedMargin': False,
+                'borrowMargin': False,
                 'cancelAllOrders': False,
                 'cancelOrder': True,
                 'cancelOrders': False,
@@ -49,9 +53,14 @@ class p2b(Exchange, ImplicitAPI):
                 'createStopMarketOrder': False,
                 'createStopOrder': False,
                 'fetchAccounts': False,
+                'fetchAllGreeks': False,
                 'fetchBalance': True,
                 'fetchBorrowInterest': False,
+                'fetchBorrowRate': False,
+                'fetchBorrowRateHistories': False,
                 'fetchBorrowRateHistory': False,
+                'fetchBorrowRates': False,
+                'fetchBorrowRatesPerSymbol': False,
                 'fetchClosedOrders': True,
                 'fetchCrossBorrowRate': False,
                 'fetchCrossBorrowRates': False,
@@ -62,28 +71,46 @@ class p2b(Exchange, ImplicitAPI):
                 'fetchDeposits': False,
                 'fetchDepositsWithdrawals': False,
                 'fetchFundingHistory': False,
+                'fetchFundingInterval': False,
+                'fetchFundingIntervals': False,
                 'fetchFundingRate': False,
                 'fetchFundingRateHistory': False,
                 'fetchFundingRates': False,
+                'fetchGreeks': False,
                 'fetchIndexOHLCV': False,
                 'fetchIsolatedBorrowRate': False,
                 'fetchIsolatedBorrowRates': False,
+                'fetchIsolatedPositions': False,
                 'fetchLedger': False,
                 'fetchLedgerEntry': False,
+                'fetchLeverage': False,
+                'fetchLeverages': False,
                 'fetchLeverageTiers': False,
+                'fetchLiquidations': False,
+                'fetchLongShortRatio': False,
+                'fetchLongShortRatioHistory': False,
+                'fetchMarginAdjustmentHistory': False,
+                'fetchMarginMode': False,
+                'fetchMarginModes': False,
                 'fetchMarketLeverageTiers': False,
                 'fetchMarkets': True,
                 'fetchMarkOHLCV': False,
+                'fetchMarkPrice': False,
+                'fetchMarkPrices': False,
+                'fetchMyLiquidations': False,
+                'fetchMySettlementHistory': False,
                 'fetchMyTrades': True,
                 'fetchOHLCV': True,
                 'fetchOpenInterest': False,
                 'fetchOpenInterestHistory': False,
+                'fetchOpenInterests': False,
                 'fetchOpenOrders': True,
+                'fetchOption': False,
+                'fetchOptionChain': False,
                 'fetchOrderBook': True,
                 'fetchOrderBooks': False,
-                'fetchOrders': True,
+                'fetchOrders': False,
                 'fetchOrderTrades': True,
-                'fetchPermissions': False,
                 'fetchPosition': False,
                 'fetchPositionHistory': False,
                 'fetchPositionMode': False,
@@ -92,6 +119,7 @@ class p2b(Exchange, ImplicitAPI):
                 'fetchPositionsHistory': False,
                 'fetchPositionsRisk': False,
                 'fetchPremiumIndexOHLCV': False,
+                'fetchSettlementHistory': False,
                 'fetchTicker': True,
                 'fetchTickers': True,
                 'fetchTrades': True,
@@ -100,10 +128,14 @@ class p2b(Exchange, ImplicitAPI):
                 'fetchTransactionFees': False,
                 'fetchTransactions': False,
                 'fetchTransfers': False,
+                'fetchUnderlyingAssets': False,
+                'fetchVolatilityHistory': False,
                 'fetchWithdrawAddresses': False,
                 'fetchWithdrawal': False,
                 'fetchWithdrawals': False,
                 'reduceMargin': False,
+                'repayCrossMargin': False,
+                'repayIsolatedMargin': False,
                 'setLeverage': False,
                 'setMargin': False,
                 'setMarginMode': False,
@@ -118,9 +150,8 @@ class p2b(Exchange, ImplicitAPI):
                 '1d': '1d',
             },
             'urls': {
-                'extension': '.json',
                 'referral': 'https://p2pb2b.com?referral=ee784c53',
-                'logo': 'https://github.com/ccxt/ccxt/assets/43336371/8da13a80-1f0a-49be-bb90-ff8b25164755',
+                'logo': 'https://github.com/user-attachments/assets/122f0c86-f3a6-4334-910f-4d8edc865696',
                 'api': {
                     'public': 'https://api.p2pb2b.com/api/v2/public',
                     'private': 'https://api.p2pb2b.com/api/v2',
@@ -132,28 +163,28 @@ class p2b(Exchange, ImplicitAPI):
             'api': {
                 'public': {
                     'get': {
-                        'markets': 1,
-                        'market': 1,
-                        'tickers': 1,
-                        'ticker': 1,
-                        'book': 1,
-                        'history': 1,
-                        'depth/result': 1,
-                        'market/kline': 1,
+                        'markets': {'cost': 1},
+                        'market': {'cost': 1},
+                        'tickers': {'cost': 1},
+                        'ticker': {'cost': 1},
+                        'book': {'cost': 1},
+                        'history': {'cost': 1},
+                        'depth/result': {'cost': 1},
+                        'market/kline': {'cost': 1},
                     },
                 },
                 'private': {
                     'post': {
-                        'account/balances': 1,
-                        'account/balance': 1,
-                        'order/new': 1,
-                        'order/cancel': 1,
-                        'orders': 1,
-                        'account/market_order_history': 1,
-                        'account/market_deal_history': 1,
-                        'account/order': 1,
-                        'account/order_history': 1,
-                        'account/executed_history': 1,
+                        'account/balances': {'cost': 1},
+                        'account/balance': {'cost': 1},
+                        'order/new': {'cost': 1},
+                        'order/cancel': {'cost': 1},
+                        'orders': {'cost': 1},
+                        'account/market_order_history': {'cost': 1},
+                        'account/market_deal_history': {'cost': 1},
+                        'account/order': {'cost': 1},
+                        'account/order_history': {'cost': 1},
+                        'account/executed_history': {'cost': 1},
                     },
                 },
             },
@@ -161,95 +192,168 @@ class p2b(Exchange, ImplicitAPI):
                 'trading': {
                     'tierBased': True,
                     'percentage': True,
-                    'taker': [
-                        [self.parse_number('0'), self.parse_number('0.2')],
-                        [self.parse_number('1'), self.parse_number('0.19')],
-                        [self.parse_number('5'), self.parse_number('0.18')],
-                        [self.parse_number('10'), self.parse_number('0.17')],
-                        [self.parse_number('25'), self.parse_number('0.16')],
-                        [self.parse_number('75'), self.parse_number('0.15')],
-                        [self.parse_number('100'), self.parse_number('0.14')],
-                        [self.parse_number('150'), self.parse_number('0.13')],
-                        [self.parse_number('300'), self.parse_number('0.12')],
-                        [self.parse_number('450'), self.parse_number('0.11')],
-                        [self.parse_number('500'), self.parse_number('0.1')],
-                    ],
-                    'maker': [
-                        [self.parse_number('0'), self.parse_number('0.2')],
-                        [self.parse_number('1'), self.parse_number('0.18')],
-                        [self.parse_number('5'), self.parse_number('0.16')],
-                        [self.parse_number('10'), self.parse_number('0.14')],
-                        [self.parse_number('25'), self.parse_number('0.12')],
-                        [self.parse_number('75'), self.parse_number('0.1')],
-                        [self.parse_number('100'), self.parse_number('0.08')],
-                        [self.parse_number('150'), self.parse_number('0.06')],
-                        [self.parse_number('300'), self.parse_number('0.04')],
-                        [self.parse_number('450'), self.parse_number('0.02')],
-                        [self.parse_number('500'), self.parse_number('0.01')],
-                    ],
+                    'taker': self.parse_number('0.002'),
+                    'maker': self.parse_number('0.002'),
+                    'tiers': {
+                        'taker': [
+                            [self.parse_number('0'), self.parse_number('0.002')],
+                            [self.parse_number('1'), self.parse_number('0.0019')],
+                            [self.parse_number('5'), self.parse_number('0.0018')],
+                            [self.parse_number('10'), self.parse_number('0.0017')],
+                            [self.parse_number('25'), self.parse_number('0.0016')],
+                            [self.parse_number('75'), self.parse_number('0.0015')],
+                            [self.parse_number('100'), self.parse_number('0.0014')],
+                            [self.parse_number('150'), self.parse_number('0.0013')],
+                            [self.parse_number('300'), self.parse_number('0.0012')],
+                            [self.parse_number('450'), self.parse_number('0.0011')],
+                            [self.parse_number('500'), self.parse_number('0.001')],
+                        ],
+                        'maker': [
+                            [self.parse_number('0'), self.parse_number('0.002')],
+                            [self.parse_number('1'), self.parse_number('0.0018')],
+                            [self.parse_number('5'), self.parse_number('0.0016')],
+                            [self.parse_number('10'), self.parse_number('0.0014')],
+                            [self.parse_number('25'), self.parse_number('0.0012')],
+                            [self.parse_number('75'), self.parse_number('0.001')],
+                            [self.parse_number('100'), self.parse_number('0.0008')],
+                            [self.parse_number('150'), self.parse_number('0.0006')],
+                            [self.parse_number('300'), self.parse_number('0.0004')],
+                            [self.parse_number('450'), self.parse_number('0.0002')],
+                            [self.parse_number('500'), self.parse_number('0.0001')],
+                        ],
+                    },
+                },
+            },
+            'features': {
+                'spot': {
+                    'sandbox': False,
+                    'createOrder': {
+                        'marginMode': False,
+                        'triggerPrice': False,
+                        'triggerDirection': False,
+                        'triggerPriceType': None,
+                        'stopLossPrice': False,
+                        'takeProfitPrice': False,
+                        'attachedStopLossTakeProfit': None,
+                        'timeInForce': {
+                            'IOC': True,
+                            'FOK': True,
+                            'PO': True,
+                            'GTD': False,
+                        },
+                        'hedged': False,
+                        'trailing': False,
+                        'leverage': False,
+                        'marketBuyByCost': False,
+                        'marketBuyRequiresPrice': False,
+                        'selfTradePrevention': False,
+                        'iceberg': False,
+                    },
+                    'createOrders': None,
+                    'fetchMyTrades': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'daysBack': 90,  # 3 months
+                        'untilDays': 1,
+                        'symbolRequired': True,
+                    },
+                    'fetchOrder': None,  # todo
+                    'fetchOpenOrders': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'trigger': False,
+                        'trailing': False,
+                        'symbolRequired': True,
+                    },
+                    'fetchOrders': None,  # todo
+                    'fetchClosedOrders': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'daysBack': 90,  # 3 months
+                        'daysBackCanceled': None,  # the orders history endpoint returns only filled or partially filled orders
+                        'untilDays': 1,
+                        'trigger': False,
+                        'trailing': False,
+                        'symbolRequired': False,
+                    },
+                    'fetchOHLCV': {
+                        'limit': 500,
+                    },
+                },
+                'swap': {
+                    'linear': None,
+                    'inverse': None,
+                },
+                'future': {
+                    'linear': None,
+                    'inverse': None,
                 },
             },
             'commonCurrencies': {
             },
             'precisionMode': TICK_SIZE,
             'exceptions': {
-                '1001': AuthenticationError,    # Key not provided. X-TXC-APIKEY header is missing in the request or empty.
-                '1002': AuthenticationError,    # Payload not provided. X-TXC-PAYLOAD header is missing in the request or empty.
-                '1003': AuthenticationError,    # Signature not provided. X-TXC-SIGNATURE header is missing in the request or empty.
-                '1004': AuthenticationError,    # Nonce and url not provided. Request body is empty. Missing required parameters "request", "nonce".
-                '1005': AuthenticationError,    # Invalid body data. Invalid request body
-                '1006': AuthenticationError,    # Nonce not provided. Request body missing required parameter "nonce".
-                '1007': AuthenticationError,    # Request not provided. Request body missing required parameter "request".
-                '1008': AuthenticationError,    # Invalid request in body. The passed request parameter does not match the URL of self request.
-                '1009': AuthenticationError,    # Invalid payload. The transmitted payload value(X-TXC-PAYLOAD header) does not match the request body.
-                '1010': AuthenticationError,    # This action is unauthorized. - API key passed in the X-TXC-APIKEY header does not exist. - Access to API is not activated. Go to profile and activate access.
-                '1011': AuthenticationError,    # This action is unauthorized. Please, enable two-factor authentication. Two-factor authentication is not activated for the user.
-                '1012': AuthenticationError,    # Invalid nonce. Parameter "nonce" is not a number.
-                '1013': AuthenticationError,    # Too many requests. - A request came with a repeated value of nonce. - Received more than the limited value of requests(10) within one second.
-                '1014': AuthenticationError,    # Unauthorized request. Signature value passed(in the X-TXC-SIGNATURE header) does not match the request body.
-                '1015': AuthenticationError,    # Temporary block. Temporary blocking. There is a cancellation of orders.
-                '1016': AuthenticationError,    # Not unique nonce. The request was sent with a repeated parameter "nonce" within 10 seconds.
-                '2010': BadRequest,             # Currency not found. Currency not found.
-                '2020': BadRequest,             # Market is not available. Market is not available.
-                '2021': BadRequest,             # Unknown market. Unknown market.
-                '2030': BadRequest,             # Order not found. Order not found.
-                '2040': InsufficientFunds,      # Balance not enough. Insufficient balance.
-                '2050': BadRequest,             # Amount less than the permitted minimum. Amount less than the permitted minimum.
-                '2051': BadRequest,             # Amount is greater than the maximum allowed. Amount exceeds the allowed maximum.
-                '2052': BadRequest,             # Amount step size error. Amount step size error.
-                '2060': BadRequest,             # Price less than the permitted minimum. Price is less than the permitted minimum.
-                '2061': BadRequest,             # Price is greater than the maximum allowed. Price exceeds the allowed maximum.
-                '2062': BadRequest,             # Price pick size error. Price pick size error.
-                '2070': BadRequest,             # Total less than the permitted minimum. Total less than the permitted minimum.
-                '3001': BadRequest,             # Validation exception. The given data was invalid.
-                '3020': BadRequest,             # Invalid currency value. Incorrect parameter, check your request.
-                '3030': BadRequest,             # Invalid market value. Incorrect "market" parameter, check your request.
-                '3040': BadRequest,             # Invalid amount value. Incorrect "amount" parameter, check your request.
-                '3050': BadRequest,             # Invalid price value. Incorrect "price" parameter, check your request.
-                '3060': BadRequest,             # Invalid limit value. Incorrect "limit" parameter, check your request.
-                '3070': BadRequest,             # Invalid offset value. Incorrect "offset" parameter, check your request.
-                '3080': BadRequest,             # Invalid orderId value. Incorrect "orderId" parameter, check your request.
-                '3090': BadRequest,             # Invalid lastId value. Incorrect "lastId" parameter, check your request.
-                '3100': BadRequest,             # Invalid side value. Incorrect "side" parameter, check your request.
-                '3110': BadRequest,             # Invalid interval value. Incorrect "interval" parameter, check your request.
-                '4001': ExchangeNotAvailable,   # Service temporary unavailable. An unexpected system error has occurred. Try again after a while. If the error persists, please contact support.
-                '6010': InsufficientFunds,      # Balance not enough. Insufficient balance.
+                'exact': {
+                    '1001': AuthenticationError,    # Key not provided. X-TXC-APIKEY header is missing in the request or empty.
+                    '1002': AuthenticationError,    # Payload not provided. X-TXC-PAYLOAD header is missing in the request or empty.
+                    '1003': AuthenticationError,    # Signature not provided. X-TXC-SIGNATURE header is missing in the request or empty.
+                    '1004': AuthenticationError,    # Nonce and url not provided. Request body is empty. Missing required parameters "request", "nonce".
+                    '1005': AuthenticationError,    # Invalid body data. Invalid request body
+                    '1006': AuthenticationError,    # Nonce not provided. Request body missing required parameter "nonce".
+                    '1007': AuthenticationError,    # Request not provided. Request body missing required parameter "request".
+                    '1008': AuthenticationError,    # Invalid request in body. The passed request parameter does not match the URL of this request.
+                    '1009': AuthenticationError,    # Invalid payload. The transmitted payload value (X-TXC-PAYLOAD header) does not match the request body.
+                    '1010': AuthenticationError,    # This action is unauthorized. - API key passed in the X-TXC-APIKEY header does not exist. - Access to API is not activated. Go to profile and activate access.
+                    '1011': AuthenticationError,    # This action is unauthorized. Please, enable two-factor authentication. Two-factor authentication is not activated for the user.
+                    '1012': AuthenticationError,    # Invalid nonce. Parameter "nonce" is not a number.
+                    '1013': RateLimitExceeded,      # Too many requests. - A request came with a repeated value of nonce. - Received more than the limited value of requests (10) within one second.
+                    '1014': AuthenticationError,    # Unauthorized request. Signature value passed (in the X-TXC-SIGNATURE header) does not match the request body.
+                    '1015': ExchangeNotAvailable,   # Temporary block. Temporary blocking. There is a cancellation of orders.
+                    '1016': AuthenticationError,    # Not unique nonce. The request was sent with a repeated parameter "nonce" within 10 seconds.
+                    '2010': BadRequest,             # Currency not found. Currency not found.
+                    '2020': BadRequest,             # Market is not available. Market is not available.
+                    '2021': BadRequest,             # Unknown market. Unknown market.
+                    '2030': BadRequest,             # Order not found. Order not found.
+                    '2040': InsufficientFunds,      # Balance not enough. Insufficient balance.
+                    '2050': BadRequest,             # Amount less than the permitted minimum. Amount less than the permitted minimum.
+                    '2051': BadRequest,             # Amount is greater than the maximum allowed. Amount exceeds the allowed maximum.
+                    '2052': BadRequest,             # Amount step size error. Amount step size error.
+                    '2060': BadRequest,             # Price less than the permitted minimum. Price is less than the permitted minimum.
+                    '2061': BadRequest,             # Price is greater than the maximum allowed. Price exceeds the allowed maximum.
+                    '2062': BadRequest,             # Price pick size error. Price pick size error.
+                    '2070': BadRequest,             # Total less than the permitted minimum. Total less than the permitted minimum.
+                    '3001': BadRequest,             # Validation exception. The given data was invalid.
+                    '3020': BadRequest,             # Invalid currency value. Incorrect parameter, check your request.
+                    '3030': BadRequest,             # Invalid market value. Incorrect "market" parameter, check your request.
+                    '3040': BadRequest,             # Invalid amount value. Incorrect "amount" parameter, check your request.
+                    '3050': BadRequest,             # Invalid price value. Incorrect "price" parameter, check your request.
+                    '3060': BadRequest,             # Invalid limit value. Incorrect "limit" parameter, check your request.
+                    '3070': BadRequest,             # Invalid offset value. Incorrect "offset" parameter, check your request.
+                    '3080': BadRequest,             # Invalid orderId value. Incorrect "orderId" parameter, check your request.
+                    '3090': BadRequest,             # Invalid lastId value. Incorrect "lastId" parameter, check your request.
+                    '3100': BadRequest,             # Invalid side value. Incorrect "side" parameter, check your request.
+                    '3110': BadRequest,             # Invalid interval value. Incorrect "interval" parameter, check your request.
+                    '4001': ExchangeNotAvailable,   # Service temporary unavailable. An unexpected system error has occurred. Try again after a while. If the error persists, please contact support.
+                    '6010': InsufficientFunds,      # Balance not enough. Insufficient balance.
+                },
             },
             'options': {
             },
         })
 
-    async def fetch_markets(self, params={}) -> List[Market]:
+    async def fetch_markets(self, params: dict = {}) -> list[Market]:
         """
-        retrieves data on all markets for bigone
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#markets
+        retrieves data on all markets for p2b
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#markets
+
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :returns dict[]: an array of objects representing market data
         """
         response = await self.publicGetMarkets(params)
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": [
@@ -258,12 +362,12 @@ class p2b(Exchange, ImplicitAPI):
         #                "stock": "ETH",
         #                "money": "BTC",
         #                "precision": {
-        #                    "money": "6",
+        #                    "money": "5",
         #                    "stock": "4",
         #                    "fee": "4"
         #                },
         #                "limits": {
-        #                    "min_amount": "0.001",
+        #                    "min_amount": "0.0001",
         #                    "max_amount": "100000",
         #                    "step_size": "0.0001",
         #                    "min_price": "0.00001",
@@ -276,7 +380,7 @@ class p2b(Exchange, ImplicitAPI):
         #        ]
         #    }
         #
-        markets = self.safe_value(response, 'result', [])
+        markets = self.safe_list(response, 'result', [])
         return self.parse_markets(markets)
 
     def parse_market(self, market: dict) -> Market:
@@ -285,7 +389,9 @@ class p2b(Exchange, ImplicitAPI):
         quoteId = self.safe_string(market, 'money')
         base = self.safe_currency_code(baseId)
         quote = self.safe_currency_code(quoteId)
-        limits = self.safe_value(market, 'limits')
+        if (base is None) or (quote is None):
+            return None
+        limits = self.safe_dict(market, 'limits')
         maxAmount = self.safe_string(limits, 'max_amount')
         maxPrice = self.safe_string(limits, 'max_price')
         return {
@@ -330,7 +436,7 @@ class p2b(Exchange, ImplicitAPI):
                     'max': self.parse_number(self.omit_zero(maxPrice)),
                 },
                 'cost': {
-                    'min': None,
+                    'min': self.safe_number(limits, 'min_total'),
                     'max': None,
                 },
             },
@@ -338,19 +444,22 @@ class p2b(Exchange, ImplicitAPI):
             'info': market,
         }
 
-    async def fetch_tickers(self, symbols: Strings = None, params={}) -> Tickers:
+    async def fetch_tickers(self, symbols: Strings = None, params: dict = {}) -> Tickers:
         """
         fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-        :see: https://futures-docs.poloniex.com/#get-real-time-ticker-of-all-symbols
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#tickers
+
         :param str[]|None symbols: unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a dictionary of `ticker structures <https://docs.ccxt.com/#/?id=ticker-structure>`
+        :returns dict: a dictionary of `ticker structures <https://docs.ccxt.com/?id=ticker-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         response = await self.publicGetTickers(params)
         #
         #    {
-        #        success: True,
+        #        success: true,
         #        errorCode: '',
         #        message: '',
         #        result: {
@@ -373,26 +482,29 @@ class p2b(Exchange, ImplicitAPI):
         #        current_time: '1699252644.487566'
         #    }
         #
-        result = self.safe_value(response, 'result', {})
+        result = self.safe_dict(response, 'result', {})
         return self.parse_tickers(result, symbols)
 
-    async def fetch_ticker(self, symbol: str, params={}) -> Ticker:
+    async def fetch_ticker(self, symbol: str, params: dict = {}) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#ticker
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#ticker
+
         :param str symbol: unified symbol of the market to fetch the ticker for
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `ticker structure <https://docs.ccxt.com/#/?id=ticker-structure>`
+        :returns dict: a `ticker structure <https://docs.ccxt.com/?id=ticker-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'market': market['id'],
         }
         response = await self.publicGetTicker(self.extend(request, params))
         #
         #    {
-        #        success: True,
+        #        success: true,
         #        errorCode: '',
         #        message: '',
         #        result: {
@@ -410,14 +522,10 @@ class p2b(Exchange, ImplicitAPI):
         #        current_time: '1699252958.859391'
         #    }
         #
-        result = self.safe_value(response, 'result', {})
-        timestamp = self.safe_integer_product(response, 'cache_time', 1000)
-        return self.extend(
-            {'timestamp': timestamp, 'datetime': self.iso8601(timestamp)},
-            self.parse_ticker(result, market)
-        )
+        result = self.safe_dict(response, 'result', {})
+        return self.parse_ticker(result, market)
 
-    def parse_ticker(self, ticker, market: Market = None):
+    def parse_ticker(self, ticker: object, market: Market = None):
         #
         # parseTickers
         #
@@ -450,47 +558,49 @@ class p2b(Exchange, ImplicitAPI):
         #    }
         #
         timestamp = self.safe_integer_product(ticker, 'at', 1000)
-        if 'ticker' in ticker:
-            ticker = self.safe_value(ticker, 'ticker')
-        last = self.safe_string(ticker, 'last')
+        tickerInner = self.safe_dict(ticker, 'ticker', ticker)
+        last = self.safe_string(tickerInner, 'last')
         return self.safe_ticker({
             'symbol': self.safe_string(market, 'symbol'),
             'timestamp': timestamp,
             'datetime': self.iso8601(timestamp),
-            'high': self.safe_string(ticker, 'high'),
-            'low': self.safe_string(ticker, 'low'),
-            'bid': self.safe_string(ticker, 'bid'),
+            'high': self.safe_string(tickerInner, 'high'),
+            'low': self.safe_string(tickerInner, 'low'),
+            'bid': self.safe_string(tickerInner, 'bid'),
             'bidVolume': None,
-            'ask': self.safe_string(ticker, 'ask'),
+            'ask': self.safe_string(tickerInner, 'ask'),
             'askVolume': None,
             'vwap': None,
-            'open': self.safe_string(ticker, 'open'),
+            'open': self.safe_string(tickerInner, 'open'),
             'close': last,
             'last': last,
             'previousClose': None,
             'change': None,
-            'percentage': self.safe_string(ticker, 'change'),
+            'percentage': self.safe_string(tickerInner, 'change'),
             'average': None,
-            'baseVolume': self.safe_string_2(ticker, 'vol', 'volume'),
-            'quoteVolume': self.safe_string(ticker, 'deal'),
-            'info': ticker,
+            'baseVolume': self.safe_string_2(tickerInner, 'vol', 'volume'),
+            'quoteVolume': self.safe_string(tickerInner, 'deal'),
+            'info': tickerInner,
         }, market)
 
-    async def fetch_order_book(self, symbol: str, limit: Int = None, params={}):
+    async def fetch_order_book(self, symbol: str, limit: Int = None, params: dict = {}) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#depth-result
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#depth-result
+
         :param str symbol: unified symbol of the market to fetch the order book for
         :param int [limit]: the maximum amount of order book entries to return
         :param dict [params]: extra parameters specific to the exchange API endpoint
-         *
-         * EXCHANGE SPECIFIC PARAMETERS
+
+ EXCHANGE SPECIFIC PARAMETERS
         :param str [params.interval]: 0(default), 0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1
-        :returns dict: A dictionary of `order book structures <https://docs.ccxt.com/#/?id=order-book-structure>` indexed by market symbols
+        :returns dict: an `order book structure <https://docs.ccxt.com/?id=order-book-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'market': market['id'],
         }
         if limit is not None:
@@ -498,14 +608,14 @@ class p2b(Exchange, ImplicitAPI):
         response = await self.publicGetDepthResult(self.extend(request, params))
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": {
         #            "asks": [
         #                [
-        #                    "4.53",     # Price
-        #                    "523.95"    # Amount
+        #                    "4.53",     // Price
+        #                    "523.95"    // Amount
         #                ],
         #                ...
         #            ],
@@ -521,27 +631,30 @@ class p2b(Exchange, ImplicitAPI):
         #        "current_time": 1698733470.469274
         #    }
         #
-        result = self.safe_value(response, 'result', {})
+        result = self.safe_dict(response, 'result', {})
         timestamp = self.safe_integer_product(response, 'current_time', 1000)
         return self.parse_order_book(result, market['symbol'], timestamp, 'bids', 'asks', 0, 1)
 
-    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params={}):
+    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#history
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#history
+
         :param str symbol: unified symbol of the market to fetch trades for
         :param int [since]: timestamp in ms of the earliest trade to fetch
         :param int [limit]: 1-100, default=50
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int params['lastId']: order id
-        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/#/?id=public-trades>`
+        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/?id=public-trades>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         lastId = self.safe_integer(params, 'lastId')
         if lastId is None:
-            raise ArgumentsRequired(self.id + ' fetchTrades() requires an extra parameter params["lastId"]')
+            raise ArgumentsRequired(self.id + ' fetchTrades () requires an extra parameter params["lastId"]')
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'market': market['id'],
             'lastId': lastId,
         }
@@ -550,7 +663,7 @@ class p2b(Exchange, ImplicitAPI):
         response = await self.publicGetHistory(self.extend(request, params))
         #
         #    {
-        #        success: True,
+        #        success: true,
         #        errorCode: '',
         #        message: '',
         #        result: [
@@ -570,7 +683,7 @@ class p2b(Exchange, ImplicitAPI):
         result = self.safe_list(response, 'result', [])
         return self.parse_trades(result, market, since, limit)
 
-    def parse_trade(self, trade: dict, market: Market = None):
+    def parse_trade(self, trade: dict, market: Market = None) -> Trade:
         #
         # fetchTrades
         #
@@ -585,30 +698,30 @@ class p2b(Exchange, ImplicitAPI):
         # fetchMyTrades
         #
         #    {
-        #        "deal_id": 7450617292,              # Deal id
-        #        "deal_time": 1698506956.66224,      # Deal execution time
-        #        "deal_order_id": 171955225751,      # Deal order id
-        #        "opposite_order_id": 171955110512,  # Opposite order id
-        #        "side": "sell",                     # Deal side
-        #        "price": "0.05231",                 # Deal price
-        #        "amount": "0.002",                  # Deal amount
-        #        "deal": "0.00010462",               # Total(price * amount)
-        #        "deal_fee": "0.000000188316",       # Deal fee
-        #        "role": "taker",                    # Role. Taker or maker
-        #        "isSelfTrade": False                # is self trade
+        #        "deal_id": 7450617292,              // Deal id
+        #        "deal_time": 1698506956.66224,      // Deal execution time
+        #        "deal_order_id": 171955225751,      // Deal order id
+        #        "opposite_order_id": 171955110512,  // Opposite order id
+        #        "side": "sell",                     // Deal side
+        #        "price": "0.05231",                 // Deal price
+        #        "amount": "0.002",                  // Deal amount
+        #        "deal": "0.00010462",               // Total (price * amount)
+        #        "deal_fee": "0.000000188316",       // Deal fee
+        #        "role": "taker",                    // Role. Taker or maker
+        #        "isSelfTrade": false                // is self trade
         #    }
         #
         # fetchOrderTrades
         #
         #    {
-        #        "id": 7429883128,             # Deal id
-        #        "time": 1698237535.41196,     # Deal execution time
-        #        "fee": "0.01755848704",       # Deal fee
-        #        "price": "34293.92",          # Deal price
-        #        "amount": "0.00032",          # Deal amount
-        #        "dealOrderId": 171366551416,  # Deal order id
-        #        "role": 1,                    # Deal role(1 - maker, 2 - taker)
-        #        "deal": "10.9740544"          # Total(price * amount)
+        #        "id": 7429883128,             // Deal id
+        #        "time": 1698237535.41196,     // Deal execution time
+        #        "fee": "0.01755848704",       // Deal fee
+        #        "price": "34293.92",          // Deal price
+        #        "amount": "0.00032",          // Deal amount
+        #        "dealOrderId": 171366551416,  // Deal order id
+        #        "role": 1,                    // Deal role (1 - maker, 2 - taker)
+        #        "deal": "10.9740544"          // Total (price * amount)
         #    }
         #
         timestamp = self.safe_integer_product_2(trade, 'time', 'deal_time', 1000)
@@ -631,47 +744,50 @@ class p2b(Exchange, ImplicitAPI):
             'amount': self.safe_string(trade, 'amount'),
             'cost': self.safe_string(trade, 'deal'),
             'fee': {
-                'currency': market['quote'],
+                'currency': self.safe_string(market, 'quote'),
                 'cost': self.safe_string_2(trade, 'fee', 'deal_fee'),
             },
         }, market)
 
-    async def fetch_ohlcv(self, symbol: str, timeframe='1m', since: Int = None, limit: Int = None, params={}):
+    async def fetch_ohlcv(self, symbol: str, timeframe: str = '1m', since: Int = None, limit: Int = None, params: dict = {}) -> list[list]:
         """
         fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#kline
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#kline
+
         :param str symbol: unified symbol of the market to fetch OHLCV data for
         :param str timeframe: 1m, 1h, or 1d
         :param int [since]: timestamp in ms of the earliest candle to fetch
         :param int [limit]: 1-500, default=50
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.offset]: default=0, with self value the last candles are returned
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'market': market['id'],
             'interval': timeframe,
         }
         if limit is not None:
-            request['limit'] = limit
+            request['limit'] = min(limit, 500)
         response = await self.publicGetMarketKline(self.extend(request, params))
         #
         #    {
-        #        success: True,
+        #        success: true,
         #        errorCode: '',
         #        message: '',
         #        result: [
         #            [
-        #                1699253400,       # Kline open time
-        #                '0.3429',         # Open price
-        #                '0.3427',         # Close price
-        #                '0.3429',         # Highest price
-        #                '0.3427',         # Lowest price
-        #                '1900.4',         # Volume for stock currency
-        #                '651.46278',      # Volume for money currency
-        #                'ADA_USDT'        # Market name
+        #                1699253400,       // Kline open time
+        #                '0.3429',         // Open price
+        #                '0.3427',         // Close price
+        #                '0.3429',         // Highest price
+        #                '0.3427',         // Lowest price
+        #                '1900.4',         // Volume for stock currency
+        #                '651.46278',      // Volume for money currency
+        #                'ADA_USDT'        // Market name
         #            ],
         #            ...
         #        ],
@@ -682,17 +798,17 @@ class p2b(Exchange, ImplicitAPI):
         result = self.safe_list(response, 'result', [])
         return self.parse_ohlcvs(result, market, timeframe, since, limit)
 
-    def parse_ohlcv(self, ohlcv, market: Market = None) -> list:
+    def parse_ohlcv(self, ohlcv: object, market: Market = None) -> list:
         #
         #    [
-        #        1699253400,       # Kline open time
-        #        '0.3429',         # Open price
-        #        '0.3427',         # Close price
-        #        '0.3429',         # Highest price
-        #        '0.3427',         # Lowest price
-        #        '1900.4',         # Volume for stock currency
-        #        '651.46278',      # Volume for money currency
-        #        'ADA_USDT'        # Market name
+        #        1699253400,       // Kline open time
+        #        '0.3429',         // Open price
+        #        '0.3427',         // Close price
+        #        '0.3429',         // Highest price
+        #        '0.3427',         // Lowest price
+        #        '1900.4',         // Volume for stock currency
+        #        '651.46278',      // Volume for money currency
+        #        'ADA_USDT'        // Market name
         #    ],
         #
         return [
@@ -704,18 +820,21 @@ class p2b(Exchange, ImplicitAPI):
             self.safe_number(ohlcv, 5),
         ]
 
-    async def fetch_balance(self, params={}):
+    async def fetch_balance(self, params: dict = {}) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#all-balances
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#all-balances
+
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `balance structure <https://docs.ccxt.com/#/?id=balance-structure>`
+        :returns dict: a `balance structure <https://docs.ccxt.com/?id=balance-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         response = await self.privatePostAccountBalances(params)
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": {
@@ -730,10 +849,10 @@ class p2b(Exchange, ImplicitAPI):
         #        }
         #    }
         #
-        result = self.safe_value(response, 'result', {})
+        result = self.safe_dict(response, 'result', {})
         return self.parse_balance(result)
 
-    def parse_balance(self, response):
+    def parse_balance(self, response: dict) -> Balances:
         #
         #    {
         #        "USDT": {
@@ -746,40 +865,43 @@ class p2b(Exchange, ImplicitAPI):
         #        }
         #    }
         #
-        result: dict = {
+        result = {
             'info': response,
         }
         keys = list(response.keys())
         for i in range(0, len(keys)):
             currencyId = keys[i]
-            balance = response[currencyId]
+            balance = self.safe_dict(response, currencyId)
             code = self.safe_currency_code(currencyId)
             used = self.safe_string(balance, 'freeze')
             available = self.safe_string(balance, 'available')
-            account: dict = {
+            account = {
                 'free': available,
                 'used': used,
             }
             result[code] = account
         return self.safe_balance(result)
 
-    async def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}):
+    async def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params: dict = {}) -> Order:
         """
         create a trade order
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#create-order
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#create-order
+
         :param str symbol: unified symbol of the market to create an order in
         :param str type: must be 'limit'
         :param str side: 'buy' or 'sell'
         :param float amount: how much of currency you want to trade in units of base currency
-        :param float price: the price at which the order is to be fullfilled, in units of the quote currency
+        :param float price: the price at which the order is to be fulfilled, in units of the quote currency
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns dict: an `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         if type == 'market':
-            raise BadRequest(self.id + ' createOrder() can only accept orders with type "limit"')
+            raise BadRequest(self.id + ' createOrder () can only accept orders with type "limit"')
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'market': market['id'],
             'side': side,
             'amount': self.amount_to_precision(symbol, amount),
@@ -788,50 +910,53 @@ class p2b(Exchange, ImplicitAPI):
         response = await self.privatePostOrderNew(self.extend(request, params))
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": {
-        #            "orderId": 171906478744,          # Order id
-        #            "market": "ETH_BTC",              # Market name
-        #            "price": "0.04348",               # Price
-        #            "side": "buy",                    # Side
-        #            "type": "limit",                  # Order type
-        #            "timestamp": 1698484861.746517,   # Order creation time
-        #            "dealMoney": "0",                 # Filled total
-        #            "dealStock": "0",                 # Filled amount
-        #            "amount": "0.0277",               # Original amount
-        #            "takerFee": "0.002",              # taker fee
-        #            "makerFee": "0.002",              # maker fee
-        #            "left": "0.0277",                 # Unfilled amount
-        #            "dealFee": "0"                    # Filled fee
+        #            "orderId": 171906478744,          // Order id
+        #            "market": "ETH_BTC",              // Market name
+        #            "price": "0.04348",               // Price
+        #            "side": "buy",                    // Side
+        #            "type": "limit",                  // Order type
+        #            "timestamp": 1698484861.746517,   // Order creation time
+        #            "dealMoney": "0",                 // Filled total
+        #            "dealStock": "0",                 // Filled amount
+        #            "amount": "0.0277",               // Original amount
+        #            "takerFee": "0.002",              // taker fee
+        #            "makerFee": "0.002",              // maker fee
+        #            "left": "0.0277",                 // Unfilled amount
+        #            "dealFee": "0"                    // Filled fee
         #        }
         #    }
         #
         result = self.safe_dict(response, 'result')
         return self.parse_order(result, market)
 
-    async def cancel_order(self, id: str, symbol: Str = None, params={}):
+    async def cancel_order(self, id: str, symbol: Str = None, params: dict = {}) -> Order:
         """
         cancels an open order
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#cancel-order
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#cancel-order
+
         :param str id: order id
         :param str symbol: unified symbol of the market the order was made in
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: An `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns dict: An `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' cancelOrder() requires a symbol argument')
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'market': market['id'],
             'orderId': id,
         }
         response = await self.privatePostOrderCancel(self.extend(request, params))
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": {
@@ -854,24 +979,27 @@ class p2b(Exchange, ImplicitAPI):
         result = self.safe_dict(response, 'result')
         return self.parse_order(result)
 
-    async def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}):
+    async def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Order]:
         """
         fetch all unfilled currently open orders
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#open-orders
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#open-orders
+
         :param str symbol: unified market symbol of the market orders were made in
         :param int [since]: the earliest time in ms to fetch orders for
         :param int [limit]: the maximum number of order structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-         *
-         * EXCHANGE SPECIFIC PARAMETERS
+
+ EXCHANGE SPECIFIC PARAMETERS
         :param int [params.offset]: 0-10000, default=0
-        :returns Order[]: a list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns Order[]: a list of `order structures <https://docs.ccxt.com/?id=order-structure>`
         """
         if symbol is None:
-            raise ArgumentsRequired(self.id + ' fetchOpenOrders() requires the symbol argument')
-        await self.load_markets()
+            raise ArgumentsRequired(self.id + ' fetchOpenOrders () requires the symbol argument')
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'market': market['id'],
         }
         if limit is not None:
@@ -879,7 +1007,7 @@ class p2b(Exchange, ImplicitAPI):
         response = await self.privatePostOrders(self.extend(request, params))
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": [
@@ -905,23 +1033,26 @@ class p2b(Exchange, ImplicitAPI):
         result = self.safe_list(response, 'result', [])
         return self.parse_orders(result, market, since, limit)
 
-    async def fetch_order_trades(self, id: str, symbol: Str = None, since: Int = None, limit: Int = None, params={}):
+    async def fetch_order_trades(self, id: str, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         fetch all the trades made from a single order
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#deals-by-order-id
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#deals-by-order-id
+
         :param str id: order id
         :param str symbol: unified market symbol
         :param int [since]: the earliest time in ms to fetch trades for
         :param int [limit]: 1-100, default=50
         :param dict [params]: extra parameters specific to the exchange API endpoint
-         *
-         * EXCHANGE SPECIFIC PARAMETERS
+
+ EXCHANGE SPECIFIC PARAMETERS
         :param int [params.offset]: 0-10000, default=0
-        :returns dict[]: a list of `trade structures <https://docs.ccxt.com/#/?id=trade-structure>`
+        :returns dict[]: a list of `trade structures <https://docs.ccxt.com/?id=trade-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.safe_market(symbol)
-        request: dict = {
+        request = {
             'orderId': id,
         }
         if limit is not None:
@@ -929,7 +1060,7 @@ class p2b(Exchange, ImplicitAPI):
         response = await self.privatePostAccountOrder(self.extend(request, params))
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": {
@@ -937,131 +1068,157 @@ class p2b(Exchange, ImplicitAPI):
         #            "limit": 50,
         #            "records": [
         #                {
-        #                    "id": 7429883128,             # Deal id
-        #                    "time": 1698237535.41196,     # Deal execution time
-        #                    "fee": "0.01755848704",       # Deal fee
-        #                    "price": "34293.92",          # Deal price
-        #                    "amount": "0.00032",          # Deal amount
-        #                    "dealOrderId": 171366551416,  # Deal order id
-        #                    "role": 1,                    # Deal role(1 - maker, 2 - taker)
-        #                    "deal": "10.9740544"          # Total(price * amount)
+        #                    "id": 7429883128,             // Deal id
+        #                    "time": 1698237535.41196,     // Deal execution time
+        #                    "fee": "0.01755848704",       // Deal fee
+        #                    "price": "34293.92",          // Deal price
+        #                    "amount": "0.00032",          // Deal amount
+        #                    "dealOrderId": 171366551416,  // Deal order id
+        #                    "role": 1,                    // Deal role (1 - maker, 2 - taker)
+        #                    "deal": "10.9740544"          // Total (price * amount)
         #                }
         #            ]
         #        }
         #    }
         #
-        result = self.safe_value(response, 'result', {})
+        result = self.safe_dict(response, 'result', {})
         records = self.safe_list(result, 'records', [])
         return self.parse_trades(records, market, since, limit)
 
-    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}):
+    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         fetch all trades made by the user, only the transaction records in the past 3 month can be queried, the time between since and params["until"] cannot be longer than 24 hours
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#deals-history-by-market
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#deals-history-by-market
+
         :param str symbol: unified market symbol of the market orders were made in
         :param int [since]: the earliest time in ms to fetch orders for, default = params["until"] - 86400000
         :param int [limit]: 1-100, default=50
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: the latest time in ms to fetch orders for, default = current timestamp or since + 86400000
-         *
-         * EXCHANGE SPECIFIC PARAMETERS
+
+ EXCHANGE SPECIFIC PARAMETERS
         :param int [params.offset]: 0-10000, default=0
-        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/#/?id=public-trades>`
+        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/?id=public-trades>`
         """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' fetchMyTrades() requires a symbol argument')
-        await self.load_markets()
-        until = self.safe_integer(params, 'until')
-        params = self.omit(params, 'until')
-        if until is None:
-            if since is None:
-                until = self.milliseconds()
+        if self.markets is None:
+            await self.load_markets()
+        untilParam = self.safe_integer(params, 'until')
+        paramsOmitted = self.omit(params, 'until')
+        until = self.parse_to_int(0)
+        sinceResolved = self.parse_to_int(0)
+        if untilParam is not None:
+            until = self.parse_to_int(untilParam)
+            if since is not None:
+                if (untilParam - since) > 86400000:
+                    raise BadRequest(self.id + ' fetchMyTrades () the time between since and params["until"] cannot be greater than 24 hours')
+                sinceResolved = self.parse_to_int(since)
             else:
-                until = since + 86400000
-        if since is None:
-            since = until - 86400000
-        if (until - since) > 86400000:
-            raise BadRequest(self.id + ' fetchMyTrades() the time between since and params["until"] cannot be greater than 24 hours')
+                sinceResolved = self.parse_to_int(untilParam - 86400000)
+        elif since is not None:
+            until = self.parse_to_int(since + 86400000)
+            sinceResolved = self.parse_to_int(since)
+        else:
+            now = self.milliseconds()
+            until = self.parse_to_int(now)
+            sinceResolved = self.parse_to_int(now - 86400000)
         market = self.market(symbol)
-        request: dict = {
+        sinceSec = self.parse_to_int(sinceResolved / 1000)
+        untilSec = self.parse_to_int(until / 1000)
+        request = {
             'market': market['id'],
-            'startTime': self.parse_to_int(since / 1000),
-            'endTime': self.parse_to_int(until / 1000),
+            'startTime': sinceSec,
+            'endTime': untilSec,
         }
         if limit is not None:
             request['limit'] = limit
-        response = await self.privatePostAccountMarketDealHistory(self.extend(request, params))
+        response = await self.privatePostAccountMarketDealHistory(self.extend(request, paramsOmitted))
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": {
-        #            "total": 2,                                 # Total records in the queried range
+        #            "total": 2,                                 // Total records in the queried range
         #            "deals": [
         #                {
-        #                    "deal_id": 7450617292,              # Deal id
-        #                    "deal_time": 1698506956.66224,      # Deal execution time
-        #                    "deal_order_id": 171955225751,      # Deal order id
-        #                    "opposite_order_id": 171955110512,  # Opposite order id
-        #                    "side": "sell",                     # Deal side
-        #                    "price": "0.05231",                 # Deal price
-        #                    "amount": "0.002",                  # Deal amount
-        #                    "deal": "0.00010462",               # Total(price * amount)
-        #                    "deal_fee": "0.000000188316",       # Deal fee
-        #                    "role": "taker",                    # Role. Taker or maker
-        #                    "isSelfTrade": False                # is self trade
+        #                    "deal_id": 7450617292,              // Deal id
+        #                    "deal_time": 1698506956.66224,      // Deal execution time
+        #                    "deal_order_id": 171955225751,      // Deal order id
+        #                    "opposite_order_id": 171955110512,  // Opposite order id
+        #                    "side": "sell",                     // Deal side
+        #                    "price": "0.05231",                 // Deal price
+        #                    "amount": "0.002",                  // Deal amount
+        #                    "deal": "0.00010462",               // Total (price * amount)
+        #                    "deal_fee": "0.000000188316",       // Deal fee
+        #                    "role": "taker",                    // Role. Taker or maker
+        #                    "isSelfTrade": false                // is self trade
         #                },
         #                ...
         #            ]
         #        }
         #    }
         #
-        result = self.safe_value(response, 'result', {})
+        result = self.safe_dict(response, 'result', {})
         deals = self.safe_list(result, 'deals', [])
-        return self.parse_trades(deals, market, since, limit)
+        return self.parse_trades(deals, market, sinceResolved, limit)
 
-    async def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
+    async def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Order]:
         """
-        fetches information on multiple closed orders made by the user, the time between since and params["untnil"] cannot be longer than 24 hours
-        :see: https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#orders-history-by-market
+        fetches information on multiple closed orders made by the user, the time between since and params["until"] cannot be longer than 24 hours
+
+        https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md#orders-history-by-market
+
         :param str symbol: unified market symbol of the market orders were made in
         :param int [since]: the earliest time in ms to fetch orders for, default = params["until"] - 86400000
         :param int [limit]: 1-100, default=50
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: the latest time in ms to fetch orders for, default = current timestamp or since + 86400000
-         *
-         * EXCHANGE SPECIFIC PARAMETERS
+
+ EXCHANGE SPECIFIC PARAMETERS
         :param int [params.offset]: 0-10000, default=0
-        :returns Order[]: a list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns Order[]: a list of `order structures <https://docs.ccxt.com/?id=order-structure>`
         """
-        await self.load_markets()
-        until = self.safe_integer(params, 'until')
-        params = self.omit(params, 'until')
-        market: Market = None
+        if self.markets is None:
+            await self.load_markets()
+        untilParam = self.safe_integer(params, 'until')
+        paramsOmitted = self.omit(params, 'until')
+        market = None
         if symbol is not None:
             market = self.market(symbol)
-        if until is None:
-            if since is None:
-                until = self.milliseconds()
+        until = self.parse_to_int(0)
+        sinceResolved = self.parse_to_int(0)
+        if untilParam is not None:
+            until = self.parse_to_int(untilParam)
+            if since is not None:
+                if (untilParam - since) > 86400000:
+                    raise BadRequest(self.id + ' fetchClosedOrders () the time between since and params["until"] cannot be greater than 24 hours')
+                sinceResolved = self.parse_to_int(since)
             else:
-                until = since + 86400000
-        if since is None:
-            since = until - 86400000
-        if (until - since) > 86400000:
-            raise BadRequest(self.id + ' fetchClosedOrders() the time between since and params["until"] cannot be greater than 24 hours')
-        request: dict = {
-            'startTime': self.parse_to_int(since / 1000),
-            'endTime': self.parse_to_int(until / 1000),
+                sinceResolved = self.parse_to_int(untilParam - 86400000)
+        elif since is not None:
+            until = self.parse_to_int(since + 86400000)
+            sinceResolved = self.parse_to_int(since)
+        else:
+            now = self.milliseconds()
+            until = self.parse_to_int(now)
+            sinceResolved = self.parse_to_int(now - 86400000)
+        sinceSec = self.parse_to_int(sinceResolved / 1000)
+        untilSec = self.parse_to_int(until / 1000)
+        request = {
+            'startTime': sinceSec,
+            'endTime': untilSec,
         }
         if market is not None:
             request['market'] = market['id']
         if limit is not None:
             request['limit'] = limit
-        response = await self.privatePostAccountOrderHistory(self.extend(request, params))
+        response = await self.privatePostAccountOrderHistory(self.extend(request, paramsOmitted))
         #
         #    {
-        #        "success": True,
+        #        "success": true,
         #        "errorCode": "",
         #        "message": "",
         #        "result": {
@@ -1085,13 +1242,13 @@ class p2b(Exchange, ImplicitAPI):
         #        }
         #    }
         #
-        result = self.safe_value(response, 'result')
+        result = self.safe_dict(response, 'result', {})
         orders = []
         keys = list(result.keys())
         for i in range(0, len(keys)):
             marketId = keys[i]
             marketOrders = result[marketId]
-            parsedOrders = self.parse_orders(marketOrders, market, since, limit)
+            parsedOrders = self.parse_orders(marketOrders, market, sinceResolved, limit)
             orders = self.array_concat(orders, parsedOrders)
         return orders
 
@@ -1118,24 +1275,24 @@ class p2b(Exchange, ImplicitAPI):
         # fetchClosedOrders
         #
         #    {
-        #        "id": 171366547790,           # Order id
-        #        "amount": "0.00032",          # Original amount
-        #        "price": "34293.92",          # Order price
-        #        "type": "limit",              # Order type
-        #        "side": "sell",               # Order side
-        #        "ctime": 1698237533.497241,   # Order creation time
-        #        "ftime": 1698237535.41196,    # Order fill time
-        #        "market": "BTC_USDT",         # Market name
-        #        "takerFee": "0.0018",         # Taker fee
-        #        "makerFee": "0.0016",         # Market fee
-        #        "dealFee": "0.01755848704",   # Deal fee
-        #        "dealStock": "0.00032",       # Filled amount
-        #        "dealMoney": "10.9740544"     # Filled total
+        #        "id": 171366547790,           // Order id
+        #        "amount": "0.00032",          // Original amount
+        #        "price": "34293.92",          // Order price
+        #        "type": "limit",              // Order type
+        #        "side": "sell",               // Order side
+        #        "ctime": 1698237533.497241,   // Order creation time
+        #        "ftime": 1698237535.41196,    // Order fill time
+        #        "market": "BTC_USDT",         // Market name
+        #        "takerFee": "0.0018",         // Taker fee
+        #        "makerFee": "0.0016",         // Market fee
+        #        "dealFee": "0.01755848704",   // Deal fee
+        #        "dealStock": "0.00032",       // Filled amount
+        #        "dealMoney": "10.9740544"     // Filled total
         #    }
         #
         timestamp = self.safe_integer_product_2(order, 'timestamp', 'ctime', 1000)
         marketId = self.safe_string(order, 'market')
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         return self.safe_order({
             'info': order,
             'id': self.safe_string_2(order, 'id', 'orderId'),
@@ -1143,13 +1300,13 @@ class p2b(Exchange, ImplicitAPI):
             'timestamp': timestamp,
             'datetime': self.iso8601(timestamp),
             'lastTradeTimestamp': None,
-            'symbol': market['symbol'],
+            'symbol': marketResolved['symbol'],
             'type': self.safe_string(order, 'type'),
             'timeInForce': None,
             'postOnly': None,
             'side': self.safe_string(order, 'side'),
             'price': self.safe_string(order, 'price'),
-            'stopPrice': None,
+            'triggerPrice': None,
             'amount': self.safe_string(order, 'amount'),
             'cost': None,
             'average': None,
@@ -1157,38 +1314,58 @@ class p2b(Exchange, ImplicitAPI):
             'remaining': self.safe_string(order, 'left'),
             'status': None,
             'fee': {
-                'currency': market['quote'],
+                'currency': marketResolved['quote'],
                 'cost': self.safe_string(order, 'dealFee'),
             },
             'trades': None,
-        }, market)
+        }, marketResolved)
 
-    def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
-        url = self.urls['api'][api] + '/' + self.implode_params(path, params)
-        params = self.omit(params, self.extract_params(path))
+    def sign(self, path: str, api: list[str] = ['public'], method: str = 'GET', params: dict = {}) -> dict:
+        apiName = api[0]
+        baseApiUrl = self.safe_string(self.urls['api'], apiName)
+        if baseApiUrl is None:
+            raise ExchangeError(self.id + ' sign() has no API URL for self endpoint')
+        baseUrl = baseApiUrl
+        url = baseUrl + '/' + self.implode_params(path, params)
+        paramsOmitted = self.omit(params, self.extract_params(path))
         if method == 'GET':
-            if params:
-                url += '?' + self.urlencode(params)
-        if api == 'private':
-            params['request'] = '/api/v2/' + path
-            params['nonce'] = str(self.nonce())
-            payload = self.string_to_base64(self.json(params))  # Body json encoded in base64
-            headers = {
+            if len(paramsOmitted) > 0:
+                url += '?' + self.urlencode(paramsOmitted)
+        if apiName == 'private':
+            # p2b rejects a repeated nonce within 10 seconds (error 1016) — a dedup window, not a server-time check, so the counter drifting ahead of the clock under bursts is harmless
+            # the nonce deliberately stays on the second-resolution base nonce: the venue documents second-scale (int32-range) nonce values and millisecond nonces are unverified against the live API
+            paramsOmitted = self.extend(paramsOmitted, {
+                'request': '/api/v2/' + path,
+                'nonce': str(self.incrementing_nonce()),
+            })
+            payload = self.string_to_base64(self.json(paramsOmitted))  # Body json encoded in base64
+            headersSigned = {
                 'Content-Type': 'application/json',
                 'X-TXC-APIKEY': self.apiKey,
                 'X-TXC-PAYLOAD': payload,
                 'X-TXC-SIGNATURE': self.hmac(self.encode(payload), self.encode(self.secret), hashlib.sha512),
             }
-            body = self.json(params)
-        return {'url': url, 'method': method, 'body': body, 'headers': headers}
+            bodyJson = self.json(paramsOmitted)
+            return {'url': url, 'method': method, 'body': bodyJson, 'headers': headersSigned}
+        return {'url': url, 'method': method, 'body': None, 'headers': None}
 
-    def handle_errors(self, code: int, reason: str, url: str, method: str, headers: dict, body: str, response, requestHeaders, requestBody):
+    def handle_errors(self, code: int, reason: str, url: str, method: str, headers: dict, body: str, response: object, requestHeaders: dict, requestBody: Str):
         if response is None:
             return None
-        if code == 400:
-            error = self.safe_value(response, 'error')
-            errorCode = self.safe_string(error, 'code')
-            feedback = self.id + ' ' + self.json(response)
-            self.throw_exactly_matched_exception(self.exceptions, errorCode, feedback)
-            # fallback to default error handler
+        #
+        #     {"success":false,"errorCode":2021,"message":"Unknown market.","result":[]}
+        #     {"success":false,"errorCode":1010,"message":"This action is unauthorized.","result":[]}
+        #     {"success":true,"errorCode":"","message":"","result":{...},"cache_time":1787611797.535462,"current_time":1787611797.535973}
+        #
+        success = self.safe_bool(response, 'success', True)
+        if not success:
+            errorCode = self.safe_string(response, 'errorCode')
+            feedback = self.id + ' ' + body
+            self.throw_exactly_matched_exception(self.exceptions['exact'], errorCode, feedback)
+            codeAsString = str(code)
+            statusCode = self.parse_to_int(code)
+            if (statusCode < 400) or not (codeAsString in self.httpExceptions):
+                # an error envelope must always throw — also for statuses the http-status handler has no entry for
+                raise ExchangeError(feedback)
+            # unmapped codes on the remaining error statuses fall through to the default http-status handler
         return None

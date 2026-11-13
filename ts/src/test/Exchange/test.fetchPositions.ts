@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { Exchange } from "../../../ccxt";
+import { Exchange } from "../../../ccxt.js";
 import testPosition from './base/test.position.js';
 import testSharedMethods from '../../test/Exchange/base/test.sharedMethods.js';
 
@@ -22,6 +22,7 @@ async function testFetchPositions (exchange: Exchange, skippedProperties: object
         testPosition (exchange, skippedProperties, method, positionsForSymbol[i], symbol, now);
     }
     // testSharedMethods.assertTimestampOrder (exchange, method, symbol, positionsForSymbol);
+    return true;
 }
 
 export default testFetchPositions;

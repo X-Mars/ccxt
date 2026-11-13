@@ -1,5 +1,5 @@
-import { Future } from './Future.js';
-import { Dictionary, Str } from '../types.js';
+import { Future, FutureInterface } from './Future.js';
+import { Dictionary, Str, Int, Dict } from '../types.js';
 export default class Client {
     connected: Promise<any>;
     disconnected: ReturnType<typeof Future>;
@@ -26,12 +26,15 @@ export default class Client {
     ping: any;
     subscriptions: Dictionary<any>;
     throttle: any;
-    constructor(url: string, onMessageCallback: Function | undefined, onErrorCallback: Function | undefined, onCloseCallback: Function | undefined, onConnectedCallback: Function | undefined, config?: {});
-    future(messageHash: string): any;
+    cookies: Dictionary<any>;
+    decompressBinary: boolean;
+    constructor(url: string, onMessageCallback: Function | undefined, onErrorCallback: Function | undefined, onCloseCallback: Function | undefined, onConnectedCallback: Function | undefined, config?: Dict);
+    reusableFuture(messageHash: string): FutureInterface;
+    future(messageHash: string): FutureInterface;
     resolve(result: any, messageHash: Str): any;
     reject(result: any, messageHash?: Str): any;
     log(...args: any[]): void;
-    connect(backoffDelay?: number): void;
+    connect(backoffDelay?: Int): void;
     isOpen(): boolean;
     reset(error: any): void;
     onConnectionTimeout(): void;
@@ -46,7 +49,7 @@ export default class Client {
     onError(error: any): void;
     onClose(event: any): void;
     onUpgrade(message: any): void;
-    send(message: any): Promise<any>;
+    send(message: any): Promise<FutureInterface>;
     close(): void;
     onMessage(messageEvent: any): void;
 }

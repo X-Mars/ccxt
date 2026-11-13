@@ -1,12 +1,15 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
 var onetrading$1 = require('../onetrading.js');
 var errors = require('../base/errors.js');
 var Cache = require('../base/ws/Cache.js');
+var Precise = require('../base/Precise.js');
 
+// ----------------------------------------------------------------------------
 //  ---------------------------------------------------------------------------
-//  ---------------------------------------------------------------------------
-class onetrading extends onetrading$1 {
+class onetrading extends onetrading$1["default"] {
     describe() {
         return this.deepExtend(super.describe(), {
             'has': {
@@ -15,6 +18,7 @@ class onetrading extends onetrading$1 {
                 'watchTicker': true,
                 'watchTickers': true,
                 'watchTrades': false,
+                'watchTradesForSymbols': false,
                 'watchMyTrades': true,
                 'watchOrders': true,
                 'watchOrderBook': true,
@@ -22,7 +26,7 @@ class onetrading extends onetrading$1 {
             },
             'urls': {
                 'api': {
-                    'ws': 'wss://streams.onetrading.com/',
+                    'ws': 'wss://streams.fast.onetrading.com',
                 },
             },
             'options': {
@@ -70,17 +74,17 @@ class onetrading extends onetrading$1 {
             'exceptions': {},
         });
     }
+    /**
+     * @method
+     * @name onetrading#watchBalance
+     * @see https://developers.bitpanda.com/exchange/#account-history-channel
+     * @description watch balance and get the amount of funds available for trading or funds locked in orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
     async watchBalance(params = {}) {
-        /**
-         * @method
-         * @name bitpanda#watchBalance
-         * @see https://developers.bitpanda.com/exchange/#account-history-channel
-         * @description watch balance and get the amount of funds available for trading or funds locked in orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
         await this.authenticate(params);
-        const url = this.urls['api']['ws'];
+        const url = this.safeString(this.urls['api'], 'ws');
         const messageHash = 'balance';
         const subscribeHash = 'ACCOUNT_HISTORY';
         const bpRemainingQuota = this.safeInteger(this.options, 'bp_remaining_quota', 200);
@@ -125,25 +129,47 @@ class onetrading extends onetrading$1 {
         //         ]
         //     }
         //
-        this.balance = this.parseBalance(message);
+        // merge the parsed update into the existing balance object instead of
+        // replacing it: a consumer awakened by an earlier message holds a
+        // reference to this.balance, and Client.resolve is a no-op while
+        // nobody is awaiting, so a replaced object would make updates landing
+        // in that window invisible to the consumer forever (same class as
+        // issue #26773); the free/used/total aggregates are rebuilt from the
+        // merged currencies by safeBalance
+        const balance = this.parseBalance(message);
+        if (this.balance === undefined) {
+            this.balance = {};
+        }
+        const reserved = ['free', 'used', 'total'];
+        const keys = Object.keys(balance);
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            if (this.inArray(key, reserved)) {
+                continue;
+            }
+            this.balance[key] = balance[key];
+        }
+        this.balance = this.safeBalance(this.balance);
         const messageHash = 'balance';
         client.resolve(this.balance, messageHash);
     }
+    /**
+     * @method
+     * @name onetrading#watchTicker
+     * @see https://developers.bitpanda.com/exchange/#market-ticker-channel
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async watchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name bitpanda#watchTicker
-         * @see https://developers.bitpanda.com/exchange/#market-ticker-channel
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        symbol = market['symbol'];
+        const symbolValue = this.safeString(market, 'symbol', '');
         const subscriptionHash = 'MARKET_TICKER';
-        const messageHash = 'ticker.' + symbol;
+        const messageHash = 'ticker.' + symbolValue;
         const request = {
             'type': 'SUBSCRIBE',
             'channels': [
@@ -153,23 +179,23 @@ class onetrading extends onetrading$1 {
                 },
             ],
         };
-        return await this.watchMany(messageHash, request, subscriptionHash, [symbol], params);
+        return await this.watchMany(messageHash, request, subscriptionHash, [symbolValue], params);
     }
+    /**
+     * @method
+     * @name onetrading#watchTickers
+     * @see https://developers.bitpanda.com/exchange/#market-ticker-channel
+     * @description watches price tickers, a statistical calculation with the information for all markets or those specified.
+     * @param {string} symbols unified symbols of the markets to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an array of [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async watchTickers(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitpanda#watchTickers
-         * @see https://developers.bitpanda.com/exchange/#market-ticker-channel
-         * @description watches price tickers, a statistical calculation with the information for all markets or those specified.
-         * @param {string} symbols unified symbols of the markets to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} an array of [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
-        symbols = this.marketSymbols(symbols);
-        if (symbols === undefined) {
-            symbols = [];
+        if (this.markets === undefined) {
+            await this.loadMarkets();
         }
+        const symbolsNormalized = this.marketSymbols(symbols);
+        const symbolsList = (symbolsNormalized === undefined) ? [] : symbolsNormalized;
         const subscriptionHash = 'MARKET_TICKER';
         const messageHash = 'tickers';
         const request = {
@@ -181,8 +207,8 @@ class onetrading extends onetrading$1 {
                 },
             ],
         };
-        const tickers = await this.watchMany(messageHash, request, subscriptionHash, symbols, params);
-        return this.filterByArray(tickers, 'symbol', symbols);
+        const tickers = await this.watchMany(messageHash, request, subscriptionHash, symbolsList, params);
+        return this.filterByArray(tickers, 'symbol', symbolsList);
     }
     handleTicker(client, message) {
         //
@@ -201,17 +227,18 @@ class onetrading extends onetrading$1 {
         //         "time": "2022-06-23T16:41:00.004162Z"
         //     }
         //
-        const tickers = this.safeValue(message, 'ticker_updates', []);
+        const tickers = this.safeList(message, 'ticker_updates', []);
         const datetime = this.safeString(message, 'time');
         for (let i = 0; i < tickers.length; i++) {
             const ticker = tickers[i];
             const marketId = this.safeString(ticker, 'instrument');
             const symbol = this.safeSymbol(marketId);
-            this.tickers[symbol] = this.parseWSTicker(ticker);
+            const parsedTicker = this.parseWSTicker(ticker);
             const timestamp = this.parse8601(datetime);
-            this.tickers[symbol]['timestamp'] = timestamp;
-            this.tickers[symbol]['datetime'] = this.iso8601(timestamp);
-            client.resolve(this.tickers[symbol], 'ticker.' + symbol);
+            parsedTicker['timestamp'] = timestamp;
+            parsedTicker['datetime'] = this.iso8601(timestamp);
+            this.tickers[symbol] = parsedTicker;
+            client.resolve(parsedTicker, 'ticker.' + symbol);
         }
         client.resolve(this.tickers, 'tickers');
     }
@@ -251,27 +278,31 @@ class onetrading extends onetrading$1 {
             'info': ticker,
         }, market);
     }
+    /**
+     * @method
+     * @name onetrading#watchMyTrades
+     * @see https://developers.bitpanda.com/exchange/#account-history-channel
+     * @description get the list of trades associated with the user
+     * @param {string} symbol unified symbol of the market to fetch trades for. Use 'any' to watch all trades
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
     async watchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitpanda#watchMyTrades
-         * @see https://developers.bitpanda.com/exchange/#account-history-channel
-         * @description get the list of trades associated with the user
-         * @param {string} symbol unified symbol of the market to fetch trades for. Use 'any' to watch all trades
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let messageHash = 'myTrades';
+        let symbolResolved = undefined;
         if (symbol !== undefined) {
             const market = this.market(symbol);
-            symbol = market['symbol'];
-            messageHash += ':' + symbol;
+            const symbolValue = this.safeString(market, 'symbol', '');
+            symbolResolved = symbolValue;
+            messageHash = 'myTrades:' + symbolValue;
         }
         await this.authenticate(params);
-        const url = this.urls['api']['ws'];
+        const url = this.safeString(this.urls['api'], 'ws');
         const subscribeHash = 'ACCOUNT_HISTORY';
         const bpRemainingQuota = this.safeInteger(this.options, 'bp_remaining_quota', 200);
         const subscribe = {
@@ -285,31 +316,34 @@ class onetrading extends onetrading$1 {
         };
         const request = this.deepExtend(subscribe, params);
         let trades = await this.watch(url, messageHash, request, subscribeHash, request);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = trades.getLimit(symbol, limit);
+            limitResolved = trades.getLimit(symbolResolved, limit);
         }
-        trades = this.filterBySymbolSinceLimit(trades, symbol, since, limit);
+        trades = this.filterBySymbolSinceLimit(trades, symbolResolved, since, limitResolved);
         const numTrades = trades.length;
         if (numTrades === 0) {
-            return await this.watchMyTrades(symbol, since, limit, params);
+            return await this.watchMyTrades(symbolResolved, since, limitResolved, params);
         }
         return trades;
     }
+    /**
+     * @method
+     * @name onetrading#watchOrderBook
+     * @see https://docs.onetrading.com/websocket/orderbook/introduction
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
     async watchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitpanda#watchOrderBook
-         * @see https://developers.bitpanda.com/exchange/#market-ticker-channel
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        symbol = market['symbol'];
-        const messageHash = 'book:' + symbol;
+        const symbolValue = this.safeString(market, 'symbol', '');
+        const messageHash = 'book:' + symbolValue;
         const subscriptionHash = 'ORDER_BOOK';
         let depth = 0;
         if (limit !== undefined) {
@@ -324,7 +358,7 @@ class onetrading extends onetrading$1 {
                 },
             ],
         };
-        const orderbook = await this.watchMany(messageHash, request, subscriptionHash, [symbol], params);
+        const orderbook = await this.watchMany(messageHash, request, subscriptionHash, [symbolValue], params);
         return orderbook.limit();
     }
     handleOrderBook(client, message) {
@@ -356,7 +390,7 @@ class onetrading extends onetrading$1 {
         //         "time": "2022-06-23T15:38:02.751301Z"
         //     }
         //
-        const type = this.safeString(message, 'type');
+        const type = this.safeString(message, 'type', '');
         const marketId = this.safeString(message, 'instrument_code');
         const symbol = this.safeSymbol(marketId);
         const dateTime = this.safeString(message, 'time');
@@ -371,8 +405,8 @@ class onetrading extends onetrading$1 {
             orderbook.reset(snapshot);
         }
         else if (type === 'ORDER_BOOK_UPDATE') {
-            const changes = this.safeValue(message, 'changes', []);
-            this.handleDeltas(orderbook, changes);
+            const changes = this.safeList(message, 'changes', []);
+            this.handleBookDeltas(orderbook, changes);
         }
         else {
             throw new errors.NotSupported(this.id + ' watchOrderBook() did not recognize message type ' + type);
@@ -383,11 +417,11 @@ class onetrading extends onetrading$1 {
         this.orderbooks[symbol] = orderbook;
         client.resolve(orderbook, channel);
     }
-    handleDelta(orderbook, delta) {
+    handleBookDelta(orderbook, delta) {
         //
         //   [ 'BUY', "0.053595", "0" ]
         //
-        const bidAsk = this.parseBidAsk(delta, 1, 2);
+        const bidAsk = this.parseOrderBookBidAsk(delta, 1, 2);
         const type = this.safeString(delta, 0);
         if (type === 'BUY') {
             const bids = orderbook['bids'];
@@ -401,7 +435,7 @@ class onetrading extends onetrading$1 {
             throw new errors.NotSupported(this.id + ' watchOrderBook () received unknown change type ' + this.json(delta));
         }
     }
-    handleDeltas(orderbook, deltas) {
+    handleBookDeltas(orderbook, deltas) {
         //
         //    [
         //       [ 'BUY', "0.053593", "0" ],
@@ -409,31 +443,35 @@ class onetrading extends onetrading$1 {
         //    ]
         //
         for (let i = 0; i < deltas.length; i++) {
-            this.handleDelta(orderbook, deltas[i]);
+            this.handleBookDelta(orderbook, deltas[i]);
         }
     }
+    /**
+     * @method
+     * @name onetrading#watchOrders
+     * @see https://developers.bitpanda.com/exchange/#account-history-channel
+     * @description watches information on multiple orders made by the user
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.channel] can listen to orders using ACCOUNT_HISTORY or TRADING
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async watchOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitpanda#watchOrders
-         * @see https://developers.bitpanda.com/exchange/#account-history-channel
-         * @description watches information on multiple orders made by the user
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {string} [params.channel] can listen to orders using ACCOUNT_HISTORY or TRADING
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let messageHash = 'orders';
+        let symbolResolved = undefined;
         if (symbol !== undefined) {
             const market = this.market(symbol);
-            symbol = market['symbol'];
-            messageHash += ':' + symbol;
+            const symbolValue = this.safeString(market, 'symbol', '');
+            symbolResolved = symbolValue;
+            messageHash = 'orders:' + symbolValue;
         }
         await this.authenticate(params);
-        const url = this.urls['api']['ws'];
+        const url = this.safeString(this.urls['api'], 'ws');
         const subscribeHash = this.safeString(params, 'channel', 'ACCOUNT_HISTORY');
         const bpRemainingQuota = this.safeInteger(this.options, 'bp_remaining_quota', 200);
         const subscribe = {
@@ -447,13 +485,14 @@ class onetrading extends onetrading$1 {
         };
         const request = this.deepExtend(subscribe, params);
         let orders = await this.watch(url, messageHash, request, subscribeHash, request);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = orders.getLimit(symbol, limit);
+            limitResolved = orders.getLimit(symbolResolved, limit);
         }
-        orders = this.filterBySymbolSinceLimit(orders, symbol, since, limit);
+        orders = this.filterBySymbolSinceLimit(orders, symbolResolved, since, limitResolved);
         const numOrders = orders.length;
         if (numOrders === 0) {
-            return await this.watchOrders(symbol, since, limit, params);
+            return await this.watchOrders(symbolResolved, since, limitResolved, params);
         }
         return orders;
     }
@@ -509,7 +548,8 @@ class onetrading extends onetrading$1 {
         const order = this.parseTradingOrder(message);
         const orders = this.orders;
         orders.append(order);
-        client.resolve(this.orders, 'orders:' + order['symbol']);
+        const orderSymbol = this.safeString(order, 'symbol', '');
+        client.resolve(this.orders, 'orders:' + orderSymbol);
         client.resolve(this.orders, 'orders');
     }
     parseTradingOrder(order, market = undefined) {
@@ -700,7 +740,7 @@ class onetrading extends onetrading$1 {
             const limit = this.safeInteger(this.options, 'tradesLimit', 1000);
             this.myTrades = new Cache.ArrayCacheBySymbolById(limit);
         }
-        const rawOrders = this.safeValue(message, 'orders', []);
+        const rawOrders = this.safeList(message, 'orders', []);
         const rawOrdersLength = rawOrders.length;
         if (rawOrdersLength === 0) {
             return;
@@ -711,7 +751,7 @@ class onetrading extends onetrading$1 {
             let symbol = this.safeString(order, 'symbol', '');
             orders.append(order);
             client.resolve(this.orders, 'orders:' + symbol);
-            const rawTrades = this.safeValue(rawOrders[i], 'trades', []);
+            const rawTrades = this.safeList(rawOrders[i], 'trades', []);
             for (let ii = 0; ii < rawTrades.length; ii++) {
                 const trade = this.parseTrade(rawTrades[ii]);
                 symbol = this.safeString(trade, 'symbol', symbol);
@@ -954,17 +994,17 @@ class onetrading extends onetrading$1 {
         }
         let symbol = undefined;
         const orders = this.orders;
-        const update = this.safeValue(message, 'update', {});
+        const update = this.safeDict(message, 'update', {});
         const updateType = this.safeString(update, 'type');
         if (updateType === 'ORDER_REJECTED' || updateType === 'ORDER_CLOSED' || updateType === 'STOP_ORDER_TRIGGERED') {
             const orderId = this.safeString(update, 'order_id');
             const datetime = this.safeString2(update, 'time', 'timestamp');
             const previousOrderArray = this.filterByArray(this.orders, 'id', orderId, false);
-            const previousOrder = this.safeValue(previousOrderArray, 0, {});
-            symbol = previousOrder['symbol'];
-            const filled = this.safeNumber(update, 'filled_amount');
+            const previousOrder = this.safeDict(previousOrderArray, 0, {});
+            symbol = this.safeString(previousOrder, 'symbol');
+            const filled = this.safeString(update, 'filled_amount');
             let status = this.parseWsOrderStatus(updateType);
-            if (updateType === 'ORDER_CLOSED' && filled === 0) {
+            if (updateType === 'ORDER_CLOSED' && Precise["default"].stringEq(filled, '0')) {
                 status = 'canceled';
             }
             const orderObject = {
@@ -986,7 +1026,7 @@ class onetrading extends onetrading$1 {
         // update balance
         const balanceKeys = ['locked', 'unlocked', 'spent', 'spent_on_fees', 'credited', 'deducted'];
         for (let i = 0; i < balanceKeys.length; i++) {
-            const newBalance = this.safeValue(update, balanceKeys[i]);
+            const newBalance = this.safeDict(update, balanceKeys[i]);
             if (newBalance !== undefined) {
                 this.updateBalance(newBalance);
             }
@@ -996,7 +1036,8 @@ class onetrading extends onetrading$1 {
         if (updateType === 'TRADE_SETTLED') {
             const parsed = this.parseTrade(update);
             symbol = this.safeString(parsed, 'symbol', '');
-            this.myTrades.append(parsed);
+            const myTrades = this.myTrades;
+            myTrades.append(parsed);
             client.resolve(this.myTrades, 'myTrades:' + symbol);
             client.resolve(this.myTrades, 'myTrades');
         }
@@ -1023,41 +1064,45 @@ class onetrading extends onetrading$1 {
         const account = this.account();
         account['free'] = this.safeString(balance, 'new_available');
         account['used'] = this.safeString(balance, 'new_locked');
-        this.balance[code] = account;
+        if (code !== undefined) {
+            this.balance[code] = account;
+        }
         this.balance = this.safeBalance(this.balance);
     }
+    /**
+     * @method
+     * @name onetrading#watchOHLCV
+     * @see https://developers.bitpanda.com/exchange/#candlesticks-channel
+     * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async watchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name bitpanda#watchOHLCV
-         * @see https://developers.bitpanda.com/exchange/#candlesticks-channel
-         * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        symbol = market['symbol'];
-        const marketId = market['id'];
-        const url = this.urls['api']['ws'];
-        const timeframes = this.safeValue(this.options, 'timeframes', {});
-        const timeframeId = this.safeValue(timeframes, timeframe);
+        const symbolValue = this.safeString(market, 'symbol', '');
+        const marketId = this.safeString(market, 'id', '');
+        const url = this.safeString(this.urls['api'], 'ws');
+        const timeframes = this.safeDict(this.options, 'timeframes', {});
+        const timeframeId = this.safeDict(timeframes, timeframe);
         if (timeframeId === undefined) {
             throw new errors.NotSupported(this.id + ' this interval is not supported, please provide one of the supported timeframes');
         }
-        const messageHash = 'ohlcv.' + symbol + '.' + timeframe;
+        const messageHash = 'ohlcv.' + symbolValue + '.' + timeframe;
         const subscriptionHash = 'CANDLESTICKS';
         const client = this.safeValue(this.clients, url);
         let type = 'SUBSCRIBE';
         let subscription = {};
         if (client !== undefined) {
-            subscription = this.safeValue(client.subscriptions, subscriptionHash);
+            subscription = this.safeDict(client.subscriptions, subscriptionHash);
             if (subscription !== undefined) {
-                const ohlcvMarket = this.safeValue(subscription, marketId, {});
+                const ohlcvMarket = this.safeDict(subscription, marketId, {});
                 const marketSubscribed = this.safeBool(ohlcvMarket, timeframe, false);
                 if (!marketSubscribed) {
                     type = 'UPDATE_SUBSCRIPTION';
@@ -1068,17 +1113,22 @@ class onetrading extends onetrading$1 {
                 subscription = {};
             }
         }
-        const subscriptionMarketId = this.safeValue(subscription, marketId);
+        const subscriptionMarketId = this.safeDict(subscription, marketId);
         if (subscriptionMarketId === undefined) {
-            subscription[marketId] = {};
+            if (marketId !== undefined) {
+                subscription[marketId] = {};
+            }
         }
-        subscription[marketId][timeframe] = true;
+        if ((marketId !== undefined) && (timeframe !== undefined)) {
+            subscription[marketId][timeframe] = true;
+        }
         const properties = [];
         const marketIds = Object.keys(subscription);
         for (let i = 0; i < marketIds.length; i++) {
-            const marketIdtimeframes = Object.keys(subscription[marketIds[i]]);
+            const marketSubscription = this.safeDict(subscription, marketIds[i], {});
+            const marketIdtimeframes = Object.keys(marketSubscription);
             for (let ii = 0; ii < marketIdtimeframes.length; ii++) {
-                const marketTimeframeId = this.safeValue(timeframes, timeframe);
+                const marketTimeframeId = this.safeDict(timeframes, timeframe);
                 const property = {
                     'instrument_code': marketIds[i],
                     'time_granularity': marketTimeframeId,
@@ -1096,10 +1146,11 @@ class onetrading extends onetrading$1 {
             ],
         };
         const ohlcv = await this.watch(url, messageHash, this.deepExtend(request, params), subscriptionHash, subscription);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = ohlcv.getLimit(symbol, limit);
+            limitResolved = ohlcv.getLimit(symbolValue, limit);
         }
-        return this.filterBySinceLimit(ohlcv, since, limit, 0, true);
+        return this.filterBySinceLimit(ohlcv, since, limitResolved, 0, true);
     }
     handleOHLCV(client, message) {
         //
@@ -1139,8 +1190,8 @@ class onetrading extends onetrading$1 {
         const marketId = this.safeString(message, 'instrument_code');
         const symbol = this.safeSymbol(marketId);
         const dateTime = this.safeString(message, 'time');
-        const timeframeId = this.safeValue(message, 'granularity');
-        const timeframes = this.safeValue(this.options, 'timeframes', {});
+        const timeframeId = this.safeDict(message, 'granularity');
+        const timeframes = this.safeDict(this.options, 'timeframes', {});
         const timeframe = this.findTimeframe(timeframeId, timeframes);
         const channel = 'ohlcv.' + symbol + '.' + timeframe;
         const parsed = [
@@ -1151,22 +1202,29 @@ class onetrading extends onetrading$1 {
             this.safeNumber(message, 'close'),
             this.safeNumber(message, 'volume'),
         ];
-        this.ohlcvs[symbol] = this.safeValue(this.ohlcvs, symbol, {});
-        let stored = this.safeValue(this.ohlcvs[symbol], timeframe);
+        const symbolOhlcvs = this.safeDict(this.ohlcvs, symbol, {});
+        this.ohlcvs[symbol] = symbolOhlcvs;
+        let stored = this.safeValue(symbolOhlcvs, timeframe);
         if (stored === undefined) {
             const limit = this.safeInteger(this.options, 'OHLCVLimit', 1000);
             stored = new Cache.ArrayCacheByTimestamp(limit);
         }
         stored.append(parsed);
-        this.ohlcvs[symbol][timeframe] = stored;
+        if (symbol !== undefined && timeframe !== undefined) {
+            symbolOhlcvs[timeframe] = stored;
+        }
         client.resolve(stored, channel);
     }
     findTimeframe(timeframe, timeframes = undefined) {
-        timeframes = timeframes || this.timeframes;
-        const keys = Object.keys(timeframes);
+        const timeframesResolved = (timeframes === undefined) ? this.timeframes : timeframes;
+        if (timeframesResolved === undefined) {
+            throw new errors.ArgumentsRequired(this.id + ' findTimeframe() timeframes is required');
+        }
+        const keys = Object.keys(timeframesResolved);
         for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-            if (timeframes[key]['unit'] === timeframe['unit'] && timeframes[key]['period'] === timeframe['period']) {
+            const timeframeResolved = this.safeDict(timeframesResolved, key, {});
+            if (timeframeResolved['unit'] === timeframe['unit'] && timeframeResolved['period'] === timeframe['period']) {
                 return key;
             }
         }
@@ -1209,12 +1267,12 @@ class onetrading extends onetrading$1 {
         throw new errors.ExchangeError(this.id + ' ' + this.json(message));
     }
     handleMessage(client, message) {
-        const error = this.safeValue(message, 'error');
+        const error = this.safeString(message, 'error');
         if (error !== undefined) {
             this.handleErrorMessage(client, message);
             return;
         }
-        const type = this.safeValue(message, 'type');
+        const type = this.safeString(message, 'type');
         const handlers = {
             'ORDER_BOOK_UPDATE': this.handleOrderBook,
             'ORDER_BOOK_SNAPSHOT': this.handleOrderBook,
@@ -1285,17 +1343,21 @@ class onetrading extends onetrading$1 {
         let marketIds = [];
         const numSymbols = symbols.length;
         if (numSymbols === 0) {
-            marketIds = Object.keys(this.markets_by_id);
+            const marketsById = this.markets_by_id;
+            if (marketsById === undefined) {
+                return [];
+            }
+            marketIds = Object.keys(marketsById);
         }
         else {
             marketIds = this.marketIds(symbols);
         }
-        const url = this.urls['api']['ws'];
+        const url = this.safeString(this.urls['api'], 'ws');
         const client = this.safeValue(this.clients, url);
         let type = 'SUBSCRIBE';
         let subscription = {};
         if (client !== undefined) {
-            subscription = this.safeValue(client.subscriptions, subscriptionHash);
+            subscription = this.safeDict(client.subscriptions, subscriptionHash);
             if (subscription !== undefined) {
                 for (let i = 0; i < marketIds.length; i++) {
                     const marketId = marketIds[i];
@@ -1319,11 +1381,11 @@ class onetrading extends onetrading$1 {
         return await this.watch(url, messageHash, this.deepExtend(request, params), subscriptionHash, subscription);
     }
     async authenticate(params = {}) {
-        const url = this.urls['api']['ws'];
+        const url = this.safeString(this.urls['api'], 'ws');
         const client = this.client(url);
         const messageHash = 'authenticated';
-        const future = client.future('authenticated');
-        const authenticated = this.safeValue(client.subscriptions, messageHash);
+        const future = client.reusableFuture('authenticated');
+        const authenticated = this.safeDict(client.subscriptions, messageHash);
         if (authenticated === undefined) {
             this.checkRequiredCredentials();
             const request = {
@@ -1336,4 +1398,4 @@ class onetrading extends onetrading$1 {
     }
 }
 
-module.exports = onetrading;
+exports["default"] = onetrading;

@@ -6,17 +6,17 @@
 from ccxt.base.exchange import Exchange
 from ccxt.abstract.coinspot import ImplicitAPI
 import hashlib
-from ccxt.base.types import Balances, Int, Market, Num, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade
-from typing import List
+from ccxt.base.types import Balances, Int, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
+from ccxt.base.errors import NotSupported
 from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
 class coinspot(Exchange, ImplicitAPI):
 
-    def describe(self):
+    def describe(self) -> dict:
         return self.deep_extend(super(coinspot, self).describe(), {
             'id': 'coinspot',
             'name': 'CoinSpot',
@@ -31,33 +31,61 @@ class coinspot(Exchange, ImplicitAPI):
                 'future': False,
                 'option': False,
                 'addMargin': False,
+                'borrowCrossMargin': False,
+                'borrowIsolatedMargin': False,
+                'borrowMargin': False,
                 'cancelOrder': True,
                 'closeAllPositions': False,
                 'closePosition': False,
                 'createMarketOrder': False,
                 'createOrder': True,
+                'createOrderWithTakeProfitAndStopLoss': False,
+                'createOrderWithTakeProfitAndStopLossWs': False,
+                'createPostOnlyOrder': False,
                 'createReduceOnlyOrder': False,
                 'createStopLimitOrder': False,
                 'createStopMarketOrder': False,
                 'createStopOrder': False,
                 'fetchBalance': True,
+                'fetchBorrowInterest': False,
+                'fetchBorrowRate': False,
                 'fetchBorrowRateHistories': False,
                 'fetchBorrowRateHistory': False,
+                'fetchBorrowRates': False,
+                'fetchBorrowRatesPerSymbol': False,
                 'fetchCrossBorrowRate': False,
                 'fetchCrossBorrowRates': False,
                 'fetchFundingHistory': False,
+                'fetchFundingInterval': False,
+                'fetchFundingIntervals': False,
                 'fetchFundingRate': False,
                 'fetchFundingRateHistory': False,
                 'fetchFundingRates': False,
+                'fetchGreeks': False,
                 'fetchIndexOHLCV': False,
                 'fetchIsolatedBorrowRate': False,
                 'fetchIsolatedBorrowRates': False,
+                'fetchIsolatedPositions': False,
                 'fetchLeverage': False,
+                'fetchLeverages': False,
                 'fetchLeverageTiers': False,
+                'fetchLiquidations': False,
+                'fetchLongShortRatio': False,
+                'fetchLongShortRatioHistory': False,
+                'fetchMarginAdjustmentHistory': False,
                 'fetchMarginMode': False,
+                'fetchMarginModes': False,
+                'fetchMarketLeverageTiers': False,
                 'fetchMarkOHLCV': False,
+                'fetchMarkPrices': False,
+                'fetchMyLiquidations': False,
+                'fetchMySettlementHistory': False,
                 'fetchMyTrades': True,
+                'fetchOpenInterest': False,
                 'fetchOpenInterestHistory': False,
+                'fetchOpenInterests': False,
+                'fetchOption': False,
+                'fetchOptionChain': False,
                 'fetchOrderBook': True,
                 'fetchPosition': False,
                 'fetchPositionHistory': False,
@@ -67,13 +95,19 @@ class coinspot(Exchange, ImplicitAPI):
                 'fetchPositionsHistory': False,
                 'fetchPositionsRisk': False,
                 'fetchPremiumIndexOHLCV': False,
+                'fetchSettlementHistory': False,
                 'fetchTicker': True,
                 'fetchTickers': True,
                 'fetchTrades': True,
                 'fetchTradingFee': False,
                 'fetchTradingFees': False,
+                'fetchVolatilityHistory': False,
                 'reduceMargin': False,
+                'repayCrossMargin': False,
+                'repayIsolatedMargin': False,
+                'repayMargin': False,
                 'setLeverage': False,
+                'setMargin': False,
                 'setMarginMode': False,
                 'setPositionMode': False,
                 'ws': False,
@@ -90,97 +124,218 @@ class coinspot(Exchange, ImplicitAPI):
             },
             'api': {
                 'public': {
-                    'get': [
-                        'latest',
-                    ],
+                    'get': {
+                        'latest': {'cost': 1},
+                    },
                 },
                 'private': {
-                    'post': [
-                        'orders',
-                        'orders/history',
-                        'my/coin/deposit',
-                        'my/coin/send',
-                        'quote/buy',
-                        'quote/sell',
-                        'my/balances',
-                        'my/orders',
-                        'my/buy',
-                        'my/sell',
-                        'my/buy/cancel',
-                        'my/sell/cancel',
-                        'ro/my/balances',
-                        'ro/my/balances/{cointype}',
-                        'ro/my/deposits',
-                        'ro/my/withdrawals',
-                        'ro/my/transactions',
-                        'ro/my/transactions/{cointype}',
-                        'ro/my/transactions/open',
-                        'ro/my/transactions/{cointype}/open',
-                        'ro/my/sendreceive',
-                        'ro/my/affiliatepayments',
-                        'ro/my/referralpayments',
-                    ],
+                    'post': {
+                        'orders': {'cost': 1},
+                        'orders/history': {'cost': 1},
+                        'my/coin/deposit': {'cost': 1},
+                        'my/coin/send': {'cost': 1},
+                        'quote/buy': {'cost': 1},
+                        'quote/sell': {'cost': 1},
+                        'my/balances': {'cost': 1},
+                        'my/orders': {'cost': 1},
+                        'my/buy': {'cost': 1},
+                        'my/sell': {'cost': 1},
+                        'my/buy/cancel': {'cost': 1},
+                        'my/sell/cancel': {'cost': 1},
+                        'ro/my/balances': {'cost': 1},
+                        'ro/my/balances/{cointype}': {'cost': 1},
+                        'ro/my/deposits': {'cost': 1},
+                        'ro/my/withdrawals': {'cost': 1},
+                        'ro/my/transactions': {'cost': 1},
+                        'ro/my/transactions/{cointype}': {'cost': 1},
+                        'ro/my/transactions/open': {'cost': 1},
+                        'ro/my/transactions/{cointype}/open': {'cost': 1},
+                        'ro/my/sendreceive': {'cost': 1},
+                        'ro/my/affiliatepayments': {'cost': 1},
+                        'ro/my/referralpayments': {'cost': 1},
+                    },
+                },
+                'v2': {
+                    'public': {
+                        'get': {
+                            'latest': {'cost': 1},
+                            'latest/{cointype}': {'cost': 1},
+                            'latest/{cointype}/{markettype}': {'cost': 1},
+                            'buyprice/{cointype}': {'cost': 1},
+                            'buyprice/{cointype}/{markettype}': {'cost': 1},
+                            'sellprice/{cointype}': {'cost': 1},
+                            'sellprice/{cointype}/{markettype}': {'cost': 1},
+                            'orders/open/{cointype}': {'cost': 1},
+                            'orders/open/{cointype}/{markettype}': {'cost': 1},
+                            'orders/completed/{cointype}': {'cost': 1},
+                            'orders/completed/{cointype}/{markettype}': {'cost': 1},
+                            'orders/summary/completed/{cointype}': {'cost': 1},
+                            'orders/summary/completed/{cointype}/{markettype}': {'cost': 1},
+                        },
+                    },
+                    'private': {
+                        'post': {
+                            'status': {'cost': 1},
+                            'my/coin/deposit': {'cost': 1},
+                            'quote/buy/now': {'cost': 1},
+                            'quote/sell/now': {'cost': 1},
+                            'quote/swap/now': {'cost': 1},
+                            'my/buy': {'cost': 1},
+                            'my/buy/edit': {'cost': 1},
+                            'my/sell': {'cost': 1},
+                            'my/sell/edit': {'cost': 1},
+                            'my/buy/now': {'cost': 1},
+                            'my/buy/now/coinlist': {'cost': 1},
+                            'my/sell/now': {'cost': 1},
+                            'my/sell/now/coinlist': {'cost': 1},
+                            'my/swap/now': {'cost': 1},
+                            'my/buy/cancel': {'cost': 1},
+                            'my/buy/cancel/all': {'cost': 1},
+                            'my/sell/cancel': {'cost': 1},
+                            'my/sell/cancel/all': {'cost': 1},
+                            'my/coin/withdraw/senddetails': {'cost': 1},
+                            'my/coin/withdraw/send': {'cost': 1},
+                            'my/coin/withdraw/send/async': {'cost': 1},
+                            'my/coin/withdraw/send/status': {'cost': 1},
+                            'ro/status': {'cost': 1},
+                            'ro/orders/market/open': {'cost': 1},
+                            'ro/orders/market/completed': {'cost': 1},
+                            'ro/my/balances': {'cost': 1},
+                            'ro/my/balance/{cointype}': {'cost': 1},
+                            'ro/my/orders/market/open': {'cost': 1},
+                            'ro/my/orders/limit/open': {'cost': 1},
+                            'ro/my/orders/completed': {'cost': 1},
+                            'ro/my/orders/market/completed': {'cost': 1},
+                            'ro/my/sendreceive': {'cost': 1},
+                            'ro/my/deposits': {'cost': 1},
+                            'ro/my/withdrawals': {'cost': 1},
+                            'ro/my/affiliatepayments': {'cost': 1},
+                            'ro/my/referralpayments': {'cost': 1},
+                        },
+                    },
                 },
             },
             'markets': {
-                'ADA/AUD': self.safe_market_structure({'id': 'ada', 'symbol': 'ADA/AUD', 'base': 'ADA', 'quote': 'AUD', 'baseId': 'ada', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
                 'BTC/AUD': self.safe_market_structure({'id': 'btc', 'symbol': 'BTC/AUD', 'base': 'BTC', 'quote': 'AUD', 'baseId': 'btc', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'BTC/USDT': self.safe_market_structure({'id': 'btc', 'symbol': 'BTC/USDT', 'base': 'BTC', 'quote': 'USDT', 'baseId': 'btc', 'quoteId': 'usdt', 'type': 'spot', 'spot': True}),
+                'USDT/AUD': self.safe_market_structure({'id': 'usdt', 'symbol': 'USDT/AUD', 'base': 'USDT', 'quote': 'AUD', 'baseId': 'usdt', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
                 'ETH/AUD': self.safe_market_structure({'id': 'eth', 'symbol': 'ETH/AUD', 'base': 'ETH', 'quote': 'AUD', 'baseId': 'eth', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'ADA/AUD': self.safe_market_structure({'id': 'ada', 'symbol': 'ADA/AUD', 'base': 'ADA', 'quote': 'AUD', 'baseId': 'ada', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'SOL/AUD': self.safe_market_structure({'id': 'sol', 'symbol': 'SOL/AUD', 'base': 'SOL', 'quote': 'AUD', 'baseId': 'sol', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
                 'XRP/AUD': self.safe_market_structure({'id': 'xrp', 'symbol': 'XRP/AUD', 'base': 'XRP', 'quote': 'AUD', 'baseId': 'xrp', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
-                'LTC/AUD': self.safe_market_structure({'id': 'ltc', 'symbol': 'LTC/AUD', 'base': 'LTC', 'quote': 'AUD', 'baseId': 'ltc', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
                 'DOGE/AUD': self.safe_market_structure({'id': 'doge', 'symbol': 'DOGE/AUD', 'base': 'DOGE', 'quote': 'AUD', 'baseId': 'doge', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
-                'RFOX/AUD': self.safe_market_structure({'id': 'rfox', 'symbol': 'RFOX/AUD', 'base': 'RFOX', 'quote': 'AUD', 'baseId': 'rfox', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
-                'POWR/AUD': self.safe_market_structure({'id': 'powr', 'symbol': 'POWR/AUD', 'base': 'POWR', 'quote': 'AUD', 'baseId': 'powr', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
-                'NEO/AUD': self.safe_market_structure({'id': 'neo', 'symbol': 'NEO/AUD', 'base': 'NEO', 'quote': 'AUD', 'baseId': 'neo', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'LTC/AUD': self.safe_market_structure({'id': 'ltc', 'symbol': 'LTC/AUD', 'base': 'LTC', 'quote': 'AUD', 'baseId': 'ltc', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'XLM/AUD': self.safe_market_structure({'id': 'xlm', 'symbol': 'XLM/AUD', 'base': 'XLM', 'quote': 'AUD', 'baseId': 'xlm', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
                 'TRX/AUD': self.safe_market_structure({'id': 'trx', 'symbol': 'TRX/AUD', 'base': 'TRX', 'quote': 'AUD', 'baseId': 'trx', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
                 'EOS/AUD': self.safe_market_structure({'id': 'eos', 'symbol': 'EOS/AUD', 'base': 'EOS', 'quote': 'AUD', 'baseId': 'eos', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
-                'XLM/AUD': self.safe_market_structure({'id': 'xlm', 'symbol': 'XLM/AUD', 'base': 'XLM', 'quote': 'AUD', 'baseId': 'xlm', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
-                'RHOC/AUD': self.safe_market_structure({'id': 'rhoc', 'symbol': 'RHOC/AUD', 'base': 'RHOC', 'quote': 'AUD', 'baseId': 'rhoc', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'A/AUD': self.safe_market_structure({'id': 'eos', 'symbol': 'A/AUD', 'base': 'A', 'quote': 'AUD', 'baseId': 'eos', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'NEO/AUD': self.safe_market_structure({'id': 'neo', 'symbol': 'NEO/AUD', 'base': 'NEO', 'quote': 'AUD', 'baseId': 'ans', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'POWR/AUD': self.safe_market_structure({'id': 'powr', 'symbol': 'POWR/AUD', 'base': 'POWR', 'quote': 'AUD', 'baseId': 'powr', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
                 'GAS/AUD': self.safe_market_structure({'id': 'gas', 'symbol': 'GAS/AUD', 'base': 'GAS', 'quote': 'AUD', 'baseId': 'gas', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
+                'RHOC/AUD': self.safe_market_structure({'id': 'rhoc', 'symbol': 'RHOC/AUD', 'base': 'RHOC', 'quote': 'AUD', 'baseId': 'rhoc', 'quoteId': 'aud', 'type': 'spot', 'spot': True}),
             },
             'commonCurrencies': {
                 'DRK': 'DASH',
             },
             'options': {
-                'fetchBalance': 'private_post_my_balances',
+                'fetchBalance': 'privatePostMyBalances',
+            },
+            'features': {
+                'spot': {
+                    'sandbox': False,
+                    'createOrder': {
+                        'marginMode': False,
+                        'triggerPrice': False,
+                        'triggerPriceType': None,
+                        'triggerDirection': False,
+                        'stopLossPrice': False,
+                        'takeProfitPrice': False,
+                        'attachedStopLossTakeProfit': None,
+                        'timeInForce': {
+                            'IOC': False,
+                            'FOK': False,
+                            'PO': False,
+                            'GTD': False,
+                        },
+                        'hedged': False,
+                        'trailing': False,
+                        'leverage': False,
+                        'marketBuyByCost': False,
+                        'marketBuyRequiresPrice': False,
+                        'selfTradePrevention': False,
+                        'iceberg': False,
+                    },
+                    'createOrders': None,
+                    'fetchMyTrades': {
+                        'marginMode': False,
+                        'limit': None,
+                        'daysBack': 100000,
+                        'untilDays': 100000,  # todo implement
+                        'symbolRequired': False,
+                    },
+                    'fetchOrder': None,
+                    'fetchOpenOrders': None,  # todo implement
+                    'fetchOrders': None,
+                    'fetchClosedOrders': None,  # todo implement
+                    'fetchOHLCV': None,
+                },
+                'swap': {
+                    'linear': None,
+                    'inverse': None,
+                },
+                'future': {
+                    'linear': None,
+                    'inverse': None,
+                },
             },
             'precisionMode': TICK_SIZE,
         })
 
-    def parse_balance(self, response) -> Balances:
-        result: dict = {'info': response}
+    def parse_balance(self, response: dict) -> Balances:
+        result = {'info': response}
         balances = self.safe_value_2(response, 'balance', 'balances')
         if isinstance(balances, list):
-            for i in range(0, len(balances)):
-                currencies = balances[i]
-                currencyIds = list(currencies.keys())
-                for j in range(0, len(currencyIds)):
-                    currencyId = currencyIds[j]
-                    balance = currencies[currencyId]
+            rows = self.to_array(balances)
+            numRows = len(rows)
+            for i in range(0, numRows):
+                currencies = self.safe_dict(rows, i, {})
+                currencyIdsList = list(currencies.keys())
+                for j in range(0, len(currencyIdsList)):
+                    currencyId = currencyIdsList[j]
+                    balance = self.safe_dict(currencies, currencyId)
                     code = self.safe_currency_code(currencyId)
                     account = self.account()
                     account['total'] = self.safe_string(balance, 'balance')
-                    result[code] = account
+                    if code is not None:
+                        result[code] = account
         else:
-            currencyIds = list(balances.keys())
-            for i in range(0, len(currencyIds)):
-                currencyId = currencyIds[i]
+            currencyIdsMap = list(balances.keys())
+            for i in range(0, len(currencyIdsMap)):
+                currencyId = currencyIdsMap[i]
                 code = self.safe_currency_code(currencyId)
                 account = self.account()
                 account['total'] = self.safe_string(balances, currencyId)
-                result[code] = account
+                if code is not None:
+                    result[code] = account
         return self.safe_balance(result)
 
-    def fetch_balance(self, params={}) -> Balances:
+    def fetch_balance(self, params: dict = {}) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
-        :see: https://www.coinspot.com.au/api#listmybalance
+
+        https://www.coinspot.com.au/api#listmybalance
+
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `balance structure <https://docs.ccxt.com/#/?id=balance-structure>`
+        :returns dict: a `balance structure <https://docs.ccxt.com/?id=balance-structure>`
         """
-        self.load_markets()
-        method = self.safe_string(self.options, 'fetchBalance', 'private_post_my_balances')
-        response = getattr(self, method)(params)
+        if self.markets is None:
+            self.load_markets()
+        method = self.safe_string(self.options, 'fetchBalance', 'privatePostMyBalances')
+        response = None
+        if (method == 'private_post_ro_my_balances') or (method == 'privatePostRoMyBalances'):
+            response = self.privatePostRoMyBalances(params)
+        else:
+            response = self.privatePostMyBalances(params)
         #
         # read-write api keys
         #
@@ -199,18 +354,21 @@ class coinspot(Exchange, ImplicitAPI):
         #
         return self.parse_balance(response)
 
-    def fetch_order_book(self, symbol: str, limit: Int = None, params={}) -> OrderBook:
+    def fetch_order_book(self, symbol: str, limit: Int = None, params: dict = {}) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
-        :see: https://www.coinspot.com.au/api#listopenorders
+
+        https://www.coinspot.com.au/api#listopenorders
+
         :param str symbol: unified symbol of the market to fetch the order book for
         :param int [limit]: the maximum amount of order book entries to return
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: A dictionary of `order book structures <https://docs.ccxt.com/#/?id=order-book-structure>` indexed by market symbols
+        :returns dict: an `order book structure <https://docs.ccxt.com/?id=order-book-structure>`
         """
-        self.load_markets()
+        if self.markets is None:
+            self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'cointype': market['id'],
         }
         orderbook = self.privatePostOrders(self.extend(request, params))
@@ -251,20 +409,23 @@ class coinspot(Exchange, ImplicitAPI):
             'info': ticker,
         }, market)
 
-    def fetch_ticker(self, symbol: str, params={}) -> Ticker:
+    def fetch_ticker(self, symbol: str, params: dict = {}) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-        :see: https://www.coinspot.com.au/api#latestprices
+
+        https://www.coinspot.com.au/api#latestprices
+
         :param str symbol: unified symbol of the market to fetch the ticker for
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `ticker structure <https://docs.ccxt.com/#/?id=ticker-structure>`
+        :returns dict: a `ticker structure <https://docs.ccxt.com/?id=ticker-structure>`
         """
-        self.load_markets()
+        if self.markets is None:
+            self.load_markets()
         market = self.market(symbol)
         response = self.publicGetLatest(params)
-        id = market['id']
+        id = self.safe_string(market, 'id', '')
         id = id.lower()
-        prices = self.safe_value(response, 'prices')
+        prices = self.safe_dict(response, 'prices', {})
         #
         #     {
         #         "status":"ok",
@@ -277,61 +438,67 @@ class coinspot(Exchange, ImplicitAPI):
         #         }
         #     }
         #
-        ticker = self.safe_dict(prices, id)
+        ticker = self.safe_dict(prices, id, {})
         return self.parse_ticker(ticker, market)
 
-    def fetch_tickers(self, symbols: Strings = None, params={}) -> Tickers:
+    def fetch_tickers(self, symbols: Strings = None, params: dict = {}) -> Tickers:
         """
         fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-        :see: https://www.coinspot.com.au/api#latestprices
+
+        https://www.coinspot.com.au/api#latestprices
+
         :param str[]|None symbols: unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a dictionary of `ticker structures <https://docs.ccxt.com/#/?id=ticker-structure>`
+        :returns dict: a dictionary of `ticker structures <https://docs.ccxt.com/?id=ticker-structure>`
         """
-        self.load_markets()
+        if self.markets is None:
+            self.load_markets()
         response = self.publicGetLatest(params)
         #
         #    {
         #        "status": "ok",
-        #        "prices": {
-        #        "btc": {
-        #        "bid": "25050",
-        #        "ask": "25370",
-        #        "last": "25234"
-        #        },
-        #        "ltc": {
-        #        "bid": "79.39192993",
-        #        "ask": "87.98",
-        #        "last": "87.95"
+        #        "prices":   {
+        #            "btc":   {
+        #                "bid": "25050",
+        #                "ask": "25370",
+        #                "last": "25234"
+        #            },
+        #            "ltc":   {
+        #                "bid": "79.39192993",
+        #                "ask": "87.98",
+        #                "last": "87.95"
+        #            }
         #        }
-        #      }
         #    }
         #
-        result: dict = {}
-        prices = self.safe_value(response, 'prices')
+        result = {}
+        prices = self.safe_dict(response, 'prices', {})
         ids = list(prices.keys())
         for i in range(0, len(ids)):
             id = ids[i]
             market = self.safe_market(id)
-            if market['spot']:
+            if self.safe_bool(market, 'spot', False):
                 symbol = market['symbol']
                 ticker = prices[id]
                 result[symbol] = self.parse_ticker(ticker, market)
         return self.filter_by_array_tickers(result, 'symbol', symbols)
 
-    def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
+    def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
-        :see: https://www.coinspot.com.au/api#orderhistory
+
+        https://www.coinspot.com.au/api#orderhistory
+
         :param str symbol: unified symbol of the market to fetch trades for
         :param int [since]: timestamp in ms of the earliest trade to fetch
         :param int [limit]: the maximum amount of trades to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/#/?id=public-trades>`
+        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/?id=public-trades>`
         """
-        self.load_markets()
+        if self.markets is None:
+            self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'cointype': market['id'],
         }
         response = self.privatePostOrdersHistory(self.extend(request, params))
@@ -346,18 +513,21 @@ class coinspot(Exchange, ImplicitAPI):
         trades = self.safe_list(response, 'orders', [])
         return self.parse_trades(trades, market, since, limit)
 
-    def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}):
+    def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         fetch all trades made by the user
-        :see: https://www.coinspot.com.au/api#rotransaction
+
+        https://www.coinspot.com.au/api#rotransaction
+
         :param str symbol: unified market symbol
         :param int [since]: the earliest time in ms to fetch trades for
         :param int [limit]: the maximum number of trades structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/#/?id=trade-structure>`
+        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/?id=trade-structure>`
         """
-        self.load_markets()
-        request: dict = {}
+        if self.markets is None:
+            self.load_markets()
+        request = {}
         market = None
         if symbol is not None:
             market = self.market(symbol)
@@ -365,35 +535,35 @@ class coinspot(Exchange, ImplicitAPI):
             request['startdate'] = self.yyyymmdd(since)
         response = self.privatePostRoMyTransactions(self.extend(request, params))
         #  {
-        #   "status": "ok",
-        #   "buyorders": [
-        #     {
-        #       "otc": False,
-        #       "market": "ALGO/AUD",
-        #       "amount": 386.95197925,
-        #       "created": "2022-10-20T09:56:44.502Z",
-        #       "audfeeExGst": 1.80018002,
-        #       "audGst": 0.180018,
-        #       "audtotal": 200
-        #     },
-        #   ],
-        #   "sellorders": [
-        #     {
-        #       "otc": False,
-        #       "market": "SOLO/ALGO",
-        #       "amount": 154.52345614,
-        #       "total": 115.78858204658796,
-        #       "created": "2022-04-16T09:36:43.698Z",
-        #       "audfeeExGst": 1.08995731,
-        #       "audGst": 0.10899573,
-        #       "audtotal": 118.7
-        #     },
-        #   ]
+        #      "status": "ok",
+        #      "buyorders": [
+        #          {
+        #              "otc": false,
+        #              "market": "ALGO/AUD",
+        #              "amount": 386.95197925,
+        #              "created": "2022-10-20T09:56:44.502Z",
+        #              "audfeeExGst": 1.80018002,
+        #              "audGst": 0.180018,
+        #              "audtotal": 200
+        #          },
+        #      ],
+        #      "sellorders": [
+        #          {
+        #              "otc": false,
+        #              "market": "SOLO/ALGO",
+        #              "amount": 154.52345614,
+        #              "total": 115.78858204658796,
+        #              "created": "2022-04-16T09:36:43.698Z",
+        #              "audfeeExGst": 1.08995731,
+        #              "audGst": 0.10899573,
+        #              "audtotal": 118.7
+        #          },
+        #      ]
         # }
-        buyTrades = self.safe_value(response, 'buyorders', [])
+        buyTrades = self.safe_list(response, 'buyorders', [])
         for i in range(0, len(buyTrades)):
             buyTrades[i]['side'] = 'buy'
-        sellTrades = self.safe_value(response, 'sellorders', [])
+        sellTrades = self.safe_list(response, 'sellorders', [])
         for i in range(0, len(sellTrades)):
             sellTrades[i]['side'] = 'sell'
         trades = self.array_concat(buyTrades, sellTrades)
@@ -414,7 +584,7 @@ class coinspot(Exchange, ImplicitAPI):
         #
         # private fetchMyTrades
         #     {
-        #       "otc": False,
+        #       "otc": false,
         #       "market": "ALGO/AUD",
         #       "amount": 386.95197925,
         #       "created": "2022-10-20T09:56:44.502Z",
@@ -467,59 +637,114 @@ class coinspot(Exchange, ImplicitAPI):
             'fee': fee,
         }, market)
 
-    def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}):
+    def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params: dict = {}) -> Order:
         """
         create a trade order
-        :see: https://www.coinspot.com.au/api#placebuyorder
+
+        https://www.coinspot.com.au/api#placebuyorder
+
         :param str symbol: unified symbol of the market to create an order in
         :param str type: must be 'limit'
         :param str side: 'buy' or 'sell'
         :param float amount: how much of currency you want to trade in units of base currency
-        :param float [price]: the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
+        :param float [price]: the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns dict: an `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
-        self.load_markets()
-        method = 'privatePostMy' + self.capitalize(side)
+        if self.markets is None:
+            self.load_markets()
+        self.check_required_argument('createOrder', side, 'side')
+        sideUpper = side.upper()
         if type == 'market':
             raise ExchangeError(self.id + ' createOrder() allows limit orders only')
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'cointype': market['id'],
             'amount': amount,
             'rate': price,
         }
-        return getattr(self, method)(self.extend(request, params))
+        response: dict
+        if sideUpper == 'BUY':
+            response = self.privatePostMyBuy(self.extend(request, params))
+        elif sideUpper == 'SELL':
+            response = self.privatePostMySell(self.extend(request, params))
+        else:
+            raise NotSupported(self.id + ' createOrder only support buy/sell side')
+        #
+        # status - ok, error
+        #
+        return self.safe_order({
+            'info': response,
+        })
 
-    def cancel_order(self, id: str, symbol: Str = None, params={}):
+    def cancel_order(self, id: str, symbol: Str = None, params: dict = {}) -> Order:
         """
         cancels an open order
-        :see: https://www.coinspot.com.au/api#cancelbuyorder
-        :see: https://www.coinspot.com.au/api#cancelsellorder
+
+        https://www.coinspot.com.au/api#cancelbuyorder
+        https://www.coinspot.com.au/api#cancelsellorder
+
         :param str id: order id
-        :param str symbol: not used by coinspot cancelOrder()
+        :param str symbol: not used by cancelOrder()
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: An `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns dict: An `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
         side = self.safe_string(params, 'side')
         if side != 'buy' and side != 'sell':
             raise ArgumentsRequired(self.id + ' cancelOrder() requires a side parameter, "buy" or "sell"')
-        params = self.omit(params, 'side')
-        method = 'privatePostMy' + self.capitalize(side) + 'Cancel'
-        request: dict = {
+        paramsOmitted = self.omit(params, 'side')
+        request = {
             'id': id,
         }
-        return getattr(self, method)(self.extend(request, params))
+        response: dict
+        if side == 'buy':
+            response = self.privatePostMyBuyCancel(self.extend(request, paramsOmitted))
+        else:
+            response = self.privatePostMySellCancel(self.extend(request, paramsOmitted))
+        #
+        # status - ok, error
+        #
+        return self.safe_order({
+            'info': response,
+        })
 
-    def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
-        url = self.urls['api'][api] + '/' + path
-        if api == 'private':
+    def handle_errors(self, code: int, reason: str, url: str, method: str, headers: dict, body: str, response: object, requestHeaders: dict, requestBody: Str):
+        if response is None:
+            return None  # fallback to default error handler
+        status = self.safe_string(response, 'status')
+        if status == 'error':
+            feedback = self.id + ' ' + self.json(response)
+            raise ExchangeError(feedback)
+        return None
+
+    def nonce(self) -> int:
+        # the venue accepts any strictly-increasing integer, so use milliseconds: with the second-resolution base nonce a burst of N calls would leave incrementingNonce N seconds ahead of the clock
+        return self.milliseconds()
+
+    def sign(self, path: str, api: list[str] = ['public'], method: str = 'GET', params: dict = {}) -> dict:
+        requestHeaders = None
+        requestBody = None
+        apiLength = len(api)
+        isVersionedApi = apiLength > 1
+        accessType = api[0]
+        if isVersionedApi:
+            accessType = api[1]
+        endpoint = '/' + self.implode_params(path, params)
+        fullPath = endpoint
+        if isVersionedApi:
+            fullPath = '/' + api[0] + endpoint
+        apiUrl = self.safe_string(self.urls['api'], accessType)
+        if apiUrl is None:
+            raise ExchangeError(self.id + ' sign() has no API URL for self endpoint')
+        url = apiUrl + fullPath
+        if accessType == 'private':
             self.check_required_credentials()
-            nonce = self.nonce()
-            body = self.json(self.extend({'nonce': nonce}, params))
-            headers = {
+            # coinspot requires an increasing nonce
+            nonce = self.incrementing_nonce()
+            requestBody = self.json(self.extend({'nonce': nonce}, params))
+            requestHeaders = {
                 'Content-Type': 'application/json',
                 'key': self.apiKey,
-                'sign': self.hmac(self.encode(body), self.encode(self.secret), hashlib.sha512),
+                'sign': self.hmac(self.encode(requestBody), self.encode(self.secret), hashlib.sha512),
             }
-        return {'url': url, 'method': method, 'body': body, 'headers': headers}
+        return {'url': url, 'method': method, 'body': requestBody, 'headers': requestHeaders}

@@ -6,29 +6,35 @@
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.blofin import ImplicitAPI
 import hashlib
-from ccxt.base.types import Balances, Currency, Int, Leverage, Leverages, MarginMode, Market, Num, Order, OrderBook, OrderRequest, OrderSide, OrderType, Position, Str, Strings, Ticker, Tickers, Trade, TradingFeeInterface, Transaction, TransferEntry
-from typing import List
+from ccxt.base.types import ADL, Balances, Currencies, Currency, CurrencyInterface, DepositAddress, Int, LedgerEntry, Leverage, Leverages, MarginMode, Market, Num, Order, OrderBook, OrderRequest, OrderSide, OrderType, Position, PositionModeInfo, Str, Strings, Ticker, Tickers, FundingRate, Trade, TradingFeeInterface, DepositWithdrawFees, Transaction, FundingRateHistory, TransferEntry
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
+from ccxt.base.errors import PermissionDenied
 from ccxt.base.errors import ArgumentsRequired
 from ccxt.base.errors import BadRequest
 from ccxt.base.errors import InsufficientFunds
+from ccxt.base.errors import InvalidAddress
 from ccxt.base.errors import InvalidOrder
+from ccxt.base.errors import OrderNotFound
+from ccxt.base.errors import DuplicateOrderId
 from ccxt.base.errors import RateLimitExceeded
 from ccxt.base.errors import ExchangeNotAvailable
+from ccxt.base.errors import InvalidNonce
+from ccxt.base.errors import NullResponse
 from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
 class blofin(Exchange, ImplicitAPI):
 
-    def describe(self):
+    def describe(self) -> dict:
         return self.deep_extend(super(blofin, self).describe(), {
             'id': 'blofin',
             'name': 'BloFin',
-            'countries': ['US'],
+            'countries': ['MH'],  # Marshall Islands
             'version': 'v1',
-            'rateLimit': 100,
+            'rateLimit': 200,  # 1500 requests per 5 minutes per IP is the binding budget => 200ms per request (500/min allows 120ms, but 1500/5min does not)
+            'pro': True,
             'has': {
                 'CORS': None,
                 'spot': False,
@@ -56,6 +62,7 @@ class blofin(Exchange, ImplicitAPI):
                 'createStopMarketOrder': False,
                 'createStopOrder': False,
                 'createTakeProfitOrder': True,
+                'createTriggerOrder': True,
                 'editOrder': False,
                 'fetchAccounts': False,
                 'fetchBalance': True,
@@ -65,18 +72,18 @@ class blofin(Exchange, ImplicitAPI):
                 'fetchBorrowRateHistory': False,
                 'fetchCanceledOrders': False,
                 'fetchClosedOrder': False,
-                'fetchClosedOrders': False,
+                'fetchClosedOrders': True,
                 'fetchCrossBorrowRate': False,
                 'fetchCrossBorrowRates': False,
-                'fetchCurrencies': False,
-                'fetchDeposit': False,
-                'fetchDepositAddress': False,
+                'fetchCurrencies': True,
+                'fetchDeposit': True,
+                'fetchDepositAddress': True,
                 'fetchDepositAddresses': False,
                 'fetchDepositAddressesByNetwork': False,
                 'fetchDeposits': True,
                 'fetchDepositsWithdrawals': False,
                 'fetchDepositWithdrawFee': 'emulated',
-                'fetchDepositWithdrawFees': False,
+                'fetchDepositWithdrawFees': True,
                 'fetchFundingHistory': True,
                 'fetchFundingRate': True,
                 'fetchFundingRateHistory': True,
@@ -108,10 +115,13 @@ class blofin(Exchange, ImplicitAPI):
                 'fetchOrderBooks': False,
                 'fetchOrders': False,
                 'fetchOrderTrades': True,
-                'fetchPermissions': None,
                 'fetchPosition': True,
+                'fetchPositionADLRank': True,
+                'fetchPositionMode': True,
                 'fetchPositions': True,
+                'fetchPositionsADLRank': True,
                 'fetchPositionsForSymbol': False,
+                'fetchPositionsHistory': True,
                 'fetchPositionsRisk': False,
                 'fetchPremiumIndexOHLCV': False,
                 'fetchSettlementHistory': False,
@@ -130,18 +140,18 @@ class blofin(Exchange, ImplicitAPI):
                 'fetchTransfers': False,
                 'fetchUnderlyingAssets': False,
                 'fetchVolatilityHistory': False,
-                'fetchWithdrawal': False,
+                'fetchWithdrawal': True,
                 'fetchWithdrawals': True,
                 'fetchWithdrawalWhitelist': False,
                 'reduceMargin': False,
                 'repayCrossMargin': False,
                 'setLeverage': True,
                 'setMargin': False,
-                'setMarginMode': False,
-                'setPositionMode': False,
+                'setMarginMode': True,
+                'setPositionMode': True,
                 'signIn': False,
                 'transfer': True,
-                'withdraw': False,
+                'withdraw': True,
             },
             'timeframes': {
                 '1m': '1m',
@@ -153,20 +163,23 @@ class blofin(Exchange, ImplicitAPI):
                 '2h': '2H',
                 '4h': '4H',
                 '6h': '6H',
+                '8h': '8H',
                 '12h': '12H',
                 '1d': '1D',
+                '3d': '3D',
                 '1w': '1W',
                 '1M': '1M',
-                '3M': '3M',
             },
-            'hostname': 'www.blofin.com',
             'urls': {
-                'logo': 'https://github.com/ccxt/ccxt/assets/43336371/255a7b29-341f-4d20-8342-fbfae4932807',
+                'logo': 'https://github.com/user-attachments/assets/67edf117-6217-4cb8-95e7-9b03f314b1b1',
                 'api': {
                     'rest': 'https://openapi.blofin.com',
                 },
+                'test': {
+                    'rest': 'https://demo-trading-openapi.blofin.com',
+                },
                 'referral': {
-                    'url': 'https://blofin.com/register?referral_code=jBd8U1',
+                    'url': 'https://blofin.com/register?referral_code=f79EsS',
                     'discount': 0.05,
                 },
                 'www': 'https://www.blofin.com',
@@ -175,45 +188,128 @@ class blofin(Exchange, ImplicitAPI):
             'api': {
                 'public': {
                     'get': {
-                        'market/instruments': 1,
-                        'market/tickers': 1,
-                        'market/books': 1,
-                        'market/trades': 1,
-                        'market/candles': 1,
-                        'market/mark-price': 1,
-                        'market/funding-rate': 1,
-                        'market/funding-rate-history': 1,
+                        'market/instruments': {'cost': 1},
+                        'market/instruments-history': {'cost': 1},
+                        'market/tickers': {'cost': 1},
+                        'market/books': {'cost': 1},
+                        'market/trades': {'cost': 1},
+                        'market/mark-price': {'cost': 1},
+                        'market/funding-rate': {'cost': 1},
+                        'market/funding-rate-history': {'cost': 1},
+                        'market/candles': {'cost': 1},
+                        'market/index-candles': {'cost': 1},
+                        'market/mark-price-candles': {'cost': 1},
+                        'market/position-tiers': {'cost': 1},
+                        # spot
+                        'spot/market/instruments': {'cost': 1},
+                        'spot/market/tickers': {'cost': 1},
+                        'spot/market/books': {'cost': 1},
+                        'spot/market/trades': {'cost': 1},
+                        'spot/market/candles': {'cost': 1},
                     },
                 },
                 'private': {
                     'get': {
-                        'asset/balances': 1,
-                        'trade/orders-pending': 1,
-                        'trade/fills-history': 1,
-                        'asset/deposit-history': 1,
-                        'asset/withdrawal-history': 1,
-                        'asset/bills': 1,
-                        'account/balance': 1,
-                        'account/positions': 1,
-                        'account/leverage-info': 1,
-                        'account/margin-mode': 1,
-                        'account/batch-leverage-info': 1,
-                        'trade/orders-tpsl-pending': 1,
-                        'trade/orders-history': 1,
-                        'trade/orders-tpsl-history': 1,
-                        'user/query-apikey': 1,
-                        'affiliate/basic': 1,
+                        # account
+                        'asset/balances': {'cost': 1},
+                        'asset/bills': {'cost': 1},
+                        'asset/withdrawal-history': {'cost': 1},
+                        'asset/deposit-history': {'cost': 1},
+                        'asset/deposit-address': {'cost': 1},
+                        'account/config': {'cost': 1},
+                        'asset/currencies': {'cost': 1},
+                        # trading
+                        'account/balance': {'cost': 1},
+                        'account/positions': {'cost': 1},
+                        'account/positions-history': {'cost': 1},
+                        'account/funding-fees': {'cost': 1},
+                        'account/margin-mode': {'cost': 1},
+                        'account/position-mode': {'cost': 1},
+                        'account/leverage-info': {'cost': 1},
+                        'account/batch-leverage-info': {'cost': 1},
+                        'trade/orders-pending': {'cost': 1.67},
+                        'trade/order-detail': {'cost': 1.67},
+                        'trade/orders-tpsl-pending': {'cost': 1.67},
+                        'trade/order-tpsl-detail': {'cost': 1.67},
+                        'trade/orders-algo-pending': {'cost': 1.67},
+                        'trade/orders-history': {'cost': 1.67},
+                        'trade/orders-tpsl-history': {'cost': 1.67},
+                        'trade/orders-algo-history': {'cost': 1.67},  # todo new
+                        'trade/fills-history': {'cost': 1.67},
+                        'trade/order/price-range': {'cost': 1.67},
+                        # affiliate
+                        'affiliate/basic': {'cost': 1},
+                        'affiliate/referral-code': {'cost': 1},
+                        'affiliate/invitees': {'cost': 1},
+                        'affiliate/sub-invitees': {'cost': 1},
+                        'affiliate/sub-affiliates': {'cost': 1},
+                        'affiliate/invitees/daily/info': {'cost': 1},
+                        # copy trading
+                        'copytrading/instruments': {'cost': 1},
+                        'copytrading/config': {'cost': 1},
+                        'copytrading/account/balance': {'cost': 1},
+                        'copytrading/account/positions-by-order': {'cost': 1},
+                        'copytrading/account/positions-details-by-order': {'cost': 1},
+                        'copytrading/account/positions-by-contract': {'cost': 1},
+                        'copytrading/account/position-mode': {'cost': 1},
+                        'copytrading/account/leverage-info': {'cost': 1},
+                        'copytrading/trade/orders-pending': {'cost': 1.67},
+                        'copytrading/trade/pending-tpsl-by-contract': {'cost': 1.67},
+                        'copytrading/trade/position-history-by-order': {'cost': 1.67},
+                        'copytrading/trade/orders-history': {'cost': 1.67},
+                        'copytrading/trade/pending-tpsl-by-order': {'cost': 1.67},
+                        # user
+                        'user/query-apikey': {'cost': 1},
+                        # tax
+                        'spot/trade/fills-history': {'cost': 1},
+                        # spot
+                        'spot/trade/orders-pending': {'cost': 1.67},
+                        'spot/trade/order-detail': {'cost': 1.67},
+                        'spot/trade/orders-algo-pending': {'cost': 1.67},
+                        'spot/trade/orders-history': {'cost': 1.67},
+                        'spot/trade/orders-algo-history': {'cost': 1.67},
+                        'spot/trade/order/price-range': {'cost': 1.67},
                     },
                     'post': {
-                        'trade/order': 1,
-                        'trade/cancel-order': 1,
-                        'account/set-leverage': 1,
-                        'trade/batch-orders': 1,
-                        'trade/order-tpsl': 1,
-                        'trade/cancel-batch-orders': 1,
-                        'trade/cancel-tpsl': 1,
-                        'trade/close-position': 1,
-                        'asset/transfer': 1,
+                        # account
+                        'asset/transfer': {'cost': 1},
+                        'asset/demo-apply-money': {'cost': 1},
+                        'asset/withdrawal-apply': {'cost': 1},
+                        # trading
+                        'account/set-margin-mode': {'cost': 1.67},
+                        'account/set-position-mode': {'cost': 1.67},
+                        'account/set-leverage': {'cost': 1.67},
+                        'trade/order': {'cost': 1.67},
+                        'trade/batch-orders': {'cost': 1.67},
+                        'trade/order-tpsl': {'cost': 1.67},
+                        'trade/order-algo': {'cost': 1.67},
+                        'trade/cancel-order': {'cost': 1.67},
+                        'trade/cancel-batch-orders': {'cost': 1.67},
+                        'trade/cancel-tpsl': {'cost': 1.67},
+                        'trade/cancel-algo': {'cost': 1.67},
+                        'trade/amend-order': {'cost': 1.67},
+                        'trade/amend-batch-orders': {'cost': 1.67},
+                        'trade/amend-tpsl': {'cost': 1.67},
+                        'trade/amend-algo': {'cost': 1.67},
+                        'trade/close-position': {'cost': 1.67},
+                        # spot
+                        'spot/trade/order': {'cost': 1.67},
+                        'spot/trade/batch-orders': {'cost': 1.67},
+                        'spot/trade/order-algo': {'cost': 1.67},
+                        'spot/trade/cancel-order': {'cost': 1.67},
+                        'spot/trade/cancel-batch-orders': {'cost': 1.67},
+                        'spot/trade/cancel-algo': {'cost': 1.67},
+                        # copy trading
+                        'copytrading/account/set-position-mode': {'cost': 1.67},
+                        'copytrading/account/set-leverage': {'cost': 1.67},
+                        'copytrading/trade/place-order': {'cost': 1.67},
+                        'copytrading/trade/cancel-order': {'cost': 1.67},
+                        'copytrading/trade/place-tpsl-by-contract': {'cost': 1.67},
+                        'copytrading/trade/cancel-tpsl-by-contract': {'cost': 1.67},
+                        'copytrading/trade/place-tpsl-by-order': {'cost': 1.67},
+                        'copytrading/trade/cancel-tpsl-by-order': {'cost': 1.67},
+                        'copytrading/trade/close-position-by-order': {'cost': 1.67},
+                        'copytrading/trade/close-position-by-contract': {'cost': 1.67},
                     },
                 },
             },
@@ -228,6 +324,106 @@ class blofin(Exchange, ImplicitAPI):
                 'secret': True,
                 'password': True,
             },
+            'features': {
+                'default': {
+                    'sandbox': False,
+                    'createOrder': {
+                        'timeInForce': {
+                            'IOC': True,
+                            'FOK': True,
+                            'PO': True,
+                            'GTD': False,
+                        },
+                        'leverage': False,
+                        'marketBuyRequiresPrice': False,
+                        'marketBuyByCost': False,
+                        'selfTradePrevention': False,
+                        'trailing': False,
+                        'iceberg': False,
+                    },
+                    'createOrders': {
+                        'max': 10,
+                    },
+                    'fetchMyTrades': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'daysBack': 100000,
+                        'untilDays': 100000,
+                        'symbolRequired': False,
+                    },
+                    'fetchOrder': {
+                        'marginMode': False,
+                        'trigger': False,
+                        'trailing': False,
+                        'symbolRequired': True,
+                    },
+                    'fetchOpenOrders': {
+                        'marginMode': False,
+                        'limit': 100,
+                        'trigger': True,
+                        'trailing': False,
+                        'symbolRequired': False,
+                    },
+                    'fetchOrders': None,
+                    'fetchClosedOrders': {
+                        'marginMode': False,
+                        'limit': 1000,
+                        'daysBack': 100000,
+                        'daysBackCanceled': 1,
+                        'untilDays': 100000,
+                        'trigger': True,
+                        'trailing': False,
+                        'symbolRequired': False,
+                    },
+                    'fetchOHLCV': {
+                        'limit': 1440,
+                    },
+                },
+                'spot': {
+                    'extends': 'default',
+                    'fetchCurrencies': {
+                        'private': True,
+                    },
+                    'createOrder': {
+                        'marginMode': False,
+                        'triggerPrice': False,
+                        'triggerPriceType': None,
+                        'triggerDirection': False,
+                        'stopLossPrice': False,
+                        'takeProfitPrice': False,
+                        'attachedStopLossTakeProfit': None,
+                        'hedged': False,
+                    },
+                },
+                'forDerivatives': {
+                    'extends': 'default',
+                    'createOrder': {
+                        'marginMode': True,
+                        'triggerPrice': False,  # todo
+                        'triggerPriceType': None,
+                        'triggerDirection': False,
+                        'stopLossPrice': True,
+                        'takeProfitPrice': True,
+                        'attachedStopLossTakeProfit': {
+                            'triggerPriceType': None,
+                            'price': True,
+                        },
+                        'hedged': True,
+                    },
+                },
+                'swap': {
+                    'linear': {
+                        'extends': 'forDerivatives',
+                    },
+                    'inverse': {
+                        'extends': 'forDerivatives',
+                    },
+                },
+                'future': {
+                    'linear': None,
+                    'inverse': None,
+                },
+            },
             'exceptions': {
                 'exact': {
                     '400': BadRequest,  # Body can not be empty
@@ -237,8 +433,8 @@ class blofin(Exchange, ImplicitAPI):
                     '405': BadRequest,  # Method Not Allowed
                     '406': BadRequest,  # Not Acceptable
                     '429': RateLimitExceeded,  # Too Many Requests
-                    '152001': BadRequest,  # Parameter {} cannot be empty
-                    '152002': BadRequest,  # Parameter {} error
+                    '152001': BadRequest,  # Parameter {} cannot be empty - verified live 2026-09-14 (withdrawal-apply without addrType)
+                    '152002': BadRequest,  # Parameter {} error - verified live 2026-09-14 (short-form chain id in withdrawal-apply; NOTE the live message omits the field name)
                     '152003': BadRequest,  # Either parameter {} or {} is required
                     '152004': BadRequest,  # JSON syntax error
                     '152005': BadRequest,  # Parameter error: wrong or empty
@@ -253,7 +449,7 @@ class blofin(Exchange, ImplicitAPI):
                     '102005': InvalidOrder,  # Position had been closed
                     '102014': InvalidOrder,  # Limit order exceeds maximum order size limit
                     '102015': InvalidOrder,  # Market order exceeds maximum order size limit
-                    '102022': InvalidOrder,  # Failed to place order. You don’t have any positions of self contract. Turn off Reduce-only to continue.
+                    '102022': InvalidOrder,  # Failed to place order. You don’t have any positions of this contract. Turn off Reduce-only to continue.
                     '102037': InvalidOrder,  # TP trigger price should be higher than the latest trading price
                     '102038': InvalidOrder,  # SL trigger price should be lower than the latest trading price
                     '102039': InvalidOrder,  # TP trigger price should be lower than the latest trading price
@@ -267,10 +463,50 @@ class blofin(Exchange, ImplicitAPI):
                     '102053': InvalidOrder,  # take profit trigger price should be lower than the best bid price
                     '102054': InvalidOrder,  # take profit trigger price should be higher than the best ask price
                     '102055': InvalidOrder,  # stop loss trigger price should be lower than the best ask price
-                    '102064': BadRequest,  # Buy price is not within the price limit(Minimum: 310.40; Maximum:1,629.40)
+                    '102064': BadRequest,  # Buy price is not within the price limit (Minimum: 310.40; Maximum:1,629.40)
                     '102065': BadRequest,  # Sell price is not within the price limit
-                    '102068': BadRequest,  # Cancel failed order has been filled, triggered, canceled or does not exist
+                    '102068': BadRequest,  # Cancel failed as the order has been filled, triggered, canceled or does not exist
                     '103013': ExchangeError,  # Internal error; unable to process your request. Please try again.
+                    '102067': OrderNotFound,  # Order modification failed as the order has been filled, triggered, canceled or does not exist.
+                    '102089': BadRequest,  # Position mode mismatch
+                    '102148': DuplicateOrderId,  # Duplicate requestId, request ignored.
+                    '103003': InsufficientFunds,  # Order failed. Insufficient USDT margin in account
+                    '110006': InvalidOrder,  # You have pending cross orders. Please cancel them before adjusting your leverage.
+                    '110019': InvalidOrder,  # Setting failed. Cancel any open orders, and close positions first.
+                    '148082': BadRequest,  # Callback percentage range 0.1% - 100%
+                    '148083': BadRequest,  # Callback constant range
+                    '152011': PermissionDenied,  # Transaction API Key does not support brokerId
+                    '152012': BadRequest,  # BrokerId is required
+                    '152013': PermissionDenied,  # Unmatched brokerId, please check your API key's bound broker
+                    '152014': BadRequest,  # Instrument ID does not exist
+                    '152015': BadRequest,  # Number of instId values exceeds the maximum limit of 20
+                    '152020': InvalidAddress,  # Address binding not found.
+                    '152022': BadRequest,  # Current network is not available.
+                    '152023': PermissionDenied,  # This address is still within the 24-hour withdrawal lock period.
+                    '152024': PermissionDenied,  # Your account now can only withdraw to whitelist addresses.
+                    '152025': PermissionDenied,  # Deposits not supported yet, contact customer support for details.
+                    '152026': BadRequest,  # Amount precision error.
+                    '152027': BadRequest,  # The withdrawal must exceed the minimum limit.
+                    '152028': InsufficientFunds,  # Insufficient balance.
+                    '152029': PermissionDenied,  # The maximum daily withdrawal amount has been reached.
+                    '152030': DuplicateOrderId,  # Duplicated clientId.
+                    '152031': InvalidAddress,  # This address is not marked as verification-free. - verified live 2026-09-14 (account-policy rejection, address must carry the verification-free flag for api withdrawals)
+                    '152032': PermissionDenied,  # Quick withdrawal daily limit exceeded. Please complete 2FA verification.
+                    '152401': AuthenticationError,  # Access key does not exist
+                    '152402': AuthenticationError,  # Access key has expired
+                    '152404': PermissionDenied,  # This operation is not supported, Please check the requestPath or API key permissions. - verified live 2026-09-14 (api key without the withdrawal permission)
+                    '152405': InvalidNonce,  # Timestamp in header or signature has expired, need to be within 60s
+                    '152406': PermissionDenied,  # Your IP is not included in your API key's IP whitelist
+                    '152407': InvalidNonce,  # Repeated nonce, Reusing within 60 seconds is not allowed.
+                    '152408': AuthenticationError,  # Passphrase error
+                    '152409': AuthenticationError,  # Signature verification failed
+                    '152410': InvalidNonce,  # The value of ACCESS-TIMESTAMP needs to be a millisecond timestamp
+                    '152420': DuplicateOrderId,  # Duplicate order in batch request
+                    '152421': DuplicateOrderId,  # requestId already exists, please try again later
+                    '152422': BadRequest,  # Exactly one of callbackRatio and callbackSpread must be provided
+                    '152423': InvalidOrder,  # New size cannot be less than filled size
+                    '152428': BadRequest,  # Invalid trigger price type
+                    '152429': BadRequest,  # Request expired, ttl exceeded
                     'Order failed. Insufficient USDT margin in account': InsufficientFunds,  # Insufficient USDT margin in account
                 },
                 'broad': {
@@ -283,15 +519,21 @@ class blofin(Exchange, ImplicitAPI):
             },
             'precisionMode': TICK_SIZE,
             'options': {
-                'brokerId': 'ec6dd3a7dd982d0b',
                 'accountsByType': {
                     'swap': 'futures',
+                    'funding': 'funding',
                     'future': 'futures',
+                    'copy_trading': 'copy_trading',
+                    'earn': 'earn',
+                    'spot': 'spot',
                 },
                 'accountsById': {
+                    'funding': 'funding',
                     'futures': 'swap',
+                    'copy_trading': 'copy_trading',
+                    'earn': 'earn',
+                    'spot': 'spot',
                 },
-                'sandboxMode': False,
                 'defaultNetwork': 'ERC20',
                 'defaultNetworks': {
                     'ETH': 'ERC20',
@@ -299,10 +541,55 @@ class blofin(Exchange, ImplicitAPI):
                     'USDT': 'TRC20',
                 },
                 'networks': {
+                    # code -> the live withdrawal-apply chain identifier where
+                    # it carries no parenthesized suffix; the suffix family
+                    # ('Tron (TRC20)' and friends) is constructed at runtime
+                    # in networkCodeToChainId from networkPrefixes, because a
+                    # space before a paren inside a source literal is not
+                    # transpiler-safe
                     'BTC': 'Bitcoin',
-                    'BEP20': 'BSC',
-                    'ERC20': 'ERC20',
-                    'TRC20': 'TRC20',
+                    'SOL': 'Solana',
+                    'MATIC': 'Polygon POS',
+                    'AVAXC': 'AVAX C-Chain',
+                    'ARBITRUM': 'Arbitrum One',
+                    'OPTIMISM': 'Optimism',
+                    'KAIA': 'KAIA',
+                    'PLASMA': 'Plasma',
+                },
+                'networkCodeAliases': {
+                    # legacy codes accepted on input, resolved to the unified code
+                    'OP': 'OPTIMISM',
+                },
+                'networkPrefixes': {
+                    # code -> the display-name prefix; the venue id is
+                    # prefix + space + parenthesized suffix, where the suffix
+                    # defaults to the unified code itself
+                    'TRC20': 'Tron',
+                    'ERC20': 'Ethereum',
+                    'BEP20': 'BNB Smart Chain',
+                    'APT': 'APT',
+                    'TON': 'TON',
+                },
+                'networkSuffixes': {
+                    # only where the parenthesized suffix differs from the code
+                    'TON': 'Toncoin',
+                },
+                'networkCodesBySuffix': {
+                    # reverse of networkSuffixes for parsing venue ids
+                    'Toncoin': 'TON',
+                },
+                'networksById': {
+                    # paren-free venue ids and legacy short forms -> unified;
+                    # ids with a parenthesized suffix are parsed at runtime in
+                    # chainIdToNetworkCode
+                    'Bitcoin': 'BTC',
+                    'Solana': 'SOL',
+                    'Polygon POS': 'MATIC',
+                    'AVAX C-Chain': 'AVAXC',
+                    'Arbitrum One': 'ARBITRUM',
+                    'Optimism': 'OPTIMISM',
+                    'BSC': 'BEP20',
+                    'Plasma': 'PLASMA',
                 },
                 'fetchOpenInterestHistory': {
                     'timeframes': {
@@ -316,35 +603,20 @@ class blofin(Exchange, ImplicitAPI):
                         '1D': '1D',
                     },
                 },
-                'fetchOHLCV': {
-                    # 'type': 'Candles',  # Candles or HistoryCandles, IndexCandles, MarkPriceCandles
-                    'timezone': 'UTC',  # UTC, HK
-                },
-                'fetchPositions': {
-                    'method': 'privateGetAccountPositions',  # privateGetAccountPositions or privateGetAccountPositionsHistory
-                },
-                'createOrder': 'privatePostTradeOrder',  # or 'privatePostTradeOrderTpsl'
-                'createMarketBuyOrderRequiresPrice': False,
-                'fetchMarkets': ['swap'],
                 'defaultType': 'swap',
-                'fetchLedger': {
-                    'method': 'privateGetAssetBills',
-                },
+                'brokerId': 'ec6dd3a7dd982d0b',
                 'fetchOpenOrders': {
                     'method': 'privateGetTradeOrdersPending',
                 },
                 'cancelOrders': {
                     'method': 'privatePostTradeCancelBatchOrders',
                 },
-                'fetchCanceledOrders': {
-                    'method': 'privateGetTradeOrdersHistory',  # privateGetTradeOrdersTpslHistory
-                },
                 'fetchClosedOrders': {
                     'method': 'privateGetTradeOrdersHistory',  # privateGetTradeOrdersTpslHistory
                 },
                 'withdraw': {
                     # a funding password credential is required by the exchange for the
-                    # withdraw call(not to be confused with the api password credential)
+                    # withdraw call (not to be confused with the api password credential)
                     'password': None,
                     'pwd': None,  # password or pwd both work
                 },
@@ -357,10 +629,12 @@ class blofin(Exchange, ImplicitAPI):
             },
         })
 
-    async def fetch_markets(self, params={}) -> List[Market]:
+    async def fetch_markets(self, params: dict = {}) -> list[Market]:
         """
         retrieves data on all markets for blofin
-        :see: https://blofin.com/docs#get-instruments
+
+        https://blofin.com/docs#get-instruments
+
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :returns dict[]: an array of objects representing market data
         """
@@ -378,13 +652,15 @@ class blofin(Exchange, ImplicitAPI):
         contract = swap or future
         baseId = self.safe_string(market, 'baseCurrency')
         quoteId = self.safe_string(market, 'quoteCurrency')
-        settleId = self.safe_string(market, 'quoteCurrency')
+        settleId = self.safe_string(market, 'settleCurrency', quoteId)
         settle = self.safe_currency_code(settleId)
         base = self.safe_currency_code(baseId)
         quote = self.safe_currency_code(quoteId)
+        if (base is None) or (quote is None):
+            return None
         symbol = base + '/' + quote
         if swap:
-            symbol = symbol + ':' + settle
+            symbol = base + '/' + quote + ':' + settle
         expiry = None
         strikePrice = None
         optionType = None
@@ -395,6 +671,10 @@ class blofin(Exchange, ImplicitAPI):
         maxLeverage = self.safe_string(market, 'maxLeverage', '100')
         maxLeverage = Precise.string_max(maxLeverage, '1')
         isActive = (self.safe_string(market, 'state') == 'live')
+        isMargin = spot and (Precise.string_gt(maxLeverage, '1'))
+        contractType = self.safe_string(market, 'contractType')
+        maxLimitAmount = self.safe_number(market, 'maxLimitSize')
+        maxSpotCost = self.safe_number(market, 'maxMarketSize')  # for spot, market-buy size is denominated in the quote currency, i.e. cost
         return self.safe_market_structure({
             'id': id,
             'symbol': symbol,
@@ -407,15 +687,15 @@ class blofin(Exchange, ImplicitAPI):
             'type': type,
             'spot': spot,
             'option': option,
-            'margin': spot and (Precise.string_gt(maxLeverage, '1')),
+            'margin': isMargin,
             'swap': swap,
             'future': future,
             'active': isActive,
             'taker': taker,
             'maker': maker,
             'contract': contract,
-            'linear': (quoteId == settleId) if contract else None,
-            'inverse': (baseId == settleId) if contract else None,
+            'linear': (contractType == 'linear') if contract else None,
+            'inverse': (contractType == 'inverse') if contract else None,
             'contractSize': self.safe_number(market, 'contractValue') if contract else None,
             'expiry': expiry,
             'expiryDatetime': expiry,
@@ -433,7 +713,7 @@ class blofin(Exchange, ImplicitAPI):
                 },
                 'amount': {
                     'min': self.safe_number(market, 'minSize'),
-                    'max': None,
+                    'max': maxLimitAmount,
                 },
                 'price': {
                     'min': None,
@@ -441,29 +721,31 @@ class blofin(Exchange, ImplicitAPI):
                 },
                 'cost': {
                     'min': None,
-                    'max': None,
+                    'max': None if contract else maxSpotCost,
                 },
             },
             'info': market,
         })
 
-    async def fetch_order_book(self, symbol: str, limit: Int = None, params={}) -> OrderBook:
+    async def fetch_order_book(self, symbol: str, limit: Int = None, params: dict = {}) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
-        :see: https://blofin.com/docs#get-order-book
+
+        https://blofin.com/docs#get-order-book
+
         :param str symbol: unified symbol of the market to fetch the order book for
         :param int [limit]: the maximum amount of order book entries to return
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: A dictionary of `order book structures <https://docs.ccxt.com/#/?id=order-book-structure>` indexed by market symbols
+        :returns dict: an `order book structure <https://docs.ccxt.com/?id=order-book-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'instId': market['id'],
         }
-        limit = 50 if (limit is None) else limit
-        if limit is not None:
-            request['size'] = limit  # max 100
+        limitValue = 50 if (limit is None) else limit
+        request['size'] = limitValue  # max 100
         response = await self.publicGetMarketBooks(self.extend(request, params))
         #
         #     {
@@ -472,7 +754,7 @@ class blofin(Exchange, ImplicitAPI):
         #         "data": [
         #             {
         #                 "asks": [
-        #                     ["0.07228","4.211619","0","2"],  # price, amount, liquidated orders, total open orders
+        #                     ["0.07228","4.211619","0","2"], // price, amount, liquidated orders, total open orders
         #                     ["0.0723","299.880364","0","2"],
         #                     ["0.07231","3.72832","0","1"],
         #                 ],
@@ -492,14 +774,33 @@ class blofin(Exchange, ImplicitAPI):
         return self.parse_order_book(first, symbol, timestamp)
 
     def parse_ticker(self, ticker: dict, market: Market = None) -> Ticker:
+        #
+        # response similar for REST & WS
+        #
+        #     {
+        #         instId: "ADA-USDT",
+        #         ts: "1707736811486",
+        #         last: "0.5315",
+        #         lastSize: "4",
+        #         askPrice: "0.5318",
+        #         askSize: "248",
+        #         bidPrice: "0.5315",
+        #         bidSize: "63",
+        #         open24h: "0.5555",
+        #         high24h: "0.5563",
+        #         low24h: "0.5315",
+        #         volCurrency24h: "198560100",
+        #         vol24h: "1985601",
+        #     }
+        #
         timestamp = self.safe_integer(ticker, 'ts')
         marketId = self.safe_string(ticker, 'instId')
-        market = self.safe_market(marketId, market, '-')
-        symbol = market['symbol']
+        marketResolved = self.safe_market(marketId, market, '-')
+        symbol = marketResolved['symbol']
         last = self.safe_string(ticker, 'last')
         open = self.safe_string(ticker, 'open24h')
-        spot = self.safe_bool(market, 'spot', False)
-        quoteVolume = self.safe_string(ticker, 'volCurrency24h') if spot else None
+        spot = self.safe_bool(marketResolved, 'spot', False)
+        quoteVolume = self.safe_string(ticker, 'volCurrency24h') if (spot) else None
         baseVolume = self.safe_string(ticker, 'vol24h')
         high = self.safe_string(ticker, 'high24h')
         low = self.safe_string(ticker, 'low24h')
@@ -523,20 +824,25 @@ class blofin(Exchange, ImplicitAPI):
             'average': None,
             'baseVolume': baseVolume,
             'quoteVolume': quoteVolume,
+            'indexPrice': self.safe_string(ticker, 'indexPrice'),
+            'markPrice': self.safe_string(ticker, 'markPrice'),
             'info': ticker,
-        }, market)
+        }, marketResolved)
 
-    async def fetch_ticker(self, symbol: str, params={}) -> Ticker:
+    async def fetch_ticker(self, symbol: str, params: dict = {}) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-        :see: https://blofin.com/docs#get-tickers
+
+        https://blofin.com/docs#get-tickers
+
         :param str symbol: unified symbol of the market to fetch the ticker for
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `ticker structure <https://docs.ccxt.com/#/?id=ticker-structure>`
+        :returns dict: a `ticker structure <https://docs.ccxt.com/?id=ticker-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'instId': market['id'],
         }
         response = await self.publicGetMarketTickers(self.extend(request, params))
@@ -544,23 +850,49 @@ class blofin(Exchange, ImplicitAPI):
         first = self.safe_dict(data, 0, {})
         return self.parse_ticker(first, market)
 
-    async def fetch_tickers(self, symbols: Strings = None, params={}) -> Tickers:
+    async def fetch_mark_price(self, symbol: str, params: dict = {}) -> Ticker:
+        """
+        fetches mark price for the market
+
+        https://docs.blofin.com/index.html#get-mark-price
+
+        :param str symbol: unified market symbol
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.subType]: "linear" or "inverse"
+        :returns dict: a dictionary of `ticker structures <https://docs.ccxt.com/?id=ticker-structure>`
+        """
+        if self.markets is None:
+            await self.load_markets()
+        market = self.market(symbol)
+        request = {
+            'instId': market['id'],
+        }
+        response = await self.publicGetMarketMarkPrice(self.extend(request, params))
+        data = self.safe_list(response, 'data', [])
+        first = self.safe_dict(data, 0, {})
+        return self.parse_ticker(first, market)
+
+    async def fetch_tickers(self, symbols: Strings = None, params: dict = {}) -> Tickers:
         """
         fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
-        :see: https://blofin.com/docs#get-tickers
+
+        https://blofin.com/docs#get-tickers
+
         :param str[] [symbols]: unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a dictionary of `ticker structures <https://docs.ccxt.com/#/?id=ticker-structure>`
+        :returns dict: a dictionary of `ticker structures <https://docs.ccxt.com/?id=ticker-structure>`
         """
-        await self.load_markets()
-        symbols = self.market_symbols(symbols)
+        if self.markets is None:
+            await self.load_markets()
+        symbolsNormalized = self.market_symbols(symbols)
         response = await self.publicGetMarketTickers(params)
         tickers = self.safe_list(response, 'data', [])
-        return self.parse_tickers(tickers, symbols)
+        return self.parse_tickers(tickers, symbolsNormalized)
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
         #
-        # fetch trades
+        # fetch trades (response similar for REST & WS)
+        #
         #   {
         #       "tradeId": "3263934920",
         #       "instId": "LTC-USDT",
@@ -569,6 +901,7 @@ class blofin(Exchange, ImplicitAPI):
         #       "side": "buy",
         #       "ts": "1707232020854"
         #   }
+        #
         # my trades
         #   {
         #       "instId": "LTC-USDT",
@@ -584,10 +917,25 @@ class blofin(Exchange, ImplicitAPI):
         #       "brokerId": ""
         #   }
         #
+        # fetchMyTrades spot
+        #     {
+        #         "instId": "DOGE-USDT",
+        #         "tradeId": "6000001623870",
+        #         "orderId": "6000011777113",
+        #         "fillPrice": "0.091480000000000000",
+        #         "fillSize": "30.000000000000000000",
+        #         "fillPnl": null,
+        #         "side": "buy",
+        #         "fee": "0.030000000000000000",
+        #         "ts": "1775213753407",
+        #         "brokerId": null,
+        #         "feeCurrency": "base_currency"
+        #     }
+        #
         id = self.safe_string(trade, 'tradeId')
         marketId = self.safe_string(trade, 'instId')
-        market = self.safe_market(marketId, market, '-')
-        symbol = market['symbol']
+        marketResolved = self.safe_market(marketId, market, '-')
+        symbol = marketResolved['symbol']
         timestamp = self.safe_integer(trade, 'ts')
         price = self.safe_string_2(trade, 'price', 'fillPrice')
         amount = self.safe_string_2(trade, 'size', 'fillSize')
@@ -595,69 +943,101 @@ class blofin(Exchange, ImplicitAPI):
         orderId = self.safe_string(trade, 'orderId')
         feeCost = self.safe_string(trade, 'fee')
         fee = None
+        feeCurrency = self.safe_string(trade, 'feeCurrency')
+        isSpot = feeCurrency is not None
+        if feeCurrency is None:
+            feeCurrency = self.safe_string(marketResolved, 'settle')
+        elif feeCurrency == 'base_currency':
+            feeCurrency = self.safe_string(marketResolved, 'base')
+        elif feeCurrency == 'quote_currency':
+            feeCurrency = self.safe_string(marketResolved, 'quote')
         if feeCost is not None:
             fee = {
                 'cost': feeCost,
-                'currency': market['settle'],
+                'currency': feeCurrency,
             }
-        return self.safe_trade({
-            'info': trade,
-            'timestamp': timestamp,
-            'datetime': self.iso8601(timestamp),
-            'symbol': symbol,
-            'id': id,
-            'order': orderId,
-            'type': None,
-            'takerOrMaker': None,
-            'side': side,
-            'price': price,
-            'amount': amount,
-            'cost': None,
-            'fee': fee,
-        }, market)
+        if isSpot:
+            spotBase = self.safe_string(marketResolved, 'base', '')
+            spotQuote = self.safe_string(marketResolved, 'quote', '')
+            spotSymbol = spotBase + '/' + spotQuote
+            cost = self.parse_number(Precise.string_mul(price, amount))
+            result = {
+                'info': trade,
+                'timestamp': timestamp,
+                'datetime': self.iso8601(timestamp),
+                'symbol': spotSymbol,
+                'id': id,
+                'order': orderId,
+                'type': None,
+                'takerOrMaker': None,
+                'side': side,
+                'price': self.parse_number(price),
+                'amount': self.parse_number(amount),
+                'cost': cost,
+                'fee': {
+                    'cost': self.parse_number(feeCost),
+                    'currency': feeCurrency,
+                },
+            }
+            return result
+        else:
+            return self.safe_trade({
+                'info': trade,
+                'timestamp': timestamp,
+                'datetime': self.iso8601(timestamp),
+                'symbol': symbol,
+                'id': id,
+                'order': orderId,
+                'type': None,
+                'takerOrMaker': None,
+                'side': side,
+                'price': price,
+                'amount': amount,
+                'cost': None,
+                'fee': fee,
+            }, marketResolved)
 
-    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
+    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
-        :see: https://blofin.com/docs#get-trades
+
+        https://blofin.com/docs#get-trades
+
         :param str symbol: unified symbol of the market to fetch trades for
         :param int [since]: timestamp in ms of the earliest trade to fetch
         :param int [limit]: the maximum amount of trades to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :param boolean [params.paginate]: *only applies to publicGetMarketHistoryTrades* default False, when True will automatically paginate by calling self endpoint multiple times
-        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/#/?id=public-trades>`
+        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/?id=public-trades>`
         """
-        await self.load_markets()
-        paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchTrades', 'paginate')
-        if paginate:
-            return await self.fetch_paginated_call_cursor('fetchTrades', symbol, since, limit, params, 'tradeId', 'after', None, 100)
+        if self.markets is None:
+            await self.load_markets()
+        # the endpoint returns the latest trades only and ignores 'after' / 'before', so there is no cursor to paginate with
+        paramsNoPaginate = self.omit(params, 'paginate')
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'instId': market['id'],
         }
         response = None
         if limit is not None:
             request['limit'] = limit  # default 100
-        method = None
-        method, params = self.handle_option_and_params(params, 'fetchTrades', 'method', 'publicGetMarketTrades')
+        method, paramsMethod = self.handle_option_string_and_params(paramsNoPaginate, 'fetchTrades', 'method', 'publicGetMarketTrades')
         if method == 'publicGetMarketTrades':
-            response = await self.publicGetMarketTrades(self.extend(request, params))
+            response = await self.publicGetMarketTrades(self.extend(request, paramsMethod))
         data = self.safe_list(response, 'data', [])
         return self.parse_trades(data, market, since, limit)
 
-    def parse_ohlcv(self, ohlcv, market: Market = None) -> list:
+    def parse_ohlcv(self, ohlcv: object, market: Market = None) -> list:
         #
         #     [
-        #         "1678928760000",  # timestamp
-        #         "24341.4",  # open
-        #         "24344",  # high
-        #         "24313.2",  # low
-        #         "24323",  # close
-        #         "628",  # contract volume
-        #         "2.5819",  # base volume
-        #         "62800",  # quote volume
-        #         "0"  # candlestick state
+        #         "1678928760000", // timestamp
+        #         "24341.4", // open
+        #         "24344", // high
+        #         "24313.2", // low
+        #         "24323", // close
+        #         "628", // contract volume
+        #         "2.5819", // base volume
+        #         "62800", // quote volume
+        #         "0" // candlestick state
         #     ]
         #
         return [
@@ -669,10 +1049,12 @@ class blofin(Exchange, ImplicitAPI):
             self.safe_number(ohlcv, 6),
         ]
 
-    async def fetch_ohlcv(self, symbol: str, timeframe='1m', since: Int = None, limit: Int = None, params={}) -> List[list]:
+    async def fetch_ohlcv(self, symbol: str, timeframe: str = '1m', since: Int = None, limit: Int = None, params: dict = {}) -> list[list]:
         """
         fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-        :see: https://blofin.com/docs#get-candlesticks
+
+        https://blofin.com/docs#get-candlesticks
+
         :param str symbol: unified symbol of the market to fetch OHLCV data for
         :param str timeframe: the length of time each candle represents
         :param int [since]: timestamp in ms of the earliest candle to fetch
@@ -680,61 +1062,74 @@ class blofin(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: timestamp in ms of the latest candle to fetch
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
         paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchOHLCV', 'paginate')
+        query = None
+        paginate, query = self.handle_option_bool_and_params(params, 'fetchOHLCV', 'paginate', False)
         if paginate:
-            return await self.fetch_paginated_call_deterministic('fetchOHLCV', symbol, since, limit, timeframe, params, 100)
-        if limit is None:
-            limit = 100  # default 100, max 100
-        request: dict = {
+            return await self.fetch_paginated_call_deterministic('fetchOHLCV', symbol, since, limit, timeframe, query, 100)
+        limitResolved = 100 if (limit is None) else limit  # default 100, max 100
+        request = {
             'instId': market['id'],
             'bar': self.safe_string(self.timeframes, timeframe, timeframe),
-            'limit': limit,
+            'limit': limitResolved,
         }
-        until = self.safe_integer(params, 'until')
+        if since is not None:
+            durationInMilliseconds = self.parse_timeframe(timeframe) * 1000
+            request['before'] = max(since - 1, 0)
+            request['after'] = self.sum(since, durationInMilliseconds * limitResolved)
+        until = self.safe_integer(query, 'until')
         if until is not None:
             request['after'] = until
-            params = self.omit(params, 'until')
-        response = None
-        response = await self.publicGetMarketCandles(self.extend(request, params))
+            query = self.omit(query, 'until')
+        response = await self.publicGetMarketCandles(self.extend(request, query))
         data = self.safe_list(response, 'data', [])
-        return self.parse_ohlcvs(data, market, timeframe, since, limit)
+        return self.parse_ohlcvs(data, market, timeframe, since, limitResolved)
 
-    async def fetch_funding_rate_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}):
+    async def fetch_funding_rate_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[FundingRateHistory]:
         """
         fetches historical funding rate prices
-        :see: https://blofin.com/docs#get-funding-rate-history
+
+        https://blofin.com/docs#get-funding-rate-history
+
         :param str symbol: unified symbol of the market to fetch the funding rate history for
         :param int [since]: timestamp in ms of the earliest funding rate to fetch
-        :param int [limit]: the maximum amount of `funding rate structures <https://docs.ccxt.com/#/?id=funding-rate-history-structure>` to fetch
+        :param int [limit]: the maximum amount of `funding rate structures <https://docs.ccxt.com/?id=funding-rate-history-structure>` to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns dict[]: a list of `funding rate structures <https://docs.ccxt.com/#/?id=funding-rate-history-structure>`
+        :param int [params.until]: timestamp in ms of the latest funding rate to fetch
+        :returns dict[]: a list of `funding rate structures <https://docs.ccxt.com/?id=funding-rate-history-structure>`
         """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' fetchFundingRateHistory() requires a symbol argument')
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchFundingRateHistory', 'paginate')
+        query = None
+        paginate, query = self.handle_option_bool_and_params(params, 'fetchFundingRateHistory', 'paginate', False)
         if paginate:
-            return await self.fetch_paginated_call_deterministic('fetchFundingRateHistory', symbol, since, limit, '8h', params)
+            return await self.fetch_paginated_call_dynamic('fetchFundingRateHistory', symbol, since, limit, query, 100)
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'instId': market['id'],
         }
         if since is not None:
             request['before'] = max(since - 1, 0)
         if limit is not None:
             request['limit'] = limit
-        response = await self.publicGetMarketFundingRateHistory(self.extend(request, params))
+        until = self.safe_integer(query, 'until')
+        if until is not None:
+            request['after'] = until
+            query = self.omit(query, 'until')
+        response = await self.publicGetMarketFundingRateHistory(self.extend(request, query))
         rates = []
         data = self.safe_list(response, 'data', [])
         for i in range(0, len(data)):
-            rate = data[i]
+            rate = self.safe_dict(data, i, {})
             timestamp = self.safe_integer(rate, 'fundingTime')
             rates.append({
                 'info': rate,
@@ -744,26 +1139,28 @@ class blofin(Exchange, ImplicitAPI):
                 'datetime': self.iso8601(timestamp),
             })
         sorted = self.sort_by(rates, 'timestamp')
-        return self.filter_by_symbol_since_limit(sorted, market['symbol'], since, limit)
+        return self.filter_by_symbol_since_limit(sorted, self.safe_string(market, 'symbol'), since, limit)
 
-    def parse_funding_rate(self, contract, market: Market = None):
+    def parse_funding_rate(self, contract: object, market: Market = None) -> FundingRate:
         #
         #    {
         #        "fundingRate": "0.00027815",
         #        "fundingTime": "1634256000000",
         #        "instId": "BTC-USD-SWAP",
-        #        "instType": "SWAP",
-        #        "nextFundingRate": "0.00017",
-        #        "nextFundingTime": "1634284800000"
         #    }
         #
-        # in the response above nextFundingRate is actually two funding rates from now
-        #
-        nextFundingRateTimestamp = self.safe_integer(contract, 'nextFundingTime')
         marketId = self.safe_string(contract, 'instId')
         symbol = self.safe_symbol(marketId, market)
-        nextFundingRate = self.safe_number(contract, 'nextFundingRate')
         fundingTime = self.safe_integer(contract, 'fundingTime')
+        fundingInterval = self.safe_string(contract, 'fundingInterval')
+        intervalUnits = {
+            'hour': 'h',
+            'minute': 'm',
+        }
+        intervalUnit = self.safe_string(intervalUnits, self.safe_string(contract, 'fundingIntervalUnit'))
+        intervalString = None
+        if (fundingInterval is not None) and (intervalUnit is not None):
+            intervalString = fundingInterval + intervalUnit
         # > The current interest is 0.
         return {
             'info': contract,
@@ -777,27 +1174,31 @@ class blofin(Exchange, ImplicitAPI):
             'fundingRate': self.safe_number(contract, 'fundingRate'),
             'fundingTimestamp': fundingTime,
             'fundingDatetime': self.iso8601(fundingTime),
-            'nextFundingRate': nextFundingRate,
-            'nextFundingTimestamp': nextFundingRateTimestamp,
-            'nextFundingDatetime': self.iso8601(nextFundingRateTimestamp),
+            'nextFundingRate': None,
+            'nextFundingTimestamp': None,
+            'nextFundingDatetime': None,
             'previousFundingRate': None,
             'previousFundingTimestamp': None,
             'previousFundingDatetime': None,
+            'interval': intervalString,
         }
 
-    async def fetch_funding_rate(self, symbol: str, params={}):
+    async def fetch_funding_rate(self, symbol: str, params: dict = {}) -> FundingRate:
         """
         fetch the current funding rate
-        :see: https://blofin.com/docs#get-funding-rate
+
+        https://blofin.com/docs#get-funding-rate
+
         :param str symbol: unified market symbol
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `funding rate structure <https://docs.ccxt.com/#/?id=funding-rate-structure>`
+        :returns dict: a `funding rate structure <https://docs.ccxt.com/?id=funding-rate-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        if not market['swap']:
+        if not self.safe_bool(market, 'swap', False):
             raise ExchangeError(self.id + ' fetchFundingRate() is only valid for swap markets')
-        request: dict = {
+        request = {
             'instId': market['id'],
         }
         response = await self.publicGetMarketFundingRate(self.extend(request, params))
@@ -809,9 +1210,6 @@ class blofin(Exchange, ImplicitAPI):
         #                "fundingRate": "0.00027815",
         #                "fundingTime": "1634256000000",
         #                "instId": "BTC-USD-SWAP",
-        #                "instType": "SWAP",
-        #                "nextFundingRate": "0.00017",
-        #                "nextFundingTime": "1634284800000"
         #            }
         #        ],
         #        "msg": ""
@@ -821,13 +1219,16 @@ class blofin(Exchange, ImplicitAPI):
         entry = self.safe_dict(data, 0, {})
         return self.parse_funding_rate(entry, market)
 
-    def parse_balance_by_type(self, type, response):
-        if type:
+    def parse_balance_by_type(self, response: dict) -> Balances:
+        data = self.safe_list(response, 'data')
+        if data is not None:
             return self.parse_funding_balance(response)
         else:
-            return self.parse_trading_balance(response)
+            return self.parse_balance(response)
 
-    def parse_trading_balance(self, response):
+    def parse_balance(self, response: dict) -> Balances:
+        #
+        # "data" similar for REST & WS
         #
         # {
         #     "code": "0",
@@ -849,18 +1250,19 @@ class blofin(Exchange, ImplicitAPI):
         #                 "orderFrozen": "14920.994472632597427761",
         #                 "equityUsd": "10011254.077985990315787910",
         #                 "isolatedUnrealizedPnl": "-22.151999999999999999952",
-        #                 "bonus": "0"
+        #                 "bonus": "0" // present only in REST
+        #                 "unrealizedPnl": "0" // present only in WS
         #             }
         #         ]
         #     }
         # }
         #
-        result: dict = {'info': response}
+        result = {'info': response}
         data = self.safe_dict(response, 'data', {})
         timestamp = self.safe_integer(data, 'ts')
         details = self.safe_list(data, 'details', [])
         for i in range(0, len(details)):
-            balance = details[i]
+            balance = self.safe_dict(details, i)
             currencyId = self.safe_string(balance, 'currency')
             code = self.safe_currency_code(currencyId)
             account = self.account()
@@ -878,7 +1280,7 @@ class blofin(Exchange, ImplicitAPI):
         result['datetime'] = self.iso8601(timestamp)
         return self.safe_balance(result)
 
-    def parse_funding_balance(self, response):
+    def parse_funding_balance(self, response: dict) -> Balances:
         #
         #  {
         #      "code": "0",
@@ -894,10 +1296,10 @@ class blofin(Exchange, ImplicitAPI):
         #      ]
         #  }
         #
-        result: dict = {'info': response}
+        result = {'info': response}
         data = self.safe_list(response, 'data', [])
         for i in range(0, len(data)):
-            balance = data[i]
+            balance = self.safe_dict(data, i)
             currencyId = self.safe_string(balance, 'currency')
             code = self.safe_currency_code(currencyId)
             account = self.account()
@@ -912,40 +1314,45 @@ class blofin(Exchange, ImplicitAPI):
         return {
             'info': fee,
             'symbol': self.safe_symbol(None, market),
-            # blofin returns the fees values opposed to other exchanges, so the sign needs to be flipped
+            # blofin returns the fees as negative values opposed to other exchanges, so the sign needs to be flipped
             'maker': self.parse_number(Precise.string_neg(self.safe_string_2(fee, 'maker', 'makerU'))),
             'taker': self.parse_number(Precise.string_neg(self.safe_string_2(fee, 'taker', 'takerU'))),
             'percentage': None,
             'tierBased': None,
         }
 
-    async def fetch_balance(self, params={}) -> Balances:
+    async def fetch_balance(self, params: dict = {}) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
-        :see: https://blofin.com/docs#get-balance
-        :see: https://blofin.com/docs#get-futures-account-balance
+
+        https://blofin.com/docs#get-balance
+        https://blofin.com/docs#get-futures-account-balance
+
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.accountType]: the type of account to fetch the balance for, either 'funding' or 'futures'  or 'copy_trading' or 'earn'
-        :returns dict: a `balance structure <https://docs.ccxt.com/#/?id=balance-structure>`
+        :returns dict: a `balance structure <https://docs.ccxt.com/?id=balance-structure>`
         """
-        await self.load_markets()
-        accountType = self.safe_string_2(params, 'accountType', 'type')
-        params = self.omit(params, ['accountType', 'type'])
-        request: dict = {
+        if self.markets is None:
+            await self.load_markets()
+        accountType, paramsAccountType = self.handle_option_string_and_params_2(params, 'fetchBalance', 'accountType', 'type')
+        request = {
         }
-        response = None
-        if accountType is not None:
-            options = self.safe_dict(self.options, 'accountsByType', {})
-            parsedAccountType = self.safe_string(options, accountType, accountType)
+        response: dict
+        if accountType is not None and accountType != 'swap':
+            parsedAccountType = self.safe_string(self.options['accountsByType'], accountType, accountType)
             request['accountType'] = parsedAccountType
-            response = await self.privateGetAssetBalances(self.extend(request, params))
+            response = await self.privateGetAssetBalances(self.extend(request, paramsAccountType))
         else:
-            response = await self.privateGetAccountBalance(self.extend(request, params))
-        return self.parse_balance_by_type(accountType, response)
+            response = await self.privateGetAccountBalance(self.extend(request, paramsAccountType))
+        return self.parse_balance_by_type(response)
 
-    def create_order_request(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}):
+    def create_order_request(self, symbol: Str, type: Str, side: Str, amount: Num, price: Num = None, params: dict = {}) -> dict:
+        if type is None:
+            raise ArgumentsRequired(self.id + ' requires a type argument')
+        if side is None:
+            raise ArgumentsRequired(self.id + ' requires a side argument')
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'instId': market['id'],
             'side': side,
             'orderType': type,
@@ -953,41 +1360,58 @@ class blofin(Exchange, ImplicitAPI):
             'brokerId': self.safe_string(self.options, 'brokerId', 'ec6dd3a7dd982d0b'),
         }
         marginMode = None
-        marginMode, params = self.handle_margin_mode_and_params('createOrder', params, 'cross')
+        query = None
+        marginMode, query = self.handle_margin_mode_and_params('createOrder', params, 'cross')
         request['marginMode'] = marginMode
-        timeInForce = self.safe_string(params, 'timeInForce', 'GTC')
+        triggerPriceAny = self.safe_string_n(query, ['triggerPrice', 'stopLossPrice', 'takeProfitPrice'])
+        triggerPriceSlTp = self.safe_string_2(query, 'stopLossPrice', 'takeProfitPrice')
+        timeInForce = self.safe_string(query, 'timeInForce', 'GTC')
+        isHedged = self.safe_bool(query, 'hedged', False)
+        if isHedged:
+            request['positionSide'] = 'long' if (side == 'buy') else 'short'
         isMarketOrder = type == 'market'
-        params = self.omit(params, ['timeInForce'])
+        query = self.omit(query, ['timeInForce'])
         ioc = (timeInForce == 'IOC') or (type == 'ioc')
         marketIOC = (isMarketOrder and ioc)
         if isMarketOrder or marketIOC:
             request['orderType'] = 'market'
         else:
-            request['price'] = self.price_to_precision(symbol, price)
+            key = 'price'
+            if triggerPriceAny is not None:
+                key = 'orderPrice'
+            request[key] = self.price_to_precision(symbol, price)
         postOnly = False
-        postOnly, params = self.handle_post_only(isMarketOrder, type == 'post_only', params)
+        postOnly, query = self.handle_post_only(isMarketOrder, type == 'post_only', query)
         if postOnly:
             request['type'] = 'post_only'
-        stopLoss = self.safe_dict(params, 'stopLoss')
-        takeProfit = self.safe_dict(params, 'takeProfit')
-        params = self.omit(params, ['stopLoss', 'takeProfit'])
-        isStopLoss = stopLoss is not None
-        isTakeProfit = takeProfit is not None
-        if isStopLoss or isTakeProfit:
-            if isStopLoss:
+        stopLoss = self.safe_dict(query, 'stopLoss')
+        takeProfit = self.safe_dict(query, 'takeProfit')
+        query = self.omit(query, ['stopLoss', 'takeProfit', 'hedged'])
+        hasStopLoss = stopLoss is not None
+        hasTakeProfit = takeProfit is not None
+        if hasStopLoss or hasTakeProfit:
+            if hasStopLoss:
                 slTriggerPrice = self.safe_string_2(stopLoss, 'triggerPrice', 'stopPrice')
                 request['slTriggerPrice'] = self.price_to_precision(symbol, slTriggerPrice)
                 slOrderPrice = self.safe_string(stopLoss, 'price', '-1')
                 request['slOrderPrice'] = self.price_to_precision(symbol, slOrderPrice)
-            if isTakeProfit:
+            if hasTakeProfit:
                 tpTriggerPrice = self.safe_string_2(takeProfit, 'triggerPrice', 'stopPrice')
                 request['tpTriggerPrice'] = self.price_to_precision(symbol, tpTriggerPrice)
                 tpPrice = self.safe_string(takeProfit, 'price', '-1')
                 request['tpOrderPrice'] = self.price_to_precision(symbol, tpPrice)
-        return self.extend(request, params)
+        elif triggerPriceAny is not None:
+            request['orderType'] = 'trigger'
+            request['triggerPrice'] = self.price_to_precision(symbol, triggerPriceAny)
+            if isMarketOrder:
+                request['orderPrice'] = '-1'
+            if triggerPriceSlTp is not None:
+                request['reduceOnly'] = True
+            query = self.omit(query, ['stopLossPrice', 'takeProfitPrice', 'triggerPrice'])
+        return self.extend(request, query)
 
-    def parse_order_status(self, status: Str):
-        statuses: dict = {
+    def parse_order_status(self, status: Str) -> Str:
+        statuses = {
             'canceled': 'canceled',
             'order_failed': 'canceled',
             'live': 'open',
@@ -998,6 +1422,8 @@ class blofin(Exchange, ImplicitAPI):
         return self.safe_string(statuses, status, status)
 
     def parse_order(self, order: dict, market: Market = None) -> Order:
+        #
+        # response similar for REST & WS
         #
         # {
         #     "orderId": "2075628533",
@@ -1026,9 +1452,12 @@ class blofin(Exchange, ImplicitAPI):
         #     "cancelSource": "not_canceled",
         #     "cancelSourceReason": null,
         #     "brokerId": "ec6dd3a7dd982d0b"
+        #     "filled_amount": "1.000000000000000000", // filledAmount in "ws" watchOrders
+        #     "cancelSource": "", // only in WS
+        #     "instType": "SWAP", // only in WS
         # }
         #
-        id = self.safe_string_2(order, 'tpslId', 'orderId')
+        id = self.safe_string_n(order, ['tpslId', 'orderId', 'algoId'])
         timestamp = self.safe_integer(order, 'createTime')
         lastUpdateTimestamp = self.safe_integer(order, 'updateTime')
         lastTradeTimestamp = self.safe_integer(order, 'fillTime')
@@ -1045,28 +1474,30 @@ class blofin(Exchange, ImplicitAPI):
         elif type == 'ioc':
             timeInForce = 'IOC'
             type = 'limit'
+        elif type == 'conditional':
+            type = 'trigger'
         marketId = self.safe_string(order, 'instId')
-        market = self.safe_market(marketId, market)
-        symbol = self.safe_symbol(marketId, market, '-')
+        marketResolved = self.safe_market(marketId, market)
+        symbol = self.safe_symbol(marketId, marketResolved, '-')
         filled = self.safe_string(order, 'filledSize')
-        price = self.safe_string_2(order, 'px', 'price')
+        price = self.safe_string_n(order, ['px', 'price', 'orderPrice'])
         average = self.safe_string(order, 'averagePrice')
         status = self.parse_order_status(self.safe_string(order, 'state'))
         feeCostString = self.safe_string(order, 'fee')
         amount = self.safe_string(order, 'size')
-        leverage = self.safe_string(order, 'leverage', '1')
-        contractSize = self.safe_string(market, 'contractSize')
+        contractSize = self.safe_string(marketResolved, 'contractSize')
         baseAmount = Precise.string_mul(contractSize, filled)
-        cost: Str = None
+        cost = None
         if average is not None:
             cost = Precise.string_mul(average, baseAmount)
-            cost = Precise.string_div(cost, leverage)
         # spot market buy: "sz" can refer either to base currency units or to quote currency units
         fee = None
         if feeCostString is not None:
             feeCostSigned = Precise.string_abs(feeCostString)
-            feeCurrencyId = self.safe_string(order, 'feeCcy', 'USDT')
+            feeCurrencyId = self.safe_string(order, 'feeCcy')
             feeCurrencyCode = self.safe_currency_code(feeCurrencyId)
+            if feeCurrencyCode is None:
+                feeCurrencyCode = self.safe_string(marketResolved, 'settle')
             fee = {
                 'cost': self.parse_number(feeCostSigned),
                 'currency': feeCurrencyCode,
@@ -1074,10 +1505,9 @@ class blofin(Exchange, ImplicitAPI):
         clientOrderId = self.safe_string(order, 'clientOrderId')
         if (clientOrderId is not None) and (len(clientOrderId) < 1):
             clientOrderId = None  # fix empty clientOrderId string
-        stopLossTriggerPrice = self.safe_number(order, 'slTriggerPrice')
-        stopLossPrice = self.safe_number(order, 'slOrderPrice')
-        takeProfitTriggerPrice = self.safe_number(order, 'tpTriggerPrice')
-        takeProfitPrice = self.safe_number(order, 'tpOrderPrice')
+        # unified stopLossPrice/takeProfitPrice are the trigger prices (createOrder sends them as sl/tpTriggerPrice)
+        stopLossPrice = self.safe_number(order, 'slTriggerPrice')
+        takeProfitPrice = self.safe_number(order, 'tpTriggerPrice')
         reduceOnlyRaw = self.safe_string(order, 'reduceOnly')
         reduceOnly = (reduceOnlyRaw == 'true')
         return self.safe_order({
@@ -1094,8 +1524,6 @@ class blofin(Exchange, ImplicitAPI):
             'postOnly': postOnly,
             'side': side,
             'price': price,
-            'stopLossTriggerPrice': stopLossTriggerPrice,
-            'takeProfitTriggerPrice': takeProfitTriggerPrice,
             'stopLossPrice': stopLossPrice,
             'takeProfitPrice': takeProfitPrice,
             'average': average,
@@ -1107,25 +1535,29 @@ class blofin(Exchange, ImplicitAPI):
             'fee': fee,
             'trades': None,
             'reduceOnly': reduceOnly,
-        }, market)
+        }, marketResolved)
 
-    async def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}) -> Order:
+    async def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params: dict = {}) -> Order:
         """
         create a trade order
-        :see: https://blofin.com/docs#place-order
-        :see: https://blofin.com/docs#place-tpsl-order
+
+        https://blofin.com/docs#place-order
+        https://blofin.com/docs#place-tpsl-order
+
         :param str symbol: unified symbol of the market to create an order in
         :param str type: 'market' or 'limit' or 'post_only' or 'ioc' or 'fok'
         :param str side: 'buy' or 'sell'
         :param float amount: how much of currency you want to trade in units of base currency
-        :param float [price]: the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
+        :param float [price]: the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
         :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.triggerPrice]: the trigger price for a trigger order
         :param bool [params.reduceOnly]: a mark to reduce the position size for margin, swap and future orders
         :param bool [params.postOnly]: True to place a post only order
         :param str [params.marginMode]: 'cross' or 'isolated', default is 'cross'
         :param float [params.stopLossPrice]: stop loss trigger price(will use privatePostTradeOrderTpsl)
         :param float [params.takeProfitPrice]: take profit trigger price(will use privatePostTradeOrderTpsl)
-        :param str [param.positionSide]: *stopLossPrice/takeProfitPrice orders only* 'long' or 'short' or 'net' default is 'net'
+        :param str [params.positionSide]: *stopLossPrice/takeProfitPrice orders only* 'long' or 'short' or 'net' default is 'net'
+        :param boolean [params.hedged]: if True, the positionSide will be set to long/short instead of net, default is False
         :param str [params.clientOrderId]: a unique id for the order
         :param dict [params.takeProfit]: *takeProfit object in params* containing the triggerPrice at which the attached take profit order will be triggered
         :param float [params.takeProfit.triggerPrice]: take profit trigger price
@@ -1133,24 +1565,34 @@ class blofin(Exchange, ImplicitAPI):
         :param dict [params.stopLoss]: *stopLoss object in params* containing the triggerPrice at which the attached stop loss order will be triggered
         :param float [params.stopLoss.triggerPrice]: stop loss trigger price
         :param float [params.stopLoss.price]: stop loss order price(if not provided the order will be a market order)
-        :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :param float [params.tpsl]: whether to force to send the order to the combined TPSL oco order endpoint
+        :returns dict: an `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        tpsl = self.safe_bool(params, 'tpsl', False)
-        params = self.omit(params, 'tpsl')
-        method = None
-        method, params = self.handle_option_and_params(params, 'createOrder', 'method', 'privatePostTradeOrder')
         isStopLossPriceDefined = self.safe_string(params, 'stopLossPrice') is not None
         isTakeProfitPriceDefined = self.safe_string(params, 'takeProfitPrice') is not None
-        isType2Order = (isStopLossPriceDefined or isTakeProfitPriceDefined)
-        response = None
-        if tpsl or (method == 'privatePostTradeOrderTpsl') or isType2Order:
-            tpslRequest = self.create_tpsl_order_request(symbol, type, side, amount, price, params)
+        isTriggerOrder = self.safe_string(params, 'triggerPrice') is not None
+        isTpslEndpoint, paramsTpsl = self.handle_option_bool_and_params(params, 'createOrder', 'tpsl', False)
+        isCombinedSlTp = (isStopLossPriceDefined and isTakeProfitPriceDefined) or isTpslEndpoint
+        isSlOrTp = isStopLossPriceDefined or isTakeProfitPriceDefined
+        response: dict
+        reduceOnly = self.safe_bool(paramsTpsl, 'reduceOnly')
+        if reduceOnly is not None:
+            paramsTpsl['reduceOnly'] = 'true' if reduceOnly else 'false'
+        if isCombinedSlTp:
+            tpslRequest = self.create_tpsl_order_request(symbol, type, side, amount, price, paramsTpsl)
             response = await self.privatePostTradeOrderTpsl(tpslRequest)
+        elif isTriggerOrder or isSlOrTp:
+            triggerRequest = self.create_order_request(symbol, type, side, amount, price, paramsTpsl)
+            response = await self.privatePostTradeOrderAlgo(triggerRequest)
         else:
-            request = self.create_order_request(symbol, type, side, amount, price, params)
+            request = self.create_order_request(symbol, type, side, amount, price, paramsTpsl)
             response = await self.privatePostTradeOrder(request)
+        if isCombinedSlTp or isSlOrTp or isTriggerOrder:
+            dataDict = self.safe_dict(response, 'data', {})
+            return self.parse_order(dataDict, market)
         data = self.safe_list(response, 'data', [])
         first = self.safe_dict(data, 0)
         order = self.parse_order(first, market)
@@ -1158,14 +1600,18 @@ class blofin(Exchange, ImplicitAPI):
         order['side'] = side
         return order
 
-    def create_tpsl_order_request(self, symbol: str, type: OrderType, side: OrderSide, amount: Num = None, price: Num = None, params={}):
+    def create_tpsl_order_request(self, symbol: Str, type: OrderType, side: OrderSide, amount: Num = None, price: Num = None, params: dict = {}) -> dict:
         market = self.market(symbol)
-        positionSide = self.safe_string(params, 'positionSide', 'net')
-        request: dict = {
+        hedged = self.safe_bool(params, 'hedged', False)
+        positionSide = 'net'
+        if hedged:
+            positionSide = 'short' if (side == 'buy') else 'long'
+        request = {
             'instId': market['id'],
             'side': side,
             'positionSide': positionSide,
             'brokerId': self.safe_string(self.options, 'brokerId', 'ec6dd3a7dd982d0b'),
+            'reduceOnly': self.safe_bool(params, 'reduceOnly', True),  # this is TP &  SL protective order, so it should be reduceOnly by default
         }
         if amount is not None:
             request['size'] = self.amount_to_precision(symbol, amount)
@@ -1179,70 +1625,96 @@ class blofin(Exchange, ImplicitAPI):
             if type == 'market':
                 request['slOrderPrice'] = '-1'
             else:
-                request['slOrderPrice'] = self.price_to_precision(symbol, price)
-        elif takeProfitPrice is not None:
+                slLimitPrice = self.safe_string(params, 'stopLossLimitPrice')
+                if slLimitPrice is None:
+                    raise ArgumentsRequired(self.id + ' createTpslOrder() requires a "stopLossLimitPrice" parameter (instead of "price" argument) for stop loss orders when the order type is not market')
+                request['slOrderPrice'] = self.price_to_precision(symbol, slLimitPrice)
+        if takeProfitPrice is not None:
             request['tpTriggerPrice'] = self.price_to_precision(symbol, takeProfitPrice)
             if type == 'market':
                 request['tpOrderPrice'] = '-1'
             else:
-                request['tpOrderPrice'] = self.price_to_precision(symbol, price)
+                tpLimitPrice = self.safe_string(params, 'takeProfitLimitPrice')
+                if tpLimitPrice is None:
+                    raise ArgumentsRequired(self.id + ' createTpslOrder() requires a "takeProfitLimitPrice" parameter (instead of "price" argument) for take profit orders when the order type is not market')
+                request['tpOrderPrice'] = self.price_to_precision(symbol, tpLimitPrice)
         request['marginMode'] = marginMode
-        params = self.omit(params, ['stopLossPrice', 'takeProfitPrice'])
-        return self.extend(request, params)
+        # the limit prices are consumed only when the order type is not market
+        consumedKeys = ['stopLossPrice', 'takeProfitPrice', 'reduceOnly', 'hedged']
+        if (stopLossPrice is not None) and (type != 'market'):
+            consumedKeys.append('stopLossLimitPrice')
+        if (takeProfitPrice is not None) and (type != 'market'):
+            consumedKeys.append('takeProfitLimitPrice')
+        return self.extend(request, self.omit(params, consumedKeys))
 
-    async def cancel_order(self, id: str, symbol: Str = None, params={}):
+    async def cancel_order(self, id: str, symbol: Str = None, params: dict = {}) -> Order:
         """
         cancels an open order
-        :see: https://blofin.com/docs#cancel-order
-        :see: https://blofin.com/docs#cancel-tpsl-order
+
+        https://blofin.com/docs#cancel-order
+        https://blofin.com/docs#cancel-tpsl-order
+
         :param str id: order id
         :param str symbol: unified symbol of the market the order was made in
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :param boolean [params.trigger]: True if cancelling a trigger/conditional order/tp sl orders
-        :returns dict: An `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :param boolean [params.trigger]: True if cancelling a trigger/conditional
+        :param boolean [params.tpsl]: True if cancelling a tpsl order
+        :returns dict: An `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' cancelOrder() requires a symbol argument')
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'instId': market['id'],
         }
-        isTrigger = self.safe_bool_n(params, ['stop', 'trigger', 'tpsl'], False)
+        isTrigger = self.safe_bool(params, 'trigger', False)
+        isTpsl = self.safe_bool_2(params, 'tpsl', 'TPSL', False)
         clientOrderId = self.safe_string(params, 'clientOrderId')
         if clientOrderId is not None:
             request['clientOrderId'] = clientOrderId
         else:
-            if not isTrigger:
-                request['orderId'] = str(id)
-            else:
-                request['tpslId'] = str(id)
+            if (not isTrigger) and (not isTpsl):
+                request['orderId'] = self.number_to_string(id)
+            elif isTpsl:
+                request['tpslId'] = self.number_to_string(id)
+            elif isTrigger:
+                request['algoId'] = self.number_to_string(id)
         query = self.omit(params, ['orderId', 'clientOrderId', 'stop', 'trigger', 'tpsl'])
-        if isTrigger:
+        if isTpsl:
             tpslResponse = await self.cancel_orders([id], symbol, params)
             first = self.safe_dict(tpslResponse, 0)
             return first
+        elif isTrigger:
+            triggerResponse = await self.privatePostTradeCancelAlgo(self.extend(request, query))
+            triggerData = self.safe_dict(triggerResponse, 'data')
+            return self.parse_order(triggerData, market)
         response = await self.privatePostTradeCancelOrder(self.extend(request, query))
         data = self.safe_list(response, 'data', [])
         order = self.safe_dict(data, 0)
         return self.parse_order(order, market)
 
-    async def create_orders(self, orders: List[OrderRequest], params={}) -> List[Order]:
+    async def create_orders(self, orders: list[OrderRequest], params: dict = {}) -> list[Order]:
         """
         create a list of trade orders
-        :see: https://blofin.com/docs#place-multiple-orders
+
+        https://blofin.com/docs#place-multiple-orders
+
         :param Array orders: list of orders to create, each object should contain the parameters required by createOrder, namely symbol, type, side, amount, price and params
-        :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: an `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         ordersRequests = []
         for i in range(0, len(orders)):
-            rawOrder = orders[i]
+            rawOrder = self.safe_dict(orders, i)
             marketId = self.safe_string(rawOrder, 'symbol')
             type = self.safe_string(rawOrder, 'type')
             side = self.safe_string(rawOrder, 'side')
-            amount = self.safe_value(rawOrder, 'amount')
-            price = self.safe_value(rawOrder, 'price')
+            amount = self.safe_number(rawOrder, 'amount')
+            price = self.safe_number(rawOrder, 'price')
             orderParams = self.safe_dict(rawOrder, 'params', {})
             extendedParams = self.extend(orderParams, params)  # the request does not accept extra params since it's a list, so we're extending each order with the common params
             orderRequest = self.create_order_request(marketId, type, side, amount, price, extendedParams)
@@ -1251,25 +1723,69 @@ class blofin(Exchange, ImplicitAPI):
         data = self.safe_list(response, 'data', [])
         return self.parse_orders(data)
 
-    async def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
+    async def fetch_order(self, id: str, symbol: Str = None, params: dict = {}) -> Order:
+        """
+        fetches information on an order made by the user
+
+        https://docs.blofin.com/index.html#get-order-detail
+        https://docs.blofin.com/index.html#get-tpsl-order-detail
+
+        :param str id: order id
+        :param str symbol: unified symbol of the market the order was made in
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.clientOrderId]: client order id, used instead of the id argument
+        :param boolean [params.tpsl]: True if fetching a tpsl order
+        :returns dict: an `order structure <https://docs.ccxt.com/?id=order-structure>`
+        """
+        if symbol is None:
+            raise ArgumentsRequired(self.id + ' fetchOrder() requires a symbol argument')
+        if self.markets is None:
+            await self.load_markets()
+        market = self.market(symbol)
+        request = {
+            'instId': market['id'],
+        }
+        isTpsl = self.safe_bool_2(params, 'tpsl', 'TPSL', False)
+        clientOrderId = self.safe_string(params, 'clientOrderId')
+        if clientOrderId is not None:
+            request['clientOrderId'] = clientOrderId
+        elif isTpsl:
+            request['tpslId'] = id
+        else:
+            request['orderId'] = id
+        query = self.omit(params, ['clientOrderId', 'tpsl', 'TPSL'])
+        response: dict
+        if isTpsl:
+            response = await self.privateGetTradeOrderTpslDetail(self.extend(request, query))
+        else:
+            response = await self.privateGetTradeOrderDetail(self.extend(request, query))
+        data = self.safe_dict(response, 'data')
+        if data is None:
+            raise OrderNotFound(self.id + ' fetchOrder() could not find order ' + id)
+        return self.parse_order(data, market)
+
+    async def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Order]:
         """
         Fetch orders that are still open
-        :see: https://blofin.com/docs#get-active-orders
-        :see: https://blofin.com/docs#get-active-tpsl-orders
+
+        https://blofin.com/docs#get-active-orders
+        https://blofin.com/docs#get-active-tpsl-orders
+        https://docs.blofin.com/index.html#get-active-algo-orders
+
         :param str symbol: unified market symbol
         :param int [since]: the earliest time in ms to fetch open orders for
         :param int [limit]: the maximum number of  open orders structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :param bool [params.stop]: True if fetching trigger or conditional orders
+        :param bool [params.trigger]: True if fetching trigger or conditional orders
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns Order[]: a list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns Order[]: a list of `order structures <https://docs.ccxt.com/?id=order-structure>`
         """
-        await self.load_markets()
-        paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchOpenOrders', 'paginate')
+        if self.markets is None:
+            await self.load_markets()
+        paginate, paramsPaginate = self.handle_option_bool_and_params(params, 'fetchOpenOrders', 'paginate', False)
         if paginate:
-            return await self.fetch_paginated_call_dynamic('fetchOpenOrders', symbol, since, limit, params)
-        request: dict = {
+            return await self.fetch_paginated_call_dynamic('fetchOpenOrders', symbol, since, limit, paramsPaginate)
+        request = {
         }
         market = None
         if symbol is not None:
@@ -1277,66 +1793,105 @@ class blofin(Exchange, ImplicitAPI):
             request['instId'] = market['id']
         if limit is not None:
             request['limit'] = limit  # default 100, max 100
-        isStop = self.safe_bool_n(params, ['stop', 'trigger', 'tpsl', 'TPSL'], False)
-        method: Str = None
-        method, params = self.handle_option_and_params(params, 'fetchOpenOrders', 'method', 'privateGetTradeOrdersPending')
-        query = self.omit(params, ['method', 'stop', 'trigger', 'tpsl', 'TPSL'])
-        response = None
-        if isStop or (method == 'privateGetTradeOrdersTpslPending'):
+        isTrigger = self.safe_bool_n(paramsPaginate, ['stop', 'trigger'], False)
+        isTpSl = self.safe_bool_2(paramsPaginate, 'tpsl', 'TPSL', False)
+        method, paramsMethod = self.handle_option_string_and_params(paramsPaginate, 'fetchOpenOrders', 'method', 'privateGetTradeOrdersPending')
+        query = self.omit(paramsMethod, ['method', 'stop', 'trigger', 'tpsl', 'TPSL'])
+        response: dict
+        if (isTpSl) or (method == 'privateGetTradeOrdersTpslPending'):
             response = await self.privateGetTradeOrdersTpslPending(self.extend(request, query))
+        elif (isTrigger) or (method == 'privateGetTradeOrdersAlgoPending'):
+            request['orderType'] = 'trigger'
+            response = await self.privateGetTradeOrdersAlgoPending(self.extend(request, query))
         else:
             response = await self.privateGetTradeOrdersPending(self.extend(request, query))
         data = self.safe_list(response, 'data', [])
         return self.parse_orders(data, market, since, limit)
 
-    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
+    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Trade]:
         """
         fetch all trades made by the user
-        :see: https://blofin.com/docs#get-trade-history
+
+        https://blofin.com/docs#get-trade-history
+
         :param str symbol: unified market symbol
         :param int [since]: the earliest time in ms to fetch trades for
         :param int [limit]: the maximum number of trades structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: Timestamp in ms of the latest time to retrieve trades for
+        :param str [params.type]: 'swap' or 'spot'(defaults to 'swap'), required to fetch spot trade history
+        :param str [params.instId]: *spot markets only* the market id of the spot market to fetch the trade history for(e.g. 'BTC-USDT')
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/#/?id=trade-structure>`
+        :returns Trade[]: a list of `trade structures <https://docs.ccxt.com/?id=trade-structure>`
         """
-        await self.load_markets()
-        paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchMyTrades', 'paginate')
+        if self.markets is None:
+            await self.load_markets()
+        paginate, paramsPaginate = self.handle_option_bool_and_params(params, 'fetchMyTrades', 'paginate', False)
         if paginate:
-            return await self.fetch_paginated_call_dynamic('fetchMyTrades', symbol, since, limit, params)
-        request: dict = {
+            return await self.fetch_paginated_call_dynamic('fetchMyTrades', symbol, since, limit, paramsPaginate)
+        request = {
         }
         market = None
         if symbol is not None:
             market = self.market(symbol)
             request['instId'] = market['id']
-        request, params = self.handle_until_option('end', request, params)
+        if since is not None:
+            request['begin'] = since
+        requestUntil, paramsUntil = self.handle_until_option('end', request, paramsPaginate)
         if limit is not None:
-            request['limit'] = limit  # default 100, max 100
-        response = await self.privateGetTradeFillsHistory(self.extend(request, params))
+            requestUntil['limit'] = limit  # default 100, max 100
+        type = 'swap'
+        typeMarketType, paramsMarketType = self.handle_market_type_and_params('fetchMyTrades', market, paramsUntil, type)
+        response: dict
+        if typeMarketType == 'spot':
+            requestUntil['instType'] = 'SPOT'
+            #
+            #     {
+            #         "code": "0",
+            #         "msg": "success",
+            #         "data": [
+            #             {
+            #                 "instId": "DOGE-USDT",
+            #                 "tradeId": "6000001623870",
+            #                 "orderId": "6000011777113",
+            #                 "fillPrice": "0.091480000000000000",
+            #                 "fillSize": "30.000000000000000000",
+            #                 "fillPnl": null,
+            #                 "side": "buy",
+            #                 "fee": "0.030000000000000000",
+            #                 "ts": "1775213753407",
+            #                 "brokerId": null,
+            #                 "feeCurrency": "base_currency"
+            #             }
+            #         ]
+            #     }
+            #
+            response = await self.privateGetSpotTradeFillsHistory(self.extend(requestUntil, paramsMarketType))
+        else:
+            response = await self.privateGetTradeFillsHistory(self.extend(requestUntil, paramsMarketType))
         data = self.safe_list(response, 'data', [])
         return self.parse_trades(data, market, since, limit)
 
-    async def fetch_deposits(self, code: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Transaction]:
+    async def fetch_deposits(self, code: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Transaction]:
         """
         fetch all deposits made to an account
-        :see: https://blofin.com/docs#get-deposite-history
+
+        https://blofin.com/docs#get-deposite-history
+
         :param str code: unified currency code
         :param int [since]: the earliest time in ms to fetch deposits for
         :param int [limit]: the maximum number of deposits structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: the latest time in ms to fetch entries for
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns dict[]: a list of `transaction structures <https://docs.ccxt.com/#/?id=transaction-structure>`
+        :returns dict[]: a list of `transaction structures <https://docs.ccxt.com/?id=transaction-structure>`
         """
-        await self.load_markets()
-        paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchDeposits', 'paginate')
+        if self.markets is None:
+            await self.load_markets()
+        paginate, paramsPaginate = self.handle_option_bool_and_params(params, 'fetchDeposits', 'paginate', False)
         if paginate:
-            return await self.fetch_paginated_call_dynamic('fetchDeposits', code, since, limit, params)
-        request: dict = {
+            return await self.fetch_paginated_call_dynamic('fetchDeposits', code, since, limit, paramsPaginate)
+        request = {
         }
         currency = None
         if code is not None:
@@ -1346,29 +1901,31 @@ class blofin(Exchange, ImplicitAPI):
             request['before'] = max(since - 1, 0)
         if limit is not None:
             request['limit'] = limit  # default 100, max 100
-        request, params = self.handle_until_option('after', request, params)
-        response = await self.privateGetAssetDepositHistory(self.extend(request, params))
+        requestUntil, paramsUntil = self.handle_until_option('after', request, paramsPaginate)
+        response = await self.privateGetAssetDepositHistory(self.extend(requestUntil, paramsUntil))
         data = self.safe_list(response, 'data', [])
-        return self.parse_transactions(data, currency, since, limit, params)
+        return self.parse_transactions(data, currency, since, limit, paramsUntil)
 
-    async def fetch_withdrawals(self, code: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Transaction]:
+    async def fetch_withdrawals(self, code: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Transaction]:
         """
         fetch all withdrawals made from an account
-        :see: https://blofin.com/docs#get-withdraw-history
+
+        https://blofin.com/docs#get-withdraw-history
+
         :param str code: unified currency code
         :param int [since]: the earliest time in ms to fetch withdrawals for
         :param int [limit]: the maximum number of withdrawals structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: the latest time in ms to fetch entries for
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns dict[]: a list of `transaction structures <https://docs.ccxt.com/#/?id=transaction-structure>`
+        :returns dict[]: a list of `transaction structures <https://docs.ccxt.com/?id=transaction-structure>`
         """
-        await self.load_markets()
-        paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchWithdrawals', 'paginate')
+        if self.markets is None:
+            await self.load_markets()
+        paginate, paramsPaginate = self.handle_option_bool_and_params(params, 'fetchWithdrawals', 'paginate', False)
         if paginate:
-            return await self.fetch_paginated_call_dynamic('fetchWithdrawals', code, since, limit, params)
-        request: dict = {
+            return await self.fetch_paginated_call_dynamic('fetchWithdrawals', code, since, limit, paramsPaginate)
+        request = {
         }
         currency = None
         if code is not None:
@@ -1378,30 +1935,451 @@ class blofin(Exchange, ImplicitAPI):
             request['before'] = max(since - 1, 0)
         if limit is not None:
             request['limit'] = limit  # default 100, max 100
-        request, params = self.handle_until_option('after', request, params)
+        requestUntil, paramsUntil = self.handle_until_option('after', request, paramsPaginate)
+        response = await self.privateGetAssetWithdrawalHistory(self.extend(requestUntil, paramsUntil))
+        data = self.safe_list(response, 'data', [])
+        return self.parse_transactions(data, currency, since, limit, paramsUntil)
+
+    def network_code_to_chain_id(self, networkCode: str, currency: Currency = None) -> Str:
+        aliasedCode = self.safe_string(self.options['networkCodeAliases'], networkCode, networkCode)
+        unifiedCode = self.safe_string(self.networkAliases, aliasedCode, aliasedCode)
+        # prefer the exact chain id from the currencies registry when it is
+        # loaded, since some ids are currency-specific (USDT on Optimism)
+        if currency is not None:
+            currencyNetworks = self.safe_dict(currency, 'networks', {})
+            currencyNetwork = self.safe_dict(currencyNetworks, unifiedCode)
+            currencyNetworkId = self.safe_string(currencyNetwork, 'id')
+            if currencyNetworkId is not None:
+                return currencyNetworkId
+        # the live venue identifies chains by display names; the suffix
+        # family is built here as prefix + space + parenthesized suffix
+        # because such literals are not transpiler-safe in source
+        direct = self.safe_string(self.options['networks'], unifiedCode)
+        if direct is not None:
+            return direct
+        prefix = self.safe_string(self.options['networkPrefixes'], unifiedCode)
+        if prefix is not None:
+            suffix = self.safe_string(self.options['networkSuffixes'], unifiedCode, unifiedCode)
+            return prefix + ' ' + '(' + suffix + ')'
+        return unifiedCode
+
+    def chain_id_to_network_code(self, chainId: Str) -> Str:
+        # live history rows and the currencies registry carry display-name
+        # chain ids like Tron with a parenthesized TRC20 suffix (verified
+        # live 2026-09-15), while the doc examples still show short forms -
+        # parse the suffix when present, fall back to the id maps otherwise
+        if chainId is None:
+            return None
+        if chainId.find('(') > -1:
+            # php-safe suffix extraction: split instead of index arithmetic,
+            # because a stored strpos result and a two-argument slice do not
+            # survive the php conversion (false-vs-int compare; length arg)
+            parts = chainId.split('(')
+            tail = self.safe_string(parts, 1, '')
+            tailParts = tail.split(')')
+            suffix = self.safe_string(tailParts, 0)
+            suffixCode = self.safe_string(self.options['networkCodesBySuffix'], suffix)
+            if suffixCode is not None:
+                return suffixCode
+            prefixes = self.safe_dict(self.options, 'networkPrefixes', {})
+            if (suffix is not None) and (suffix in prefixes):
+                return suffix
+            # the suffix is not always a chain: 'Optimism (USDT0)' carries
+            # the token name (verified live 2026-09-30), resolve by prefix
+            head = self.safe_string(parts, 0, '')
+            return self.network_id_to_code(head.strip())
+        # delegate the paren-free branch to the base resolver so the
+        # currency-scoped networks and the deprecated-network-code aliases
+        # keep applying alongside options['networksById']
+        return self.network_id_to_code(chainId)
+
+    async def fetch_currencies(self, params: dict = {}) -> Currencies:
+        """
+        fetches all available currencies on an exchange
+
+        https://docs.blofin.com/index.html#get-currencies
+
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: an associative dictionary of currencies
+        """
+        # GET /asset/currencies is a private endpoint, while fetchCurrencies
+        # is invoked from loadMarkets - skip it when no credentials are set
+        # and on the demo host, which has no funding account
+        if not self.check_required_credentials(False) or self.isSandboxModeEnabled:
+            return {}
+        response = await self.privateGetAssetCurrencies(params)
+        #
+        #     {
+        #         "code": "0",
+        #         "msg": "success",
+        #         "data": [
+        #             {
+        #                 "currency": "USDT",
+        #                 "chain": "TRC20",
+        #                 "depositMinAmount": "1",
+        #                 "depositUnsafeConfirmation": 1,
+        #                 "depositConfirmation": 20,
+        #                 "withdrawMinAmount": "10",
+        #                 "withdrawFee": "1",
+        #                 "withdrawPrecision": 8,
+        #                 "supportMemo": 0,
+        #                 "isDepositAvailable": 1,
+        #                 "isWithdrawAvailable": 1,
+        #                 "recoveryEtaDeposit": 0,
+        #                 "recoveryEtaWithdraw": 0,
+        #                 "logo": "https://example.com/usdt.png"
+        #             }
+        #         ]
+        #     }
+        #
+        # one row per currency + chain pair, group them per currency
+        data = self.safe_list(response, 'data', [])
+        dataByCurrencyId = self.group_by(data, 'currency')
+        currencies = list(dataByCurrencyId.values())
+        return self.parse_currencies(currencies)
+
+    def parse_currency(self, currency: dict) -> CurrencyInterface:
+        chains = currency
+        firstChain = self.safe_dict(chains, 0, {})
+        currencyId = self.safe_string(firstChain, 'currency')
+        code = self.safe_currency_code(currencyId)
+        networks = {}
+        chainsLength = len(chains)
+        for i in range(0, chainsLength):
+            chain = self.safe_dict(chains, i)
+            networkId = self.safe_string(chain, 'chain')
+            networkCode = self.chain_id_to_network_code(networkId)
+            if networkCode is None:
+                continue
+            networks[networkCode] = {
+                'id': networkId,
+                'network': networkCode,
+                'active': None,
+                'deposit': self.safe_integer(chain, 'isDepositAvailable') == 1,
+                'withdraw': self.safe_integer(chain, 'isWithdrawAvailable') == 1,
+                'fee': self.safe_number(chain, 'withdrawFee'),
+                'precision': self.parse_number(self.parse_precision(self.safe_string(chain, 'withdrawPrecision'))),
+                'limits': {
+                    'deposit': {
+                        'min': self.safe_number(chain, 'depositMinAmount'),
+                        'max': None,
+                    },
+                    'withdraw': {
+                        'min': self.safe_number(chain, 'withdrawMinAmount'),
+                        'max': None,
+                    },
+                },
+                'info': chain,
+            }
+        return self.safe_currency_structure({
+            'info': chains,
+            'code': code,
+            'id': currencyId,
+            'name': None,
+            'active': None,
+            'deposit': None,
+            'withdraw': None,
+            'fee': None,
+            'precision': None,
+            'limits': {
+                'amount': {
+                    'min': None,
+                    'max': None,
+                },
+            },
+            'type': 'crypto',
+            'networks': networks,
+        })
+
+    async def fetch_deposit_address(self, code: str, params: dict = {}) -> DepositAddress:
+        """
+        fetch the deposit address for a currency associated with self account
+
+        https://docs.blofin.com/index.html#get-deposit-address
+
+        :param str code: unified currency code
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.network]: unified network code, required unless the currency has a single network or a default in options['defaultNetworks']
+        :param str [params.chain]: the exchange-specific chain id, takes precedence over params.network
+        :returns dict: an `address structure <https://docs.ccxt.com/#/?id=address-structure>`
+        """
+        await self.load_markets()
+        currency = self.currency(code)
+        request = {
+            'currency': currency['id'],
+        }
+        # same reads as handleNetworkCodeAndParams, kept as typed locals
+        networkCode = self.safe_string_2(params, 'networkCode', 'network')
+        query = self.omit(params, ['networkCode', 'network'])
+        chain = self.safe_string(query, 'chain')
+        if chain is None:
+            if networkCode is None:
+                networks = self.safe_dict(currency, 'networks', {})
+                networkKeys = list(networks.keys())
+                networkKeysLength = len(networkKeys)
+                if networkKeysLength == 1:
+                    networkCode = self.safe_string(networkKeys, 0)
+                else:
+                    networkCode = self.safe_string(self.options['defaultNetworks'], currency['code'])
+            if networkCode is None:
+                raise ArgumentsRequired(self.id + ' fetchDepositAddress() requires a params["network"] or params["chain"] for ' + code)
+            # the same display-name chain ids that withdrawal-apply and the currencies registry use
+            request['chain'] = self.network_code_to_chain_id(networkCode, currency)
+        response = await self.privateGetAssetDepositAddress(self.extend(request, query))
+        #
+        #     {
+        #         "code": "0",
+        #         "msg": "success",
+        #         "data": [
+        #             {
+        #                 "currency": "USDT",
+        #                 "chain": "TRC20",
+        #                 "address": "THmWeEJKyb976L76MvrTjeYMyNgiS9aKTu",
+        #                 "tag": ""
+        #             }
+        #         ]
+        #     }
+        #
+        data = self.safe_list(response, 'data', [])
+        first = self.safe_dict(data, 0)
+        if first is None:
+            raise InvalidAddress(self.id + ' fetchDepositAddress() returned no address for ' + code + ' on ' + self.safe_string(request, 'chain', chain))
+        return self.parse_deposit_address(first, currency)
+
+    def parse_deposit_address(self, depositAddress: dict, currency: Currency = None) -> DepositAddress:
+        address = self.safe_string(depositAddress, 'address')
+        currencyId = self.safe_string(depositAddress, 'currency')
+        networkId = self.safe_string(depositAddress, 'chain')
+        tag = self.safe_string(depositAddress, 'tag')
+        if tag == '':
+            tag = None
+        self.check_address(address)
+        return {
+            'info': depositAddress,
+            'currency': self.safe_currency_code(currencyId, currency),
+            'network': self.chain_id_to_network_code(networkId),
+            'address': address,
+            'tag': tag,
+        }
+
+    async def fetch_deposit_withdraw_fees(self, codes: Strings = None, params: dict = {}) -> DepositWithdrawFees:
+        """
+        fetch deposit and withdraw fees
+
+        https://docs.blofin.com/index.html#get-currencies
+
+        :param str[] [codes]: list of unified currency codes
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: a list of `fee structures <https://docs.ccxt.com/#/?id=fee-structure>`
+        """
+        await self.load_markets()
+        response = await self.privateGetAssetCurrencies(params)
+        data = self.safe_list(response, 'data', [])
+        dataByCurrencyId = self.group_by(data, 'currency')
+        return self.parse_deposit_withdraw_fees(dataByCurrencyId, codes)
+
+    def parse_deposit_withdraw_fee(self, fee: object, currency: Currency = None) -> object:
+        #
+        # a list of GET /asset/currencies rows for one currency, see fetchCurrencies
+        #
+        result = self.deposit_withdraw_fee(fee)
+        chainsLength = len(fee)
+        for i in range(0, chainsLength):
+            chain = self.safe_dict(fee, i)
+            networkCode = self.chain_id_to_network_code(self.safe_string(chain, 'chain'))
+            if networkCode is None:
+                continue
+            result['networks'][networkCode] = {
+                'withdraw': {
+                    'fee': self.safe_number(chain, 'withdrawFee'),
+                    'percentage': False,
+                },
+                'deposit': {
+                    'fee': None,
+                    'percentage': None,
+                },
+            }
+        if chainsLength == 1:
+            # a single network means the currency-level fee is unambiguous
+            networks = self.safe_dict(result, 'networks', {})
+            networkKeys = list(networks.keys())
+            onlyNetwork = self.safe_string(networkKeys, 0)
+            if onlyNetwork is not None:
+                networkResolved = self.safe_dict(networks, onlyNetwork, {})
+                result['withdraw'] = networkResolved['withdraw']
+        return result
+
+    async def fetch_deposit(self, id: str, code: Str = None, params: dict = {}) -> Transaction:
+        """
+        fetch information on a deposit
+
+        https://docs.blofin.com/index.html#get-deposit-history
+
+        :param str id: deposit id
+        :param str [code]: unified currency code
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: a `transaction structure <https://docs.ccxt.com/#/?id=transaction-structure>`
+        """
+        await self.load_markets()
+        request = {
+            'depositId': id,
+        }
+        currency = None
+        if code is not None:
+            currency = self.currency(code)
+            request['currency'] = currency['id']
+        response = await self.privateGetAssetDepositHistory(self.extend(request, params))
+        data = self.safe_list(response, 'data', [])
+        # only accept a row that matches the requested id, in case the
+        # venue ignores the filter and returns the latest records instead
+        dataLength = len(data)
+        for i in range(0, dataLength):
+            entry = self.safe_value(data, i)
+            if self.safe_string(entry, 'depositId') == id:
+                return self.parse_transaction(entry, currency)
+        raise ExchangeError(self.id + ' fetchDeposit() could not find deposit ' + id)
+
+    async def fetch_withdrawal(self, id: Str, code: Str = None, params: dict = {}) -> Transaction:
+        """
+        fetch data on a currency withdrawal via the withdrawal id
+
+        https://docs.blofin.com/index.html#get-withdraw-history
+
+        :param str id: withdrawal id
+        :param str [code]: unified currency code
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.clientId]: look up by the client-supplied id instead, with id set to None
+        :returns dict: a `transaction structure <https://docs.ccxt.com/#/?id=transaction-structure>`
+        """
+        clientId = self.safe_string(params, 'clientId')
+        if (id is None) and (clientId is None):
+            raise ArgumentsRequired(self.id + ' fetchWithdrawal() requires an id argument or a params["clientId"]')
+        await self.load_markets()
+        request = {}
+        if id is not None:
+            request['withdrawId'] = id
+        currency = None
+        if code is not None:
+            currency = self.currency(code)
+            request['currency'] = currency['id']
         response = await self.privateGetAssetWithdrawalHistory(self.extend(request, params))
         data = self.safe_list(response, 'data', [])
-        return self.parse_transactions(data, currency, since, limit, params)
+        # only accept a row that matches the requested id (or clientId), in
+        # case the venue ignores the filter and returns the latest records
+        dataLength = len(data)
+        for i in range(0, dataLength):
+            entry = self.safe_value(data, i)
+            matches = False
+            if id is not None:
+                matches = (self.safe_string(entry, 'withdrawId') == id)
+            else:
+                matches = (self.safe_string(entry, 'clientId') == clientId)
+            if matches:
+                return self.parse_transaction(entry, currency)
+        reference = id if (id is not None) else clientId
+        raise ExchangeError(self.id + ' fetchWithdrawal() could not find withdrawal ' + reference)
 
-    async def fetch_ledger(self, code: Str = None, since: Int = None, limit: Int = None, params={}):
+    async def withdraw(self, code: str, amount: float, address: str, params: dict = {}) -> Transaction:
         """
-        fetch the history of changes, actions done by the user or operations that altered balance of the user
-        :see: https://blofin.com/docs#get-funds-transfer-history
-        :param str code: unified currency code, default is None
+        make a withdrawal
+
+        https://docs.blofin.com/index.html#withdrawal
+
+        :param str code: unified currency code
+        :param float amount: the amount to withdraw, the withdrawal fee is not included and must be reserved on top
+        :param str address: the address to withdraw to, or a UID / email / phone number for an internal transfer
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.tag]: memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
+        :param str [params.network]: the unified network code for on-chain withdrawals, mapped to the exchange's chain name
+        :param str [params.dest]: 'onchain'(default) or 'internal' for an internal transfer
+        :param str [params.addrType]: address type, 1: wallet address, 2: UID, 3: email, 4: mobile phone
+        :param str [params.areaCode]: area code for the phone number, required when address is a phone number
+        :param str [params.clientId]: a client-supplied id of up to 32 case-sensitive alphanumerics
+        :returns dict: a `transaction structure <https://docs.ccxt.com/#/?id=transaction-structure>`
+        """
+        # LIVE API vs DOCS quirks, verified against the venue 2026-09-14:
+        # - addrType is documented optional but the live venue rejects
+        #   on-chain withdrawals without it: 152001 "Parameter addrType
+        #   cannot be empty" - defaulted to 1 below
+        # - the chain identifiers accepted here are the DISPLAY NAMES from
+        #   GET /asset/currencies ("Tron (TRC20)", "Ethereum (ERC20)", ...);
+        #   the short forms shown in the doc examples ("TRC20") are rejected
+        #   with 152002 "Invalid parameter" - see options["networks"]
+        # - 152002 responses omit the offending field name even though the
+        #   error table documents the message as "Parameter {} error"
+        tagValue = None
+        query = None
+        tagValue, query = self.handle_param_string(params, 'tag')
+        await self.load_markets()
+        currency = self.currency(code)
+        request = {
+            'currency': currency['id'],
+            'address': address,
+            'amount': self.number_to_string(amount),
+        }
+        dest = self.safe_string(query, 'dest', 'onchain')
+        request['dest'] = dest
+        query = self.omit(query, 'dest')
+        if dest == 'onchain':
+            self.check_address(address, code, tagValue)
+            # the doc's Request Parameters table marks addrType "Required:
+            # No", but the live venue rejects on-chain withdrawals without
+            # it (152001 "Parameter addrType cannot be empty") - default to
+            # 1 = wallet address, callers can override for other kinds
+            request['addrType'] = self.safe_string(query, 'addrType', '1')
+            query = self.omit(query, 'addrType')
+        if tagValue is not None:
+            request['tag'] = tagValue
+        # consume the unified network key unconditionally so it never leaks
+        # onto the wire; an explicit raw params['chain'] takes precedence
+        networkCode = None
+        networkCode, query = self.handle_network_code_and_params(query)
+        chain = self.safe_string(query, 'chain')
+        if chain is None:
+            if networkCode is not None:
+                request['chain'] = self.network_code_to_chain_id(networkCode, currency)
+            elif dest == 'onchain':
+                # required for on-chain withdrawals, optional for internal transfers
+                raise ArgumentsRequired(self.id + ' withdraw() requires a params["network"] or params["chain"] for on-chain withdrawals')
+        response = await self.privatePostAssetWithdrawalApply(self.extend(request, query))
+        #
+        #     {
+        #         "code": "0",
+        #         "msg": "success",
+        #         "data": {
+        #             "withdrawId": "a1b2c3d4e5",
+        #             "clientId": "broker-20260706-0001"
+        #         }
+        #     }
+        #
+        data = self.safe_dict(response, 'data', {})
+        # the response carries only withdrawId + clientId, and this class's
+        # parseTransaction reads every field from the payload - seed the
+        # parsed structure from the request so the unified transaction
+        # reflects what was actually submitted
+        return self.parse_transaction(self.extend(request, data), currency)
+
+    async def fetch_ledger(self, code: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[LedgerEntry]:
+        """
+        fetch the history of changes, actions done by the user or operations that altered the balance of the user
+
+        https://blofin.com/docs#get-funds-transfer-history
+
+        :param str [code]: unified currency code, default is None
         :param int [since]: timestamp in ms of the earliest ledger entry, default is None
-        :param int [limit]: max number of ledger entrys to return, default is None
+        :param int [limit]: max number of ledger entries to return, default is None
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.marginMode]: 'cross' or 'isolated'
         :param int [params.until]: the latest time in ms to fetch entries for
-        :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns dict: a `ledger structure <https://docs.ccxt.com/#/?id=ledger-structure>`
+        :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [available parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
+        :returns dict: a `ledger structure <https://docs.ccxt.com/?id=ledger-entry-structure>`
         """
-        await self.load_markets()
-        paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchLedger', 'paginate')
+        if self.markets is None:
+            await self.load_markets()
+        paginate, paramsPaginate = self.handle_option_bool_and_params(params, 'fetchLedger', 'paginate', False)
         if paginate:
-            return await self.fetch_paginated_call_dynamic('fetchLedger', code, since, limit, params)
-        request: dict = {
+            return await self.fetch_paginated_call_dynamic('fetchLedger', code, since, limit, paramsPaginate)
+        request = {
         }
         if limit is not None:
             request['limit'] = limit
@@ -1409,9 +2387,8 @@ class blofin(Exchange, ImplicitAPI):
         if code is not None:
             currency = self.currency(code)
             request['currency'] = currency['id']
-        request, params = self.handle_until_option('end', request, params)
-        response = None
-        response = await self.privateGetAssetBills(self.extend(request, params))
+        requestUntil, paramsUntil = self.handle_until_option('end', request, paramsPaginate)
+        response = await self.privateGetAssetBills(self.extend(requestUntil, paramsUntil))
         data = self.safe_list(response, 'data', [])
         return self.parse_ledger(data, currency, since, limit)
 
@@ -1423,7 +2400,7 @@ class blofin(Exchange, ImplicitAPI):
         #     {
         #         "currency": "USDT",
         #         "chain": "TRC20",
-        #         "address": "TGfJLtnsh3B9EqekFEBZ1nR14QanBUf5Bi",
+        #         "address": "TGfJLtnsh3B9EqekFEBZ1nR14QanBUf5Be",
         #         "txId": "892f4e0c32268b29b2e541ef30d32a30bbf10f902adcc4b1428319ed7c3758fd",
         #         "type": "0",
         #         "amount": "86.975843",
@@ -1453,6 +2430,7 @@ class blofin(Exchange, ImplicitAPI):
         #
         type = None
         id = None
+        status = None
         withdrawalId = self.safe_string(transaction, 'withdrawId')
         depositId = self.safe_string(transaction, 'depositId')
         addressTo = self.safe_string(transaction, 'address')
@@ -1461,13 +2439,24 @@ class blofin(Exchange, ImplicitAPI):
         if withdrawalId is not None:
             type = 'withdrawal'
             id = withdrawalId
+            status = self.parse_transaction_withdrawal_status(self.safe_string(transaction, 'state'))
         else:
             id = depositId
             type = 'deposit'
+            status = self.parse_transaction_deposit_status(self.safe_string(transaction, 'state'))
         currencyId = self.safe_string(transaction, 'currency')
         code = self.safe_currency_code(currencyId)
         amount = self.safe_number(transaction, 'amount')
-        status = self.parse_transaction_status(self.safe_string(transaction, 'state'))
+        # live history rows carry the DISPLAY-NAME chain identifiers
+        # ('Tron (TRC20)', verified live 2026-09-15) even though the doc
+        # examples show short forms ('TRC20') - chainIdToNetworkCode parses
+        # the parenthesized suffix for the display-name family, and the
+        # paren-free ids resolve through the base networkIdToCode with
+        # options['networksById']. note the history
+        # amount is NET of the fee: a 30 USDT withdrawal-apply lands as
+        # amount 29 + fee 1
+        networkId = self.safe_string(transaction, 'chain')
+        networkCode = self.chain_id_to_network_code(networkId)
         txid = self.safe_string(transaction, 'txId')
         timestamp = self.safe_integer(transaction, 'ts')
         feeCurrencyId = self.safe_string(transaction, 'feeCurrency')
@@ -1478,7 +2467,7 @@ class blofin(Exchange, ImplicitAPI):
             'id': id,
             'currency': code,
             'amount': amount,
-            'network': None,
+            'network': networkCode,
             'addressFrom': None,
             'addressTo': addressTo,
             'address': address,
@@ -1499,8 +2488,19 @@ class blofin(Exchange, ImplicitAPI):
             },
         }
 
-    def parse_transaction_status(self, status: Str):
-        statuses: dict = {
+    def parse_transaction_withdrawal_status(self, status: Str) -> Str:
+        statuses = {
+            '0': 'pending',
+            '2': 'failed',
+            '3': 'ok',
+            '4': 'failed',
+            '6': 'pending',
+            '7': 'pending',
+        }
+        return self.safe_string(statuses, status, status)
+
+    def parse_transaction_deposit_status(self, status: Str) -> Str:
+        statuses = {
             '0': 'pending',
             '1': 'ok',
             '2': 'failed',
@@ -1508,8 +2508,8 @@ class blofin(Exchange, ImplicitAPI):
         }
         return self.safe_string(statuses, status, status)
 
-    def parse_ledger_entry_type(self, type):
-        types: dict = {
+    def parse_ledger_entry_type(self, type: Str) -> Str:
+        types = {
             '1': 'transfer',  # transfer
             '2': 'trade',  # trade
             '3': 'trade',  # delivery
@@ -1524,34 +2524,32 @@ class blofin(Exchange, ImplicitAPI):
         }
         return self.safe_string(types, type, type)
 
-    def parse_ledger_entry(self, item: dict, currency: Currency = None):
-        id = self.safe_string(item, 'transferId')
-        referenceId = self.safe_string(item, 'clientId')
-        fromAccount = self.safe_string(item, 'fromAccount')
-        toAccount = self.safe_string(item, 'toAccount')
-        type = self.parse_ledger_entry_type(self.safe_string(item, 'type'))
-        code = self.safe_currency_code(self.safe_string(item, 'currency'), currency)
-        amountString = self.safe_string(item, 'amount')
-        amount = self.parse_number(amountString)
+    def parse_ledger_entry(self, item: dict, currency: Currency = None) -> LedgerEntry:
+        currencyId = self.safe_string(item, 'currency')
+        code = self.safe_currency_code(currencyId, currency)
+        currencyResolved = self.safe_currency(currencyId, currency)
         timestamp = self.safe_integer(item, 'ts')
-        status = 'ok'
-        return {
-            'id': id,
+        return self.safe_ledger_entry({
             'info': item,
+            'id': self.safe_string(item, 'transferId'),
+            'direction': None,
+            'account': None,
+            'referenceId': self.safe_string(item, 'clientId'),
+            'referenceAccount': None,
+            'type': self.parse_ledger_entry_type(self.safe_string(item, 'type')),
+            'currency': code,
+            'amount': self.safe_number(item, 'amount'),
             'timestamp': timestamp,
             'datetime': self.iso8601(timestamp),
-            'fromAccount': fromAccount,
-            'toAccount': toAccount,
-            'type': type,
-            'currency': code,
-            'amount': amount,
-            'clientId': referenceId,  # balance before
-            'status': status,
-        }
+            'before': None,
+            'after': None,
+            'status': 'ok',
+            'fee': None,
+        }, currencyResolved)
 
-    def parse_ids(self, ids):
+    def parse_ids(self, ids: object) -> Strings:
         """
-         * @ignore
+ @ignore
         :param string[]|str ids: order ids
         :returns str[]: list of order ids
         """
@@ -1560,80 +2558,83 @@ class blofin(Exchange, ImplicitAPI):
         else:
             return ids
 
-    async def cancel_orders(self, ids, symbol: Str = None, params={}):
+    async def cancel_orders(self, ids: list[str], symbol: Str = None, params: dict = {}) -> list[Order]:
         """
         cancel multiple orders
-        :see: https://blofin.com/docs#cancel-multiple-orders
+
+        https://blofin.com/docs#cancel-multiple-orders
+
         :param str[] ids: order ids
         :param str symbol: unified market symbol
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param boolean [params.trigger]: whether the order is a stop/trigger order
-        :returns dict: an list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns dict: an list of `order structures <https://docs.ccxt.com/?id=order-structure>`
         """
-        # TODO : the original endpoint signature differs, according to that you can skip individual symbol and assign ids in batch. At self moment, `params` is not being used too.
+        # TODO : the original endpoint signature differs, according to that you can skip individual symbol and assign ids in batch. At this moment, `params` is not being used too.
         if symbol is None:
             raise ArgumentsRequired(self.id + ' cancelOrders() requires a symbol argument')
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
         request = []
-        options = self.safe_dict(self.options, 'cancelOrders', {})
-        defaultMethod = self.safe_string(options, 'method', 'privatePostTradeCancelBatchOrders')
-        method = self.safe_string(params, 'method', defaultMethod)
+        method = self.handle_option('cancelOrders', 'method', 'privatePostTradeCancelBatchOrders')
         clientOrderIds = self.parse_ids(self.safe_value(params, 'clientOrderId'))
         tpslIds = self.parse_ids(self.safe_value(params, 'tpslId'))
-        stop = self.safe_bool_n(params, ['stop', 'trigger', 'tpsl'])
-        if stop:
+        trigger = self.safe_bool_n(params, ['stop', 'trigger', 'tpsl'])
+        if trigger is True:
             method = 'privatePostTradeCancelTpsl'
         if clientOrderIds is None:
-            ids = self.parse_ids(ids)
+            orderIds = self.parse_ids(ids)
             if tpslIds is not None:
                 for i in range(0, len(tpslIds)):
                     request.append({
-                        'tpslId': tpslIds[i],
+                        'tpslId': self.safe_string(tpslIds, i),
                         'instId': market['id'],
                     })
-            for i in range(0, len(ids)):
-                if stop:
+            for i in range(0, len(orderIds)):
+                if trigger is True:
                     request.append({
-                        'tpslId': ids[i],
+                        'tpslId': self.safe_string(orderIds, i),
                         'instId': market['id'],
                     })
                 else:
                     request.append({
-                        'orderId': ids[i],
+                        'orderId': self.safe_string(orderIds, i),
                         'instId': market['id'],
                     })
         else:
             for i in range(0, len(clientOrderIds)):
                 request.append({
                     'instId': market['id'],
-                    'clientOrderId': clientOrderIds[i],
+                    'clientOrderId': self.safe_string(clientOrderIds, i),
                 })
-        response = None
+        response: dict
         if method == 'privatePostTradeCancelTpsl':
-            response = await self.privatePostTradeCancelTpsl(request)  # * dont self.extend with params, otherwise ARRAY will be turned into OBJECT
+            response = await self.privatePostTradeCancelTpsl(request)  # * dont extend with params, otherwise ARRAY will be turned into OBJECT
         else:
-            response = await self.privatePostTradeCancelBatchOrders(request)  # * dont self.extend with params, otherwise ARRAY will be turned into OBJECT
+            response = await self.privatePostTradeCancelBatchOrders(request)  # * dont extend with params, otherwise ARRAY will be turned into OBJECT
         ordersData = self.safe_list(response, 'data', [])
         return self.parse_orders(ordersData, market, None, None, params)
 
-    async def transfer(self, code: str, amount: float, fromAccount: str, toAccount: str, params={}) -> TransferEntry:
+    async def transfer(self, code: str, amount: float, fromAccount: str, toAccount: str, params: dict = {}) -> TransferEntry:
         """
         transfer currency internally between wallets on the same account
-        :see: https://blofin.com/docs#funds-transfer
+
+        https://blofin.com/docs#funds-transfer
+
         :param str code: unified currency code
         :param float amount: amount to transfer
         :param str fromAccount: account to transfer from(funding, swap, copy_trading, earn)
         :param str toAccount: account to transfer to(funding, swap, copy_trading, earn)
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `transfer structure <https://docs.ccxt.com/#/?id=transfer-structure>`
+        :returns dict: a `transfer structure <https://docs.ccxt.com/?id=transfer-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         currency = self.currency(code)
-        accountsByType = self.safe_dict(self.options, 'accountsByType', {})
-        fromId = self.safe_string(accountsByType, fromAccount, fromAccount)
-        toId = self.safe_string(accountsByType, toAccount, toAccount)
-        request: dict = {
+        fromId = self.safe_string(self.options['accountsByType'], fromAccount, fromAccount)
+        toId = self.safe_string(self.options['accountsByType'], toAccount, toAccount)
+        request = {
             'currency': currency['id'],
             'amount': self.currency_to_precision(code, amount),
             'fromAccount': fromId,
@@ -1657,47 +2658,163 @@ class blofin(Exchange, ImplicitAPI):
             'status': None,
         }
 
-    async def fetch_position(self, symbol: str, params={}) -> Position:
+    async def fetch_position(self, symbol: str, params: dict = {}) -> Position:
         """
         fetch data on a single open contract trade position
-        :see: https://blofin.com/docs#get-positions
+
+        https://blofin.com/docs#get-positions
+
         :param str symbol: unified market symbol of the market the position is held in, default is None
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.instType]: MARGIN, SWAP, FUTURES, OPTION
-        :returns dict: a `position structure <https://docs.ccxt.com/#/?id=position-structure>`
+        :returns dict: a `position structure <https://docs.ccxt.com/?id=position-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'instId': market['id'],
         }
         response = await self.privateGetAccountPositions(self.extend(request, params))
         data = self.safe_list(response, 'data', [])
         position = self.safe_dict(data, 0)
         if position is None:
-            return None
+            raise NullResponse(self.id + ' fetchPosition() returned empty position')
         return self.parse_position(position, market)
 
-    async def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
+    async def fetch_positions(self, symbols: Strings = None, params: dict = {}) -> list[Position]:
         """
         fetch data on a single open contract trade position
-        :see: https://blofin.com/docs#get-positions
+
+        https://blofin.com/docs#get-positions
+
         :param str[] [symbols]: list of unified market symbols
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.instType]: MARGIN, SWAP, FUTURES, OPTION
-        :returns dict: a `position structure <https://docs.ccxt.com/#/?id=position-structure>`
+        :returns dict: a `position structure <https://docs.ccxt.com/?id=position-structure>`
         """
-        await self.load_markets()
-        symbols = self.market_symbols(symbols)
+        if self.markets is None:
+            await self.load_markets()
+        symbolsNormalized = self.market_symbols(symbols)
         response = await self.privateGetAccountPositions(params)
         data = self.safe_list(response, 'data', [])
         result = self.parse_positions(data)
-        return self.filter_by_array_positions(result, 'symbol', symbols, False)
+        return self.filter_by_array_positions(result, 'symbol', symbolsNormalized)
 
-    def parse_position(self, position: dict, market: Market = None):
+    async def fetch_positions_history(self, symbols: Strings = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Position]:
+        """
+        fetches historical positions
+
+        https://docs.blofin.com/index.html#get-positions-history
+
+        :param str[] [symbols]: unified contract symbols
+        :param int [since]: timestamp in ms of the earliest position to fetch, default=3 months ago, max range for params["until"] - since is 3 months
+        :param int [limit]: the maximum amount of records to fetch, default=20, max=100
+        :param dict params: extra parameters specific to the exchange API endpoint
+        :param int [params.until]: timestamp in ms of the latest position to fetch, max range for params["until"] - since is 3 months
+        :param str [params.productType]: USDT-FUTURES(default), COIN-FUTURES, USDC-FUTURES, SUSDT-FUTURES, SCOIN-FUTURES, or SUSDC-FUTURES
+        :param boolean [params.uta]: set to True for the unified trading account(uta), defaults to False
+        :returns dict[]: a list of `position structures <https://docs.ccxt.com/?id=position-structure>`
+        """
+        if self.markets is None:
+            await self.load_markets()
+        request = {}
+        market = None
+        if symbols is not None:
+            symbolsLength = len(symbols)
+            if symbolsLength == 0:
+                market = self.market(symbols[0])
+                request['instId'] = market['id']
+        if limit is not None:
+            request['limit'] = min(limit, 100)
+        if since is not None:
+            request['begin'] = since
+        requestUntil, paramsUntil = self.handle_until_option('end', request, params)
+        response = await self.privateGetAccountPositionsHistory(self.extend(requestUntil, paramsUntil))
+        #
+        #    {
+        #        "code": "0",
+        #        "msg": "success",
+        #        "data": [
+        #            {
+        #                "historyId": "110307402",
+        #                "positionId": "1000000722711",
+        #                "instId": "BTC-USDT",
+        #                "instType": "SWAP",
+        #                "marginMode": "cross",
+        #                "positionSide": "net",
+        #                "closePositions": "0.0006",
+        #                "maxPositions": "0.0006",
+        #                "liquidationPositions": "0",
+        #                "openAveragePrice": "81550.1",
+        #                "closeAveragePrice": "81550",
+        #                "createTime": "1777995583329",
+        #                "updateTime": "1777995588333",
+        #                "leverage": "50",
+        #                "realizedPnl": "-0.058776036",
+        #                "realizedPnlRatio": "-0.060061275216094155",
+        #                "fee": "-0.058716036"
+        #            },
+        #        ]
+        #    }
+        #
+        data = self.safe_list(response, 'data', [])
+        positions = self.parse_positions(data, symbols, paramsUntil)
+        return self.filter_by_since_limit(positions, since, limit)
+
+    def parse_position(self, position: dict, market: Market = None) -> Position:
+        #
+        # response similar for REST & WS
+        #
+        #     {
+        #         instType: 'SWAP',
+        #         instId: 'LTC-USDT',
+        #         marginMode: 'cross',
+        #         positionId: '644159',
+        #         positionSide: 'net',
+        #         positions: '1',
+        #         availablePositions: '1',
+        #         averagePrice: '68.16',
+        #         unrealizedPnl: '0.80631223',
+        #         unrealizedPnlRatio: '0.03548909463028169',
+        #         leverage: '3',
+        #         liquidationPrice: '10.116655172370356435',
+        #         markPrice: '68.96',
+        #         initialMargin: '22.988770743333333333',
+        #         margin: '', // this field might not exist in rest response
+        #         marginRatio: '152.523509620342499273',
+        #         maintenanceMargin: '0.34483156115',
+        #         adl: '4',
+        #         createTime: '1707235776528',
+        #         updateTime: '1707235776528'
+        #     }
+        #
+        #
+        #    positions-history
+        #
+        #            {
+        #                "positionId": "1000000722711",
+        #                "instId": "BTC-USDT",
+        #                "instType": "SWAP",
+        #                "marginMode": "cross",
+        #                "positionSide": "net",
+        #                "createTime": "1777995583329",
+        #                "updateTime": "1777995588333",
+        #                "leverage": "50",
+        #                "realizedPnl": "-0.058776036",
+        #                "realizedPnlRatio": "-0.060061275216094155",
+        #                "fee": "-0.058716036"
+        #                "historyId": "110307402",
+        #                "closePositions": "0.0006",
+        #                "maxPositions": "0.0006",
+        #                "liquidationPositions": "0",
+        #                "openAveragePrice": "81550.1",
+        #                "closeAveragePrice": "81550",
+        #            },
+        #
         marketId = self.safe_string(position, 'instId')
-        market = self.safe_market(marketId, market)
-        symbol = market['symbol']
+        marketResolved = self.safe_market(marketId, market)
+        symbol = marketResolved['symbol']
         pos = self.safe_string(position, 'positions')
         contractsAbs = Precise.string_abs(pos)
         side = self.safe_string(position, 'positionSide')
@@ -1711,36 +2828,54 @@ class blofin(Exchange, ImplicitAPI):
                     side = 'short'
                 else:
                     side = None
-        contractSize = self.safe_number(market, 'contractSize')
+        contractSize = self.safe_number(marketResolved, 'contractSize')
         contractSizeString = self.number_to_string(contractSize)
         markPriceString = self.safe_string(position, 'markPrice')
         notionalString = self.safe_string(position, 'notionalUsd')
-        if market['inverse']:
+        if self.safe_bool(marketResolved, 'inverse', False):
             notionalString = Precise.string_div(Precise.string_mul(contractsAbs, contractSizeString), markPriceString)
+        elif notionalString is None:
+            notionalString = Precise.string_mul(Precise.string_mul(contractsAbs, contractSizeString), markPriceString)
         notional = self.parse_number(notionalString)
         marginMode = self.safe_string(position, 'marginMode')
         initialMarginString = None
-        entryPriceString = self.safe_string(position, 'averagePrice')
+        entryPriceString = self.safe_string_2(position, 'averagePrice', 'openAveragePrice')
         unrealizedPnlString = self.safe_string(position, 'unrealizedPnl')
         leverageString = self.safe_string(position, 'leverage')
         initialMarginPercentage = None
         collateralString = None
+        marginString = None
         if marginMode == 'cross':
             initialMarginString = self.safe_string(position, 'initialMargin')
-            collateralString = Precise.string_add(initialMarginString, unrealizedPnlString)
+            collateralString = Precise.string_add(initialMarginString, unrealizedPnlString) if (unrealizedPnlString is not None) else initialMarginString
         elif marginMode == 'isolated':
             initialMarginPercentage = Precise.string_div('1', leverageString)
-            collateralString = self.safe_string(position, 'margin')
+            isolatedMarginString = self.omit_zero(self.safe_string_2(position, 'margin', 'initialMargin'))
+            if isolatedMarginString is not None:
+                initialMarginString = isolatedMarginString
+                marginString = isolatedMarginString
+                collateralString = Precise.string_add(isolatedMarginString, unrealizedPnlString) if (unrealizedPnlString is not None) else isolatedMarginString
         maintenanceMarginString = self.safe_string(position, 'maintenanceMargin')
         maintenanceMargin = self.parse_number(maintenanceMarginString)
         maintenanceMarginPercentageString = Precise.string_div(maintenanceMarginString, notionalString)
         if initialMarginPercentage is None:
             initialMarginPercentage = self.parse_number(Precise.string_div(initialMarginString, notionalString, 4))
         elif initialMarginString is None:
-            initialMarginString = Precise.string_mul(initialMarginPercentage, notionalString)
+            initialMarginPercentageString = self.number_to_string(initialMarginPercentage)
+            initialMarginString = Precise.string_mul(initialMarginPercentageString, notionalString)
         rounder = '0.00005'  # round to closest 0.01%
-        maintenanceMarginPercentage = self.parse_number(Precise.string_div(Precise.string_add(maintenanceMarginPercentageString, rounder), '1', 4))
-        liquidationPrice = self.safe_number(position, 'liquidationPrice')
+        maintenanceMarginPercentage = self.parse_number(Precise.string_div(Precise.string_add(maintenanceMarginPercentageString, rounder), '1', 4)) if (maintenanceMarginPercentageString is not None) else None
+        liquidationPriceString = self.omit_zero(self.safe_string(position, 'liquidationPrice'))
+        if (liquidationPriceString is None) and (marginMode == 'isolated') and (initialMarginString is not None) and (entryPriceString is not None) and (contractsAbs is not None) and Precise.string_gt(contractsAbs, '0') and (contractSizeString is not None) and (maintenanceMarginPercentage is not None):
+            takerFeeRate = self.safe_string(marketResolved, 'taker', '0.0006')
+            mmpWithFee = Precise.string_add(self.number_to_string(maintenanceMarginPercentage), takerFeeRate)
+            totalSize = Precise.string_mul(contractsAbs, contractSizeString)
+            marginPerUnit = Precise.string_div(initialMarginString, totalSize)
+            num = Precise.string_sub(entryPriceString, marginPerUnit) if (side == 'long') else Precise.string_add(entryPriceString, marginPerUnit)
+            denom = Precise.string_sub('1', mmpWithFee) if (side == 'long') else Precise.string_add('1', mmpWithFee)
+            if (denom is not None) and Precise.string_gt(denom, '0'):
+                liquidationPriceString = Precise.string_div(num, denom)
+        liquidationPrice = self.parse_number(liquidationPriceString) if ((liquidationPriceString is not None) and Precise.string_gt(liquidationPriceString, '0')) else None
         percentageString = self.safe_string(position, 'unrealizedPnlRatio')
         percentage = self.parse_number(Precise.string_mul(percentageString, '100'))
         timestamp = self.safe_integer(position, 'updateTime')
@@ -1753,7 +2888,9 @@ class blofin(Exchange, ImplicitAPI):
             'marginMode': marginMode,
             'liquidationPrice': liquidationPrice,
             'entryPrice': self.parse_number(entryPriceString),
+            'exitPrice': self.safe_number(position, 'closeAveragePrice'),
             'unrealizedPnl': self.parse_number(unrealizedPnlString),
+            'realizedPnl': self.safe_number(position, 'realizedPnl'),
             'percentage': percentage,
             'contracts': contracts,
             'contractSize': contractSize,
@@ -1766,6 +2903,7 @@ class blofin(Exchange, ImplicitAPI):
             'lastUpdateTimestamp': None,
             'maintenanceMargin': maintenanceMargin,
             'maintenanceMarginPercentage': maintenanceMarginPercentage,
+            'positionMargin': self.parse_number(marginString),
             'collateral': self.parse_number(collateralString),
             'initialMargin': self.parse_number(initialMarginString),
             'initialMarginPercentage': self.parse_number(initialMarginPercentage),
@@ -1775,38 +2913,34 @@ class blofin(Exchange, ImplicitAPI):
             'takeProfitPrice': None,
         })
 
-    async def fetch_leverages(self, symbols: Strings = None, params={}) -> Leverages:
+    async def fetch_leverages(self, symbols: Strings = None, params: dict = {}) -> Leverages:
         """
         fetch the set leverage for all contract markets
-        :see: https://docs.blofin.com/index.html#get-multiple-leverage
+
+        https://docs.blofin.com/index.html#get-multiple-leverage
+
         :param str[] symbols: a list of unified market symbols, required on blofin
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.marginMode]: 'cross' or 'isolated'
-        :returns dict: a list of `leverage structures <https://docs.ccxt.com/#/?id=leverage-structure>`
+        :returns dict: a list of `leverage structures <https://docs.ccxt.com/?id=leverage-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         if symbols is None:
             raise ArgumentsRequired(self.id + ' fetchLeverages() requires a symbols argument')
         marginMode = None
-        marginMode, params = self.handle_margin_mode_and_params('fetchLeverages', params)
+        query = None
+        marginMode, query = self.handle_margin_mode_and_params('fetchLeverages', params)
         if marginMode is None:
-            marginMode = self.safe_string(params, 'marginMode', 'cross')  # cross marginMode
+            marginMode = self.safe_string(query, 'marginMode', 'cross')  # cross as default marginMode
         if (marginMode != 'cross') and (marginMode != 'isolated'):
             raise BadRequest(self.id + ' fetchLeverages() requires a marginMode parameter that must be either cross or isolated')
-        symbols = self.market_symbols(symbols)
-        instIds = ''
-        for i in range(0, len(symbols)):
-            entry = symbols[i]
-            entryMarket = self.market(entry)
-            if i > 0:
-                instIds = instIds + ',' + entryMarket['id']
-            else:
-                instIds = instIds + entryMarket['id']
-        request: dict = {
-            'instId': instIds,
+        symbolsNormalized = self.market_symbols(symbols)
+        request = {
+            'instId': ','.join(self.market_ids(symbolsNormalized)),
             'marginMode': marginMode,
         }
-        response = await self.privateGetAccountBatchLeverageInfo(self.extend(request, params))
+        response = await self.privateGetAccountBatchLeverageInfo(self.extend(request, query))
         #
         #     {
         #         "code": "0",
@@ -1821,30 +2955,34 @@ class blofin(Exchange, ImplicitAPI):
         #     }
         #
         leverages = self.safe_list(response, 'data', [])
-        return self.parse_leverages(leverages, symbols, 'instId')
+        return self.parse_leverages(leverages, symbolsNormalized, 'instId')
 
-    async def fetch_leverage(self, symbol: str, params={}) -> Leverage:
+    async def fetch_leverage(self, symbol: str, params: dict = {}) -> Leverage:
         """
         fetch the set leverage for a market
-        :see: https://docs.blofin.com/index.html#get-leverage
+
+        https://docs.blofin.com/index.html#get-leverage
+
         :param str symbol: unified market symbol
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.marginMode]: 'cross' or 'isolated'
-        :returns dict: a `leverage structure <https://docs.ccxt.com/#/?id=leverage-structure>`
+        :returns dict: a `leverage structure <https://docs.ccxt.com/?id=leverage-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         marginMode = None
-        marginMode, params = self.handle_margin_mode_and_params('fetchLeverage', params)
+        query = None
+        marginMode, query = self.handle_margin_mode_and_params('fetchLeverage', params)
         if marginMode is None:
-            marginMode = self.safe_string(params, 'marginMode', 'cross')  # cross marginMode
+            marginMode = self.safe_string(query, 'marginMode', 'cross')  # cross as default marginMode
         if (marginMode != 'cross') and (marginMode != 'isolated'):
             raise BadRequest(self.id + ' fetchLeverage() requires a marginMode parameter that must be either cross or isolated')
         market = self.market(symbol)
-        request: dict = {
+        request = {
             'instId': market['id'],
             'marginMode': marginMode,
         }
-        response = await self.privateGetAccountLeverageInfo(self.extend(request, params))
+        response = await self.privateGetAccountLeverageInfo(self.extend(request, query))
         #
         #     {
         #         "code": "0",
@@ -1870,14 +3008,17 @@ class blofin(Exchange, ImplicitAPI):
             'shortLeverage': leverageValue,
         }
 
-    async def set_leverage(self, leverage: Int, symbol: Str = None, params={}):
+    async def set_leverage(self, leverage: int, symbol: Str = None, params: dict = {}):
         """
         set the level of leverage for a market
-        :see: https://blofin.com/docs#set-leverage
+
+        https://blofin.com/docs#set-leverage
+
         :param int leverage: the rate of leverage
         :param str symbol: unified market symbol
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.marginMode]: 'cross' or 'isolated'
+        :param str [params.positionSide]: 'long' or 'short' - required for hedged mode in isolated margin
         :returns dict: response from the exchange
         """
         if symbol is None:
@@ -1886,69 +3027,74 @@ class blofin(Exchange, ImplicitAPI):
         # AND DECREASE LIQUIDATION PRICE FOR OPEN ISOLATED SHORT POSITIONS
         if (leverage < 1) or (leverage > 125):
             raise BadRequest(self.id + ' setLeverage() leverage should be between 1 and 125')
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
-        marginMode = None
-        marginMode, params = self.handle_margin_mode_and_params('setLeverage', params, 'cross')
+        marginMode, paramsMarginMode = self.handle_margin_mode_and_params('setLeverage', params, 'cross')
         if (marginMode != 'cross') and (marginMode != 'isolated'):
             raise BadRequest(self.id + ' setLeverage() requires a marginMode parameter that must be either cross or isolated')
-        request: dict = {
+        request = {
             'leverage': leverage,
             'marginMode': marginMode,
             'instId': market['id'],
         }
-        response = await self.privatePostAccountSetLeverage(self.extend(request, params))
+        response = await self.privatePostAccountSetLeverage(self.extend(request, paramsMarginMode))
         return response
 
-    async def close_position(self, symbol: str, side: OrderSide = None, params={}) -> Order:
+    async def close_position(self, symbol: str, side: Str = None, params: dict = {}) -> Order:
         """
         closes open positions for a market
-        :see: https://blofin.com/docs#close-positions
+
+        https://blofin.com/docs#close-positions
+
         :param str symbol: Unified CCXT market symbol
-        :param str [side]: 'buy' or 'sell', leave in net mode
-        :param dict [params]: extra parameters specific to the blofin api endpoint
+        :param str [side]: 'buy' or 'sell', leave as None in net mode
+        :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.clientOrderId]: a unique identifier for the order
         :param str [params.marginMode]: 'cross' or 'isolated', default is 'cross
         :param str [params.code]: *required in the case of closing cross MARGIN position for Single-currency margin* margin currency
-         *
-         * EXCHANGE SPECIFIC PARAMETERS
+
+ EXCHANGE SPECIFIC PARAMETERS
         :param boolean [params.autoCxl]: whether any pending orders for closing out needs to be automatically canceled when close position via a market order. False or True, the default is False
         :param str [params.tag]: order tag a combination of case-sensitive alphanumerics, all numbers, or all letters of up to 16 characters
-        :returns dict[]: `A list of position structures <https://docs.ccxt.com/#/?id=position-structure>`
+        :returns dict: an `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
         clientOrderId = self.safe_string(params, 'clientOrderId')
-        marginMode = None
-        marginMode, params = self.handle_margin_mode_and_params('closePosition', params, 'cross')
-        request: dict = {
+        marginMode, paramsMarginMode = self.handle_margin_mode_and_params('closePosition', params, 'cross')
+        request = {
             'instId': market['id'],
             'marginMode': marginMode,
         }
         if clientOrderId is not None:
             request['clientOrderId'] = clientOrderId
-        response = await self.privatePostTradeClosePosition(self.extend(request, params))
-        return self.safe_dict(response, 'data')
+        response = await self.privatePostTradeClosePosition(self.extend(request, paramsMarginMode))
+        data = self.safe_dict(response, 'data', {})
+        return self.parse_order(data, market)
 
-    async def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
+    async def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}) -> list[Order]:
         """
         fetches information on multiple closed orders made by the user
-        :see: https://blofin.com/docs#get-order-history
-        :see: https://blofin.com/docs#get-tpsl-order-history
+
+        https://blofin.com/docs#get-order-history
+        https://blofin.com/docs#get-tpsl-order-history
+
         :param str symbol: unified market symbol of the market orders were made in
         :param int [since]: the earliest time in ms to fetch orders for
         :param int [limit]: the maximum number of  orde structures to retrieve
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :param bool [params.stop]: True if fetching trigger or conditional orders
+        :param bool [params.trigger]: True if fetching trigger or conditional orders
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns Order[]: a list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        :returns Order[]: a list of `order structures <https://docs.ccxt.com/?id=order-structure>`
         """
-        await self.load_markets()
-        paginate = False
-        paginate, params = self.handle_option_and_params(params, 'fetchClosedOrders', 'paginate')
+        if self.markets is None:
+            await self.load_markets()
+        paginate, paramsPaginate = self.handle_option_bool_and_params(params, 'fetchClosedOrders', 'paginate', False)
         if paginate:
-            return await self.fetch_paginated_call_dynamic('fetchClosedOrders', symbol, since, limit, params)
-        request: dict = {
+            return await self.fetch_paginated_call_dynamic('fetchClosedOrders', symbol, since, limit, paramsPaginate)
+        request = {
         }
         market = None
         if symbol is not None:
@@ -1958,27 +3104,29 @@ class blofin(Exchange, ImplicitAPI):
             request['limit'] = limit  # default 100, max 100
         if since is not None:
             request['begin'] = since
-        isStop = self.safe_bool_n(params, ['stop', 'trigger', 'tpsl', 'TPSL'], False)
-        method: Str = None
-        method, params = self.handle_option_and_params(params, 'fetchOpenOrders', 'method', 'privateGetTradeOrdersHistory')
-        query = self.omit(params, ['method', 'stop', 'trigger', 'tpsl', 'TPSL'])
-        response = None
-        if (isStop) or (method == 'privateGetTradeOrdersTpslHistory'):
+        isTrigger = self.safe_bool_n(paramsPaginate, ['stop', 'trigger', 'tpsl', 'TPSL'], False)
+        method, paramsMethod = self.handle_option_string_and_params(paramsPaginate, 'fetchClosedOrders', 'method', 'privateGetTradeOrdersHistory')
+        query = self.omit(paramsMethod, ['method', 'stop', 'trigger', 'tpsl', 'TPSL'])
+        response: dict
+        if (isTrigger) or (method == 'privateGetTradeOrdersTpslHistory'):
             response = await self.privateGetTradeOrdersTpslHistory(self.extend(request, query))
         else:
             response = await self.privateGetTradeOrdersHistory(self.extend(request, query))
         data = self.safe_list(response, 'data', [])
         return self.parse_orders(data, market, since, limit)
 
-    async def fetch_margin_mode(self, symbol: str, params={}) -> MarginMode:
+    async def fetch_margin_mode(self, symbol: str, params: dict = {}) -> MarginMode:
         """
         fetches the margin mode of a trading pair
-        :see: https://docs.blofin.com/index.html#get-margin-mode
+
+        https://docs.blofin.com/index.html#get-margin-mode
+
         :param str symbol: unified symbol of the market to fetch the margin mode for
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `margin mode structure <https://docs.ccxt.com/#/?id=margin-mode-structure>`
+        :returns dict: a `margin mode structure <https://docs.ccxt.com/?id=margin-mode-structure>`
         """
-        await self.load_markets()
+        if self.markets is None:
+            await self.load_markets()
         market = self.market(symbol)
         response = await self.privateGetAccountMarginMode(params)
         #
@@ -1993,25 +3141,194 @@ class blofin(Exchange, ImplicitAPI):
         data = self.safe_dict(response, 'data', {})
         return self.parse_margin_mode(data, market)
 
-    def parse_margin_mode(self, marginMode: dict, market=None) -> MarginMode:
+    def parse_margin_mode(self, marginMode: dict, market: Market = None) -> MarginMode:
         return {
             'info': marginMode,
-            'symbol': market['symbol'],
+            'symbol': self.safe_string(market, 'symbol'),
             'marginMode': self.safe_string(marginMode, 'marginMode'),
         }
 
-    def handle_errors(self, httpCode: int, reason: str, url: str, method: str, headers: dict, body: str, response, requestHeaders, requestBody):
+    async def set_margin_mode(self, marginMode: str, symbol: Str = None, params: dict = {}):
+        """
+        set margin mode to 'cross' or 'isolated'
+
+        https://docs.blofin.com/index.html#set-margin-mode
+
+        :param str marginMode: 'cross' or 'isolated'
+        :param str [symbol]: unified market symbol(not used in blofin setMarginMode)
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: response from the exchange
+        """
+        self.check_required_argument('setMarginMode', marginMode, 'marginMode', ['cross', 'isolated'])
+        if self.markets is None:
+            await self.load_markets()
+        market = None
+        if symbol is not None:
+            market = self.market(symbol)
+        request = {
+            'marginMode': marginMode,
+        }
+        response = await self.privatePostAccountSetMarginMode(self.extend(request, params))
+        #
+        #     {
+        #         "code": "0",
+        #         "msg": "success",
+        #         "data": {
+        #             "marginMode": "isolated"
+        #         }
+        #     }
+        #
+        data = self.safe_dict(response, 'data', {})
+        return self.parse_margin_mode(data, market)  # Dict, not MarginMode: this override has no explicit return annotation, so the Go/C#/Java wrappers infer it — MarginMode would emit MarginMode instead of the map[string]any required by IExchange.SetMarginMode
+
+    async def fetch_position_mode(self, symbol: Str = None, params: dict = {}) -> PositionModeInfo:
+        """
+        fetchs the position mode, hedged or one way
+
+        https://docs.blofin.com/index.html#get-position-mode
+
+        :param str [symbol]: unified symbol of the market to fetch the position mode for(not used in blofin fetchPositionMode)
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: an object detailing whether the market is in hedged or one-way mode
+        """
+        response = await self.privateGetAccountPositionMode(params)
+        data = self.safe_dict(response, 'data', {})
+        positionMode = self.safe_string(data, 'positionMode')
+        #
+        #     {
+        #         "code": "0",
+        #         "msg": "success",
+        #         "data": {
+        #             "positionMode": "long_short_mode"
+        #         }
+        #     }
+        #
+        return {
+            'info': data,
+            'hedged': positionMode == 'long_short_mode',
+        }
+
+    async def set_position_mode(self, hedged: bool, symbol: Str = None, params: dict = {}):
+        """
+        set hedged to True or False for a market
+
+        https://docs.blofin.com/index.html#set-position-mode
+
+        :param bool hedged: set to True to use hedged mode, False for one-way mode
+        :param str [symbol]: not used by setPositionMode()
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: response from the exchange
+        """
+        request = {
+            'positionMode': 'long_short_mode' if hedged else 'net_mode',
+        }
+        #
+        #     {
+        #         "code": "0",
+        #         "msg": "success",
+        #         "data": {
+        #             "positionMode": "net_mode"
+        #         }
+        #     }
+        #
+        return await self.privatePostAccountSetPositionMode(self.extend(request, params))
+
+    async def fetch_positions_adl_rank(self, symbols: Strings = None, params: dict = {}) -> list[ADL]:
+        """
+        fetches the auto deleveraging rank and risk percentage for a list of symbols
+
+        https://docs.blofin.com/index.html#get-positions
+
+        :param str[] [symbols]: a list of unified market symbols
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict[]: an array of `auto de leverage structures <https://docs.ccxt.com/?id=auto-de-leverage-structure>`
+        """
+        if self.markets is None:
+            await self.load_markets()
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        response = await self.privateGetAccountPositions(params)
+        #
+        #     {
+        #         "code": "0",
+        #         "msg": "success",
+        #         "data": [
+        #             {
+        #                 "positionId": "756786",
+        #                 "instId": "BTC-USDT",
+        #                 "instType": "SWAP",
+        #                 "marginMode": "cross",
+        #                 "positionSide": "net",
+        #                 "adl": "1",
+        #                 "positions": "0.1",
+        #                 "availablePositions": "0.1",
+        #                 "averagePrice": "88564.9",
+        #                 "markPrice": "88546.3696492756",
+        #                 "marginRatio": "822.305183525552961566",
+        #                 "liquidationPrice": "",
+        #                 "unrealizedPnl": "-0.00185303507244",
+        #                 "unrealizedPnlRatio": "-0.000627687178252332",
+        #                 "initialMargin": "2.951545654975853333",
+        #                 "maintenanceMargin": "0.02656391089478268",
+        #                 "createTime": "1767169876207",
+        #                 "updateTime": "1767169876207",
+        #                 "leverage": "3"
+        #             }
+        #         ]
+        #     }
+        #
+        data = self.safe_list(response, 'data', [])
+        return self.parse_adl_ranks(data, symbolsNormalized)
+
+    def parse_adl_rank(self, info: dict, market: Market = None) -> ADL:
+        #
+        # fetchPositionsADLRank
+        #
+        #     {
+        #         "positionId": "756786",
+        #         "instId": "BTC-USDT",
+        #         "instType": "SWAP",
+        #         "marginMode": "cross",
+        #         "positionSide": "net",
+        #         "adl": "1",
+        #         "positions": "0.1",
+        #         "availablePositions": "0.1",
+        #         "averagePrice": "88564.9",
+        #         "markPrice": "88546.3696492756",
+        #         "marginRatio": "822.305183525552961566",
+        #         "liquidationPrice": "",
+        #         "unrealizedPnl": "-0.00185303507244",
+        #         "unrealizedPnlRatio": "-0.000627687178252332",
+        #         "initialMargin": "2.951545654975853333",
+        #         "maintenanceMargin": "0.02656391089478268",
+        #         "createTime": "1767169876207",
+        #         "updateTime": "1767169876207",
+        #         "leverage": "3"
+        #     }
+        #
+        marketId = self.safe_string(info, 'instId')
+        timestamp = self.safe_integer_omit_zero(info, 'createTime')
+        return {
+            'info': info,
+            'symbol': self.safe_symbol(marketId, market, None, 'contract'),
+            'rank': self.safe_integer(info, 'adl'),
+            'rating': None,
+            'percentage': None,
+            'timestamp': timestamp,
+            'datetime': self.iso8601(timestamp),
+        }
+
+    def handle_errors(self, code: int, reason: str, url: str, method: str, headers: dict, body: str, response: object, requestHeaders: dict, requestBody: Str):
         if response is None:
             return None  # fallback to default error handler
         #
         # {"code":"152002","msg":"Parameter bar error."}
         #
-        code = self.safe_string(response, 'code')
+        codeError = self.safe_string(response, 'code')
         message = self.safe_string(response, 'msg')
         feedback = self.id + ' ' + body
-        if code is not None and code != '0':
+        if codeError is not None and codeError != '0':
             self.throw_exactly_matched_exception(self.exceptions['exact'], message, feedback)
-            self.throw_exactly_matched_exception(self.exceptions['exact'], code, feedback)
+            self.throw_exactly_matched_exception(self.exceptions['exact'], codeError, feedback)
             self.throw_broadly_matched_exception(self.exceptions['broad'], message, feedback)
             raise ExchangeError(feedback)  # unknown message
         #
@@ -2032,24 +3349,29 @@ class blofin(Exchange, ImplicitAPI):
             self.throw_broadly_matched_exception(self.exceptions['broad'], insideMsg, feedback)
         return None
 
-    def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
+    def sign(self, path: str, api: list[str] = ['public'], method: str = 'GET', params: dict = {}) -> dict:
+        apiName = api[0]
         request = '/api/' + self.version + '/' + self.implode_params(path, params)
         query = self.omit(params, self.extract_params(path))
-        url = self.implode_hostname(self.urls['api']['rest']) + request
-        # type = self.getPathAuthenticationType(path)
-        if api == 'public':
+        apiUrl = self.safe_string(self.urls['api'], 'rest')
+        if apiUrl is None:
+            raise ExchangeError(self.id + ' sign() has no API URL for self endpoint')
+        url = apiUrl + request
+        # const type = this.getPathAuthenticationType (path);
+        if apiName == 'public':
             if not self.is_empty(query):
                 url += '?' + self.urlencode(query)
-        elif api == 'private':
+        elif apiName == 'private':
             self.check_required_credentials()
             timestamp = str(self.milliseconds())
-            headers = {
+            signedHeaders = {
                 'ACCESS-KEY': self.apiKey,
                 'ACCESS-PASSPHRASE': self.password,
                 'ACCESS-TIMESTAMP': timestamp,
                 'ACCESS-NONCE': timestamp,
             }
             sign_body = ''
+            signedBody = None
             if method == 'GET':
                 if not self.is_empty(query):
                     urlencodedQuery = '?' + self.urlencode(query)
@@ -2057,10 +3379,12 @@ class blofin(Exchange, ImplicitAPI):
                     request += urlencodedQuery
             else:
                 if not self.is_empty(query):
-                    body = self.json(query)
-                    sign_body = body
-                headers['Content-Type'] = 'application/json'
+                    sign_body = self.json(query)
+                    signedBody = sign_body
+                signedHeaders['Content-Type'] = 'application/json'
             auth = request + method + timestamp + timestamp + sign_body
             signature = self.string_to_base64(self.hmac(self.encode(auth), self.encode(self.secret), hashlib.sha256))
-            headers['ACCESS-SIGN'] = signature
-        return {'url': url, 'method': method, 'body': body, 'headers': headers}
+            signedHeaders['ACCESS-SIGN'] = signature
+            bodyResolved = signedBody
+            return {'url': url, 'method': method, 'body': bodyResolved, 'headers': signedHeaders}
+        return {'url': url, 'method': method, 'body': None, 'headers': None}

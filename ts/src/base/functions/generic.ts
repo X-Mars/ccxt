@@ -2,43 +2,63 @@
 // ----------------------------------------------------------------------------
 
 import { Dictionary, IndexType } from '../types.js';
-import { isObject, isNumber, isDictionary, isArray } from './type.js';
+import { isNumber, isDict, isArray } from './type.js';
 
 // ----------------------------------------------------------------------------
 
 const keys = Object.keys; // eslint-disable-line padding-line-between-statements
-const values = (x: any[] | Dictionary<any>) => ((!isArray (x)) ? Object.values (x) : x); // don't copy arrays if they're already arrays
-const index = (x: any[]) => new Set (values (x));
+const values = (x: any[] | Dictionary<any>): any[] => ((!isArray (x)) ? Object.values (x) : x); // don't copy arrays if they're already arrays
+const index = (x: any[]): Set<any> => new Set (values (x));
 const extend = (...args: any[]) => Object.assign ({}, ...args); // NB: side-effect free
 const clone = (x: any) => (isArray (x) ? Array.from (x) : extend (x)); // clone arrays or objects
 
 // ----------------------------------------------------------------------------
 
-const ordered = (x: any[] | Dictionary<any>) => x; // a stub to keep assoc keys in order (in JS it does nothing, it's mostly for Python)
+const ordered = (x: any[] | Dictionary<any>): any[] | Dictionary<any> => x; // a stub to keep assoc keys in order (in JS it does nothing, it's mostly for Python)
 
-const unique = (x: any[]) => Array.from (index (x));
+const unique = (x: any[]): any[] => Array.from (index (x));
 
-const arrayConcat = (a: any[], b: any[]) => a.concat (b);
+const arrayConcat = (a: any[], b: any[]): any[] => a.concat (b);
 
 // ------------------------------------------------------------------------
 
-const inArray = (needle: any, haystack: any[]) => haystack.includes (needle);
+const inArray = (needle: any, haystack: any[]): boolean => haystack.includes (needle);
 
-const toArray = (object: Dictionary<any>|any[]) => Object.values (object);
-
-const isEmpty = (object: any[] | Dictionary<any>) => {
-    if (!object) {
-        return true;
+const toArray = (object: Dictionary<any> | any[] | undefined | null): any[] => {
+    if ((object === undefined) || (object === null)) {
+        return [];
     }
-    return (Array.isArray (object) ? object : Object.keys (object)).length < 1;
+    return Object.values (object);
 };
 
-const keysort = (x: Dictionary<any>, out: Dictionary<any> = {}) => {
+const isEmpty = (object: any[] | Dictionary<any> | null | undefined): boolean => {
+    if (object === null || object === undefined) {
+        return true;
+    }
+    if (Array.isArray (object)) {
+        return object.length < 1;
+    }
+    if (isDict (object)) {
+        return Object.keys (object).length < 1;
+    }
+    return false;
+};
+
+const keysort = (x: Dictionary<any> | undefined, out: Dictionary<any> = {}): Dictionary<any> => {
+    if (x === undefined) {
+        return out;
+    }
     for (const k of keys (x).sort ()) {
         out[k] = x[k];
     }
     return out;
 };
+
+const sort = (array: string[]| any): string[] => {
+    const newArray = array.slice();
+    newArray.sort();
+    return newArray;
+}
 
 /*
     Accepts a map/array of objects and a key name to be used as an index:
@@ -56,7 +76,10 @@ const keysort = (x: Dictionary<any>, out: Dictionary<any> = {}) => {
     }
 */
 
-const groupBy = (x: Dictionary<any>, k: string, out: Dictionary<any> = {}) => {
+const groupBy = (x: Dictionary<any> | undefined, k: string, out: Dictionary<any> = {}): Dictionary<any> => {
+    if (x === undefined) {
+        return out;
+    }
     for (const v of values (x)) {
         if (k in v) {
             const p = v[k];
@@ -67,8 +90,10 @@ const groupBy = (x: Dictionary<any>, k: string, out: Dictionary<any> = {}) => {
     return out;
 };
 
-const indexBy = (x: Dictionary<any>, k: IndexType, out: Dictionary<any> = {}) => {
-
+const indexBy = (x: Dictionary<any> | undefined, k: IndexType, out: Dictionary<any> = {}): Dictionary<any> => {
+    if (x === undefined) {
+        return out;
+    }
     for (const v of values (x)) {
         if (k in v) {
             out[v[k]] = v;
@@ -77,8 +102,10 @@ const indexBy = (x: Dictionary<any>, k: IndexType, out: Dictionary<any> = {}) =>
     return out;
 };
 
-const filterBy = (x: Dictionary<any>, k: string, value: any = undefined, out: Dictionary<any>[] = []) => {
-
+const filterBy = (x: Dictionary<any> | undefined, k: string, value: any = undefined, out: Dictionary<any>[] = []): Dictionary<any>[] => {
+    if (x === undefined) {
+        return out;
+    }
     for (const v of values (x)) {
         if (v[k] === value) {
             out.push (v);
@@ -87,7 +114,7 @@ const filterBy = (x: Dictionary<any>, k: string, value: any = undefined, out: Di
     return out;
 };
 
-const sortBy = (array: any[], key: IndexType, descending = false, defaultValue:any = 0, direction = descending ? -1 : 1) => array.sort ((a: Dictionary<any>, b: Dictionary<any>) => {
+const sortBy = (array: any[], key: IndexType, descending: boolean = false, defaultValue:any = 0, direction: number = descending ? -1 : 1): any[] => array.slice().sort ((a: Dictionary<any>, b: Dictionary<any>) => {
     const first = (key in a) ? a[key] : defaultValue;
     const second = (key in b) ? b[key] : defaultValue;
     if (first < second) {
@@ -99,7 +126,7 @@ const sortBy = (array: any[], key: IndexType, descending = false, defaultValue:a
     }
 });
 
-const sortBy2 = (array: any[], key1: IndexType, key2: IndexType, descending = false, direction = descending ? -1 : 1) => array.sort ((a: Dictionary<any>, b: Dictionary<any>) => {
+const sortBy2 = (array: any[], key1: IndexType, key2: IndexType, descending: boolean = false, direction: number = descending ? -1 : 1): any[] => array.slice().sort ((a: Dictionary<any>, b: Dictionary<any>) => {
     if (a[key1] < b[key1]) {
         return -direction;
     } else if (a[key1] > b[key1]) {
@@ -115,7 +142,7 @@ const sortBy2 = (array: any[], key1: IndexType, key2: IndexType, descending = fa
     }
 });
 
-const flatten = function flatten (x: any[], out: any[] = []) {
+const flatten = function flatten (x: any[], out: any[] = []): any[] {
 
     for (const v of x) {
         if (isArray (v)) {
@@ -127,10 +154,14 @@ const flatten = function flatten (x: any[], out: any[] = []) {
     return out;
 };
 
-const pluck = (x: Dictionary<any>, k: any) => values (x).filter ((v) => k in v).map ((v) => v[k]);
+const pluck = (x: Dictionary<any>, k: any): any[] => values (x).filter ((v) => k in v).map ((v) => v[k]);
 
-const omit = (x: Dictionary<any>, ...args: any) => {
-
+function omit<T extends Dictionary<any>> (x: T, ...args: any): T;
+function omit (x: any, ...args: any): any;
+function omit (x: Dictionary<any> | undefined, ...args: any): any {
+    if (x === undefined) {
+        return x;
+    }
     if (!Array.isArray (x)) {
 
         const out = clone (x);
@@ -149,7 +180,7 @@ const omit = (x: Dictionary<any>, ...args: any) => {
     }
 
     return x;
-};
+}
 
 const sum = (...xs: any[]) => {
 
@@ -158,24 +189,45 @@ const sum = (...xs: any[]) => {
     return (ns.length > 0) ? ns.reduce ((a, b) => a + b, 0) : undefined;
 };
 
-const deepExtend = function deepExtend (...xs: any) {
-    let out = undefined;
-    for (const x of xs) {
-        if (isDictionary (x)) {
-            if (!isDictionary (out)) {
-                out = {};
+const deepExtend = function (...args: any) {
+    let result: any = null;
+    let resultIsObject = false;
+
+    for (const arg of args) {
+        if (arg !== null && typeof arg === 'object' && arg.constructor === Object) {
+            // This is a plain object (even if empty) so set the return type.
+            if (result === null || !resultIsObject) {
+                result = {};
+                resultIsObject = true;
             }
-            for (const k in x) {
-                out[k] = deepExtend (out[k], x[k]);
+
+            // Skip actual merging if object is empty.
+            if (Object.keys(arg).length === 0) {
+                continue;
+            }
+
+            for (const key in arg) {
+                const value = arg[key];
+                const current = result[key];
+                
+                if (current !== null && typeof current === 'object' && current.constructor === Object &&
+                    value !== null && typeof value === 'object' && value.constructor === Object) {
+                    result[key] = deepExtend(current, value);
+                } else {
+                    result[key] = value;
+                }
             }
         } else {
-            out = x;
+            // arg is null or other non-object.
+            result = arg;
+            resultIsObject = false;
         }
     }
-    return out;
-};
 
-const merge = (target: Dictionary<any>, ...args: any) => {
+    return result;
+}
+
+const merge = (target: Dictionary<any>, ...args: any): Dictionary<any> => {
     // doesn't overwrite defined keys with undefined
     const overwrite: Dictionary<any> = {};
     const merged = Object.assign ({}, ...args);
@@ -207,7 +259,7 @@ export {
     , isEmpty
 
     // ------------------------------------------------------------------------
-
+    , sort
     , keysort
 
     // ------------------------------------------------------------------------

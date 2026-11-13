@@ -6,9 +6,13 @@ var number = require('./number.js');
 var type = require('./type.js');
 var errors = require('../errors.js');
 
+// ----------------------------------------------------------------------------
 //-------------------------------------------------------------------------
 // converts timeframe to seconds
 const parseTimeframe = (timeframe) => {
+    if (timeframe === undefined) {
+        throw new errors.NotSupported('timeframe is required');
+    }
     const amount = type.asFloat(timeframe.slice(0, -1));
     const unit = timeframe.slice(-1);
     let scale = undefined;
@@ -39,6 +43,43 @@ const parseTimeframe = (timeframe) => {
     return amount * scale;
 };
 const roundTimeframe = (timeframe, timestamp, direction = number.ROUND_DOWN) => {
+    const amount = type.asFloat(timeframe.slice(0, -1));
+    const unit = timeframe.slice(-1);
+    if (((unit === 'w') || (unit === 'M') || (unit === 'y')) && (amount >= 1) && (Math.floor(amount) === amount)) {
+        const date = new Date(timestamp);
+        let rounded = timestamp;
+        if (unit === 'w') {
+            const day = date.getUTCDay();
+            const daysSinceMonday = (day + 6) % 7;
+            const week = 7 * 24 * 60 * 60 * 1000;
+            const monday = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - daysSinceMonday);
+            const epochMonday = Date.UTC(1970, 0, 5);
+            const weeksSinceEpochMonday = Math.floor((monday - epochMonday) / week);
+            const roundedWeeks = Math.floor(weeksSinceEpochMonday / amount) * amount;
+            rounded = epochMonday + roundedWeeks * week;
+            if (direction === number.ROUND_UP) {
+                rounded += amount * week;
+            }
+        }
+        else if (unit === 'M') {
+            const monthsSinceYearZero = date.getUTCFullYear() * 12 + date.getUTCMonth();
+            const roundedMonths = Math.floor(monthsSinceYearZero / amount) * amount;
+            const year = Math.floor(roundedMonths / 12);
+            const month = roundedMonths % 12;
+            rounded = Date.UTC(year, month, 1);
+            if (direction === number.ROUND_UP) {
+                rounded = Date.UTC(year, month + amount, 1);
+            }
+        }
+        else {
+            const year = Math.floor(date.getUTCFullYear() / amount) * amount;
+            rounded = Date.UTC(year, 0, 1);
+            if (direction === number.ROUND_UP) {
+                rounded = Date.UTC(year + amount, 0, 1);
+            }
+        }
+        return rounded;
+    }
     const ms = parseTimeframe(timeframe) * 1000;
     // Get offset based on timeframe in milliseconds
     const offset = timestamp % ms;
@@ -61,6 +102,9 @@ const extractParams = (string) => {
     return matches;
 };
 const implodeParams = (string, params) => {
+    if (string === undefined) {
+        return '';
+    }
     if (!Array.isArray(params)) {
         const keys = Object.keys(params);
         for (let i = 0; i < keys.length; i++) {
@@ -86,6 +130,16 @@ function aggregate(bidasks) {
     }
     return Object.keys(result).map((price) => [parseFloat(price), parseFloat(result[price])]); // TODO: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}',   No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
 }
+function selfIsDefined() {
+    let selfIsDefined = false;
+    try {
+        selfIsDefined = self !== undefined;
+    }
+    catch (e) {
+        selfIsDefined = false;
+    }
+    return selfIsDefined;
+}
 /*  ------------------------------------------------------------------------ */
 
 exports.aggregate = aggregate;
@@ -93,4 +147,5 @@ exports.extractParams = extractParams;
 exports.implodeParams = implodeParams;
 exports.parseTimeframe = parseTimeframe;
 exports.roundTimeframe = roundTimeframe;
+exports.selfIsDefined = selfIsDefined;
 exports.vwap = vwap;

@@ -5,18 +5,44 @@
 // EDIT THE CORRESPONDENT .ts FILE INSTEAD
 
 //  ---------------------------------------------------------------------------
+import { sha512 } from '@noble/hashes/sha2.js';
 import gateRest from '../gate.js';
-import { AuthenticationError, BadRequest, ArgumentsRequired, InvalidNonce } from '../base/errors.js';
+import { AuthenticationError, BadRequest, ArgumentsRequired, ChecksumError, ExchangeError, NotSupported } from '../base/errors.js';
 import { ArrayCache, ArrayCacheByTimestamp, ArrayCacheBySymbolById, ArrayCacheBySymbolBySide } from '../base/ws/Cache.js';
-import { sha512 } from '../static_dependencies/noble-hashes/sha512.js';
-import Precise from '../base/Precise.js';
+import { Precise } from '../base/Precise.js';
 //  ---------------------------------------------------------------------------
 export default class gate extends gateRest {
     describe() {
-        return this.deepExtend(super.describe(), {
+        const superDescribe = super.describe();
+        return this.deepExtend(superDescribe, this.describeData());
+    }
+    describeData() {
+        return {
             'has': {
                 'ws': true,
+                'cancelAllOrdersWs': true,
+                'cancelOrderWs': true,
+                'createMarketBuyOrderWithCostWs': true,
+                'createMarketOrderWs': true,
+                'createMarketOrderWithCostWs': false,
+                'createMarketSellOrderWithCostWs': false,
+                'createOrderWs': true,
+                'createOrdersWs': true,
+                'createPostOnlyOrderWs': true,
+                'createReduceOnlyOrderWs': true,
+                'createStopLimitOrderWs': true,
+                'createStopLossOrderWs': true,
+                'createStopMarketOrderWs': false,
+                'createStopOrderWs': true,
+                'createTakeProfitOrderWs': true,
+                'createTriggerOrderWs': true,
+                'editOrderWs': true,
+                'fetchOrderWs': true,
+                'fetchOrdersWs': false,
+                'fetchOpenOrdersWs': true,
+                'fetchClosedOrdersWs': true,
                 'watchOrderBook': true,
+                'watchBidsAsks': true,
                 'watchTicker': true,
                 'watchTickers': true,
                 'watchTrades': true,
@@ -30,6 +56,19 @@ export default class gate extends gateRest {
                 'watchMyLiquidations': true,
                 'watchMyLiquidationsForSymbols': true,
                 'watchPositions': true,
+                'unWatchTicker': false,
+                'unWatchTickers': false,
+                'unWatchOHLCV': true,
+                'unWatchOHLCVForSymbols': false,
+                'unWatchOrderBook': true,
+                'unWatchOrderBookForSymbols': false,
+                'unWatchTrades': true,
+                'unWatchTradesForSymbols': true,
+                'unWatchMyTrades': false,
+                'unWatchOrders': false,
+                'unWatchPositions': false,
+                'unWatchMarkPrices': false,
+                'unWatchMarkPrice': false,
             },
             'urls': {
                 'api': {
@@ -50,20 +89,27 @@ export default class gate extends gateRest {
                 },
                 'test': {
                     'swap': {
-                        'usdt': 'wss://fx-ws-testnet.gateio.ws/v4/ws/usdt',
+                        'usdt': 'wss://ws-testnet.gate.com/v4/ws/futures/usdt',
                         'btc': 'wss://fx-ws-testnet.gateio.ws/v4/ws/btc',
                     },
                     'future': {
-                        'usdt': 'wss://fx-ws-testnet.gateio.ws/v4/ws/usdt',
-                        'btc': 'wss://fx-ws-testnet.gateio.ws/v4/ws/btc',
+                        'usdt': 'wss://fx-ws-testnet.gateio.ws/v4/ws/delivery/usdt',
+                        'btc': 'wss://fx-ws-testnet.gateio.ws/v4/ws/delivery/btc',
                     },
                     'option': {
-                        'usdt': 'wss://op-ws-testnet.gateio.live/v4/ws/usdt',
-                        'btc': 'wss://op-ws-testnet.gateio.live/v4/ws/btc',
+                        'usdt': 'wss://ws-testnet.gate.com/v4/ws/options/usdt',
+                        'btc': 'wss://ws-testnet.gate.com/v4/ws/options/btc',
                     },
                 },
             },
             'options': {
+                'ws': {
+                    'options': {
+                        'headers': {
+                            'X-Gate-Size-Decimal': '1', // contract sizes are pushed as decimal strings instead of rounded-down integers
+                        },
+                    },
+                },
                 'tradesLimit': 1000,
                 'OHLCVLimit': 1000,
                 'watchTradesSubscriptions': {},
@@ -73,69 +119,496 @@ export default class gate extends gateRest {
                     'name': 'tickers', // or book_ticker
                 },
                 'watchOrderBook': {
-                    'interval': '100ms',
-                    'snapshotDelay': 10,
+                    'snapshotDelay': 10, // how many deltas to cache before fetching a snapshot
                     'snapshotMaxRetries': 3,
+                    'checksum': true,
                 },
                 'watchBalance': {
-                    'settle': 'usdt',
+                    'settle': 'usdt', // or btc
                     'spot': 'spot.balances', // spot.margin_balances, spot.funding_balances or spot.cross_balances
                 },
                 'watchPositions': {
-                    'fetchPositionsSnapshot': true,
+                    'fetchPositionsSnapshot': true, // or false
                     'awaitPositionsSnapshot': true, // whether to wait for the positions snapshot before providing updates
                 },
             },
             'exceptions': {
                 'ws': {
                     'exact': {
+                        '1': BadRequest,
                         '2': BadRequest,
                         '4': AuthenticationError,
                         '6': AuthenticationError,
                         '11': AuthenticationError,
                     },
+                    'broad': {},
                 },
             },
-        });
+        };
     }
-    async watchOrderBook(symbol, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchOrderBook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets();
-        const market = this.market(symbol);
-        symbol = market['symbol'];
-        const marketId = market['id'];
-        const [interval, query] = this.handleOptionAndParams(params, 'watchOrderBook', 'interval', '100ms');
-        const messageType = this.getTypeByMarket(market);
-        const channel = messageType + '.order_book_update';
-        const messageHash = 'orderbook' + ':' + symbol;
-        const url = this.getUrlByMarket(market);
-        const payload = [marketId, interval];
-        if (limit === undefined) {
-            limit = 100;
+    /**
+     * @method
+     * @name gate#createOrderWs
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#order-place
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#order-place
+     * @description Create an order on the exchange
+     * @param {string} symbol Unified CCXT market symbol
+     * @param {string} type 'limit' or 'market' *"market" is contract only*
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount the amount of currency to trade
+     * @param {float} [price] *ignored in "market" orders* the price at which the order is to be fulfilled at in units of the quote currency
+     * @param {object} [params]  extra parameters specific to the exchange API endpoint
+     * @param {float} [params.stopPrice] The price at which a trigger order is triggered at
+     * @param {string} [params.timeInForce] "GTC", "IOC", or "PO"
+     * @param {float} [params.stopLossPrice] The price at which a stop loss order is triggered at
+     * @param {float} [params.takeProfitPrice] The price at which a take profit order is triggered at
+     * @param {string} [params.marginMode] 'cross' or 'isolated' - marginMode for margin trading if not provided this.options['defaultMarginMode'] is used
+     * @param {int} [params.iceberg] Amount to display for the iceberg order, Null or 0 for normal orders, Set to -1 to hide the order completely
+     * @param {string} [params.text] User defined information
+     * @param {string} [params.account] *spot and margin only* "spot", "margin" or "cross_margin"
+     * @param {bool} [params.auto_borrow] *margin only* Used in margin or cross margin trading to allow automatic loan of insufficient amount if balance is not enough
+     * @param {string} [params.settle] *contract only* Unified Currency Code for settle currency
+     * @param {bool} [params.reduceOnly] *contract only* Indicates if this order is to reduce the size of a position
+     * @param {bool} [params.close] *contract only* Set as true to close the position, with size set to 0
+     * @param {bool} [params.auto_size] *contract only* Set side to close dual-mode position, close_long closes the long side, while close_short the short one, size also needs to be set to 0
+     * @param {int} [params.price_type] *contract only* 0 latest deal price, 1 mark price, 2 index price
+     * @param {float} [params.cost] *spot market buy only* the quote quantity that can be used as an alternative for the amount
+     * @returns {object|undefined} [An order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async createOrderWs(symbol, type, side, amount, price = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
         }
-        if (market['contract']) {
-            const stringLimit = limit.toString();
+        const market = this.market(symbol);
+        const symbolValue = market['symbol'];
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.order_place';
+        const url = this.getUrlByMarket(market);
+        params['textIsRequired'] = true;
+        const request = this.createOrderRequest(symbolValue, type, side, amount, price, params);
+        await this.authenticate(url, messageType);
+        const rawOrder = await this.requestPrivate(url, request, channel);
+        const order = this.parseOrder(rawOrder, market);
+        return order;
+    }
+    /**
+     * @method
+     * @name gate#createOrdersWs
+     * @description create a list of trade orders
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#order-batch-place
+     * @param {Array} orders list of orders to create, each object should contain the parameters required by createOrder, namely symbol, type, side, amount, price and params
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async createOrdersWs(orders, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const request = this.createOrdersRequest(orders, params);
+        const firstOrder = orders[0];
+        const market = this.market(firstOrder['symbol']);
+        if (!this.safeBool(market, 'swap', false)) {
+            throw new NotSupported(this.id + ' createOrdersWs is not supported for swap markets');
+        }
+        // todo add swap support
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.order_batch_place';
+        const url = this.getUrlByMarket(market);
+        await this.authenticate(url, messageType);
+        const rawOrders = await this.requestPrivate(url, request, channel);
+        return this.parseOrders(rawOrders, market);
+    }
+    /**
+     * @method
+     * @name gate#cancelAllOrdersWs
+     * @description cancel all open orders
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#cancel-matched-open-orders
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#order-cancel-all-with-specified-currency-pair
+     * @param {string} symbol unified market symbol, only orders in the market of this symbol are cancelled when symbol is not undefined
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.channel] the channel to use, defaults to spot.order_cancel_cp or futures.order_cancel_cp
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async cancelAllOrdersWs(symbol = undefined, params = {}) {
+        if (symbol === undefined) {
+            throw new ArgumentsRequired(this.id + ' cancelAllOrdersWs() requires a symbol argument');
+        }
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        let market = undefined;
+        if (symbol === undefined) {
+            market = undefined;
+        }
+        else {
+            market = this.market(symbol);
+        }
+        const trigger = this.safeBool2(params, 'stop', 'trigger');
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.order_cancel_cp';
+        const [channelOption, paramsChannel] = this.handleOptionStringAndParams(params, 'cancelAllOrdersWs', 'channel', channel);
+        const url = this.getUrlByMarket(market);
+        const paramsOmitted = this.omit(paramsChannel, ['stop', 'trigger']);
+        const [type, query] = this.handleMarketTypeAndParams('cancelAllOrders', market, paramsOmitted);
+        const [request, requestParams] = (type === 'spot') ? this.multiOrderSpotPrepareRequest(market, trigger, query) : this.prepareRequest(market, type, query);
+        await this.authenticate(url, messageType);
+        const rawOrders = await this.requestPrivate(url, this.extend(request, requestParams), channelOption);
+        return this.parseOrders(rawOrders, market);
+    }
+    /**
+     * @method
+     * @name gate#cancelOrderWs
+     * @description Cancels an open order
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#order-cancel
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#order-cancel
+     * @param {string} id Order id
+     * @param {string} symbol Unified market symbol
+     * @param {object} [params] Parameters specified by the exchange api
+     * @param {bool} [params.trigger] True if the order to be cancelled is a trigger order
+     * @returns An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async cancelOrderWs(id, symbol = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        let market = undefined;
+        if (symbol === undefined) {
+            market = undefined;
+        }
+        else {
+            market = this.market(symbol);
+        }
+        const trigger = this.safeBoolN(params, ['is_stop_order', 'stop', 'trigger'], false);
+        const paramsOmitted = this.omit(params, ['is_stop_order', 'stop', 'trigger']);
+        const [type, query] = this.handleMarketTypeAndParams('cancelOrder', market, paramsOmitted);
+        const [request, requestParams] = (type === 'spot' || type === 'margin') ? this.spotOrderPrepareRequest(market, trigger, query) : this.prepareRequest(market, type, query);
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.order_cancel';
+        const url = this.getUrlByMarket(market);
+        await this.authenticate(url, messageType);
+        request['order_id'] = id.toString();
+        const res = await this.requestPrivate(url, this.extend(request, requestParams), channel);
+        return this.parseOrder(res, market);
+    }
+    /**
+     * @method
+     * @name gate#editOrderWs
+     * @description edit a trade order, gate currently only supports the modification of the price or amount fields
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#order-amend
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#order-amend
+     * @param {string} id order id
+     * @param {string} symbol unified symbol of the market to create an order in
+     * @param {string} type 'market' or 'limit'
+     * @param {string} side 'buy' or 'sell'
+     * @param {float} amount how much of the currency you want to trade in units of the base currency
+     * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async editOrderWs(id, symbol, type, side, amount = undefined, price = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const market = this.market(symbol);
+        const extendedRequest = this.editOrderRequest(id, symbol, type, side, amount, price, params);
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.order_amend';
+        const url = this.getUrlByMarket(market);
+        await this.authenticate(url, messageType);
+        const rawOrder = await this.requestPrivate(url, extendedRequest, channel);
+        return this.parseOrder(rawOrder, market);
+    }
+    /**
+     * @method
+     * @name gate#fetchOrderWs
+     * @description Retrieves information on an order
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#order-status
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#order-status
+     * @param {string} id Order id
+     * @param {string} symbol Unified market symbol, *required for spot and margin*
+     * @param {object} [params] Parameters specified by the exchange api
+     * @param {bool} [params.trigger] True if the order being fetched is a trigger order
+     * @param {string} [params.marginMode] 'cross' or 'isolated' - marginMode for margin trading if not provided this.options['defaultMarginMode'] is used
+     * @param {string} [params.type] 'spot', 'swap', or 'future', if not provided this.options['defaultMarginMode'] is used
+     * @param {string} [params.settle] 'btc' or 'usdt' - settle currency for perpetual swap and future - market settle currency is used if symbol !== undefined, default="usdt" for swap and "btc" for future
+     * @returns An [order structure]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async fetchOrderWs(id, symbol = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        let market = undefined;
+        if (symbol === undefined) {
+            market = undefined;
+        }
+        else {
+            market = this.market(symbol);
+        }
+        const [request, requestParams] = this.fetchOrderRequest(id, symbol, params);
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.order_status';
+        const url = this.getUrlByMarket(market);
+        await this.authenticate(url, messageType);
+        const rawOrder = await this.requestPrivate(url, this.extend(request, requestParams), channel);
+        return this.parseOrder(rawOrder, market);
+    }
+    /**
+     * @method
+     * @name gate#fetchOpenOrdersWs
+     * @description fetch all unfilled currently open orders
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#order-list
+     * @param {string} symbol unified market symbol
+     * @param {int} [since] the earliest time in ms to fetch open orders for
+     * @param {int} [limit] the maximum number of  open orders structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    fetchOpenOrdersWs(symbol = undefined, since = undefined, limit = undefined, params = {}) {
+        return this.fetchOrdersByStatusWs('open', symbol, since, limit, params);
+    }
+    /**
+     * @method
+     * @name gate#fetchClosedOrdersWs
+     * @description fetches information on multiple closed orders made by the user
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#order-list
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    fetchClosedOrdersWs(symbol = undefined, since = undefined, limit = undefined, params = {}) {
+        return this.fetchOrdersByStatusWs('finished', symbol, since, limit, params);
+    }
+    /**
+     * @method
+     * @name gate#fetchOrdersWs
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#order-list
+     * @description fetches information on multiple orders made by the user by status
+     * @param {string} status requested order status
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int|undefined} [since] the earliest time in ms to fetch orders for
+     * @param {int|undefined} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {int} [params.orderId] order id to begin at
+     * @param {int} [params.limit] the maximum number of order structures to retrieve
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    async fetchOrdersByStatusWs(status, symbol = undefined, since = undefined, limit = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        let market = undefined;
+        let symbolResolved = undefined;
+        if (symbol !== undefined) {
+            market = this.market(symbol);
+            symbolResolved = this.safeString(market, 'symbol');
+            if (!this.safeBool(market, 'swap', false)) {
+                throw new NotSupported(this.id + ' fetchOrdersByStatusWs is only supported by swap markets. Use rest API for other markets');
+            }
+        }
+        const [request, requestParams] = this.prepareOrdersByStatusRequest(status, symbolResolved, since, limit, params);
+        const newRequest = this.omit(request, ['settle']);
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.order_list';
+        const url = this.getUrlByMarket(market);
+        await this.authenticate(url, messageType);
+        const rawOrders = await this.requestPrivate(url, this.extend(newRequest, requestParams), channel);
+        const orders = this.parseOrders(rawOrders, market);
+        return this.filterBySymbolSinceLimit(orders, symbolResolved, since, limit);
+    }
+    /**
+     * @method
+     * @name gate#watchOrderBook
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#order-book-channel
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#order-book-v2-api
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#order-book-api
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#order-book-v2-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#order-book-api
+     * @see https://www.gate.com/docs/developers/options/ws/en/#order-book-channel
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    async watchOrderBook(symbol, limit = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const market = this.market(symbol);
+        const symbolValue = this.safeString(market, 'symbol', '');
+        const marketId = this.safeString(market, 'id', '');
+        const url = this.getUrlByMarket(market);
+        const isEuUrl = url.indexOf('gateeu') >= 0;
+        const isNonEuSpot = (market['spot'] === true) && !isEuUrl;
+        let intervalDefault = '100ms';
+        if (isNonEuSpot) {
+            intervalDefault = '50';
+        }
+        const [interval, query] = this.handleOptionStringAndParams(params, 'watchOrderBook', 'interval', intervalDefault);
+        const messageType = this.getTypeByMarket(market);
+        const messageHash = 'orderbook' + ':' + symbolValue;
+        // max 100 atm, max 50 for options
+        let defaultLimit = 100;
+        if ((this.safeBool(market, 'spot', false)) || (messageType === 'options')) {
+            defaultLimit = 50;
+        }
+        let limitResolved = (limit === undefined) ? defaultLimit : limit;
+        if (this.safeBool(market, 'spot', false)) {
+            // the subscription limit seeds the rest snapshot, gateeu returns an empty book above 100
+            const maxSpotLimit = this.parseToInt(this.handleOption('fetchOrderBook', 'maxSpotLimit', 1000));
+            limitResolved = Math.min(limitResolved, maxSpotLimit);
+        }
+        let payload = [];
+        let channel = '';
+        if (isEuUrl) {
+            channel = 'spot.order_book_update';
+            payload = [marketId, interval];
+        }
+        else if (this.safeBool(market, 'spot', false)) {
+            channel = 'spot.obu';
+            let finalInterval = interval;
+            if (limitResolved === 400) {
+                finalInterval = '400';
+            }
+            payload = ['ob.' + marketId + '.' + finalInterval];
+        }
+        else {
+            channel = messageType + '.order_book_update';
+            payload = [marketId, interval];
+            const stringLimit = limitResolved.toString();
             payload.push(stringLimit);
         }
         const subscription = {
-            'symbol': symbol,
-            'limit': limit,
+            'symbol': symbolValue,
+            'limit': limitResolved,
         };
         const orderbook = await this.subscribePublic(url, messageHash, payload, channel, query, subscription);
         return orderbook.limit();
     }
-    handleOrderBookSubscription(client, message, subscription) {
+    /**
+     * @method
+     * @name gate#unWatchOrderBook
+     * @description unWatches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    async unWatchOrderBook(symbol, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const market = this.market(symbol);
+        const url = this.getUrlByMarket(market);
+        const symbolValue = this.safeString(market, 'symbol', '');
+        const marketId = this.safeString(market, 'id', '');
+        const isEuUrl = url.indexOf('gateeu') >= 0;
+        const isNonEuSpot = (market['spot'] === true) && !isEuUrl;
+        let intervalDefault = '100ms';
+        if (isNonEuSpot) {
+            intervalDefault = '50';
+        }
+        const interval = intervalDefault;
+        const [intervalOption, paramsInterval] = this.handleOptionStringAndParams(params, 'watchOrderBook', 'interval', interval);
+        const messageType = this.getTypeByMarket(market);
+        let limit = this.safeInteger(paramsInterval, 'limit');
+        if (limit === undefined) {
+            limit = (this.safeBool(market, 'spot', false)) ? 50 : 100; // max 100 atm
+            if (messageType === 'options') {
+                limit = 50; // max 50 for options
+            }
+        }
+        let payload = [];
+        let channel = '';
+        if (isEuUrl) {
+            channel = 'spot.order_book_update';
+            payload = [marketId, intervalOption];
+        }
+        else if (this.safeBool(market, 'spot', false)) {
+            channel = 'spot.obu';
+            let finalInterval = intervalOption;
+            if (limit === 400) {
+                finalInterval = '400';
+            }
+            payload = ['ob.' + marketId + '.' + finalInterval];
+        }
+        else {
+            channel = messageType + '.order_book_update';
+            payload = [marketId, intervalOption];
+            const stringLimit = limit.toString();
+            payload.push(stringLimit);
+        }
+        const subMessageHash = 'orderbook' + ':' + symbolValue;
+        const messageHash = 'unsubscribe:orderbook' + ':' + symbolValue;
+        return await this.unSubscribePublicMultiple(url, 'orderbook', [symbolValue], [messageHash], [subMessageHash], payload, channel, paramsInterval);
+    }
+    handleOrderBookSubscription(client, message, subscription = undefined) {
         const symbol = this.safeString(subscription, 'symbol');
         const limit = this.safeInteger(subscription, 'limit');
-        this.orderbooks[symbol] = this.orderBook({}, limit);
+        if (symbol !== undefined) {
+            if (!(symbol in this.orderbooks)) {
+                this.orderbooks[symbol] = this.orderBook({}, limit);
+            }
+            const orderbook = this.orderbooks[symbol];
+            orderbook['nonce'] = undefined;
+            orderbook.cache = [];
+        }
+    }
+    handleNewSpotOrderBook(client, message) {
+        //
+        //   {
+        //      "channel":"spot.obu",
+        //      "result":{
+        //         "t":1777275365213,
+        //         "full":true,
+        //         "s":"ob.XRP_USDT.50",
+        //         "u":9649549324,
+        //         "b":[
+        //            [
+        //               "1.414",
+        //               "1397.899"
+        //            ]
+        //         ],
+        //         "a":[
+        //            [
+        //               "1.415",
+        //               "17344.926"
+        //            ]
+        //         ]
+        //      },
+        //      "time_ms":1777275365214,
+        //      "event":"update"
+        //   }
+        const result = this.safeDict(message, 'result', {});
+        const full = this.safeBool(result, 'full', false);
+        const marketIdWithPrefix = this.safeString(result, 's');
+        if (marketIdWithPrefix === undefined) {
+            return;
+        }
+        const marketIdParts = marketIdWithPrefix.split('.');
+        const marketId = this.safeString(marketIdParts, 1);
+        const symbol = this.safeSymbol(marketId, undefined, '_', 'spot');
+        const messageHash = 'orderbook:' + symbol;
+        if (this.safeValue(this.orderbooks, symbol) === undefined) {
+            this.orderbooks[symbol] = this.orderBook({}, 1000);
+        }
+        const orderbook = this.orderbooks[symbol];
+        if (full) {
+            const snapshopt = this.parseOrderBook(result, symbol, undefined, 'b', 'a');
+            snapshopt['nonce'] = this.safeInteger(result, 'u');
+            snapshopt['timestamp'] = this.safeInteger(result, 't');
+            orderbook.reset(snapshopt);
+        }
+        else {
+            const nonce = this.safeInteger(orderbook, 'nonce');
+            const deltaStart = this.safeInteger(result, 'u');
+            if ((nonce === undefined) || ((deltaStart !== undefined) && (nonce >= deltaStart))) {
+                return;
+            }
+            this.handleBookDelta(orderbook, result);
+        }
+        client.resolve(orderbook, messageHash);
     }
     handleOrderBook(client, message) {
         //
@@ -192,11 +665,18 @@ export default class gate extends gateRest {
         //     }
         //
         const channel = this.safeString(message, 'channel');
+        if (channel === 'spot.obu') {
+            this.handleNewSpotOrderBook(client, message);
+            return;
+        }
         const channelParts = channel.split('.');
         const rawMarketType = this.safeString(channelParts, 0);
         const isSpot = rawMarketType === 'spot';
-        const marketType = isSpot ? 'spot' : 'contract';
-        const delta = this.safeValue(message, 'result');
+        let marketType = 'contract';
+        if (isSpot) {
+            marketType = 'spot';
+        }
+        const delta = this.safeDict(message, 'result');
         const deltaStart = this.safeInteger(delta, 'U');
         const deltaEnd = this.safeInteger(delta, 'u');
         const marketId = this.safeString(delta, 's');
@@ -205,47 +685,55 @@ export default class gate extends gateRest {
         const storedOrderBook = this.safeValue(this.orderbooks, symbol, this.orderBook({}));
         const nonce = this.safeInteger(storedOrderBook, 'nonce');
         if (nonce === undefined) {
-            let cacheLength = 0;
+            let cacheLength = this.parseToInt(0);
             if (storedOrderBook !== undefined) {
-                cacheLength = storedOrderBook.cache.length;
+                const storedCacheLength = storedOrderBook.cache.length;
+                cacheLength = this.parseToInt(storedCacheLength);
             }
-            const snapshotDelay = this.handleOption('watchOrderBook', 'snapshotDelay', 10);
-            const waitAmount = isSpot ? snapshotDelay : 0;
+            const snapshotDelay = this.parseToInt(this.handleOption('watchOrderBook', 'snapshotDelay', 10));
+            let waitAmount = this.parseToInt(0);
+            if (isSpot) {
+                waitAmount = snapshotDelay;
+            }
             if (cacheLength === waitAmount) {
                 // max limit is 100
-                const subscription = client.subscriptions[messageHash];
+                const subscription = this.safeDict(client.subscriptions, messageHash);
                 const limit = this.safeInteger(subscription, 'limit');
                 this.spawn(this.loadOrderBook, client, messageHash, symbol, limit, {}); // needed for c#, number of args needs to match
             }
             storedOrderBook.cache.push(delta);
             return;
         }
-        else if (nonce >= deltaEnd) {
+        else if ((deltaEnd !== undefined) && (nonce >= deltaEnd)) {
             return;
         }
-        else if (nonce >= deltaStart - 1) {
-            this.handleDelta(storedOrderBook, delta);
+        else if ((deltaStart !== undefined) && (nonce !== undefined) && (nonce >= deltaStart - 1)) {
+            this.handleBookDelta(storedOrderBook, delta);
         }
         else {
-            const error = new InvalidNonce(this.id + ' orderbook update has a nonce bigger than u');
             delete client.subscriptions[messageHash];
-            delete this.orderbooks[symbol];
-            client.reject(error, messageHash);
+            storedOrderBook['nonce'] = undefined;
+            storedOrderBook.cache = [];
+            const checksum = this.handleOption('watchOrderBook', 'checksum', true);
+            if (checksum === true) {
+                const error = new ChecksumError(this.id + ' ' + this.orderbookChecksumMessage(symbol));
+                client.reject(error, messageHash);
+            }
         }
         client.resolve(storedOrderBook, messageHash);
     }
     getCacheIndex(orderBook, cache) {
         const nonce = this.safeInteger(orderBook, 'nonce');
-        const firstDelta = cache[0];
+        const firstDelta = this.safeDict(cache, 0);
         const firstDeltaStart = this.safeInteger(firstDelta, 'U');
-        if (nonce < firstDeltaStart) {
+        if ((nonce !== undefined) && (firstDeltaStart !== undefined) && (nonce < firstDeltaStart)) {
             return -1;
         }
         for (let i = 0; i < cache.length; i++) {
-            const delta = cache[i];
+            const delta = this.safeDict(cache, i);
             const deltaStart = this.safeInteger(delta, 'U');
             const deltaEnd = this.safeInteger(delta, 'u');
-            if ((nonce >= deltaStart - 1) && (nonce < deltaEnd)) {
+            if ((nonce !== undefined) && (deltaStart !== undefined) && (deltaEnd !== undefined) && (nonce >= deltaStart - 1) && (nonce < deltaEnd)) {
                 return i;
             }
         }
@@ -255,55 +743,61 @@ export default class gate extends gateRest {
         for (let i = 0; i < bidAsks.length; i++) {
             const bidAsk = bidAsks[i];
             if (Array.isArray(bidAsk)) {
-                bookSide.storeArray(this.parseBidAsk(bidAsk));
+                bookSide.storeArray(this.parseOrderBookBidAsk(bidAsk));
             }
             else {
-                const price = this.safeFloat(bidAsk, 'p');
-                const amount = this.safeFloat(bidAsk, 's');
+                const price = this.safeNumber(bidAsk, 'p');
+                const amount = this.safeNumber(bidAsk, 's');
                 bookSide.store(price, amount);
             }
         }
     }
-    handleDelta(orderbook, delta) {
+    handleBookDelta(orderbook, delta) {
         const timestamp = this.safeInteger(delta, 't');
         orderbook['timestamp'] = timestamp;
         orderbook['datetime'] = this.iso8601(timestamp);
         orderbook['nonce'] = this.safeInteger(delta, 'u');
-        const bids = this.safeValue(delta, 'b', []);
-        const asks = this.safeValue(delta, 'a', []);
+        const bids = this.safeList(delta, 'b', []);
+        const asks = this.safeList(delta, 'a', []);
         const storedBids = orderbook['bids'];
         const storedAsks = orderbook['asks'];
         this.handleBidAsks(storedBids, bids);
         this.handleBidAsks(storedAsks, asks);
     }
+    /**
+     * @method
+     * @name gate#watchTicker
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#tickers-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#tickers-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#tickers-api
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
     async watchTicker(symbol, params = {}) {
-        /**
-         * @method
-         * @name gate#watchTicker
-         * @see https://www.gate.io/docs/developers/apiv4/ws/en/#tickers-channel
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         const market = this.market(symbol);
-        symbol = market['symbol'];
+        const symbolValue = this.safeString(market, 'symbol', '');
         params['callerMethodName'] = 'watchTicker';
-        const result = await this.watchTickers([symbol], params);
-        return this.safeValue(result, symbol);
+        const result = await this.watchTickers([symbolValue], params);
+        return this.safeDict(result, symbolValue);
     }
-    async watchTickers(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchTickers
-         * @see https://www.gate.io/docs/developers/apiv4/ws/en/#tickers-channel
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
-         * @param {string[]} symbols unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        return await this.subscribeWatchTickersAndBidsAsks(symbols, 'watchTickers', this.extend({ 'method': 'tickers' }, params));
+    /**
+     * @method
+     * @name gate#watchTickers
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#tickers-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#tickers-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#tickers-api
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
+     * @param {string[]} symbols unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    watchTickers(symbols = undefined, params = {}) {
+        return this.subscribeWatchTickersAndBidsAsks(symbols, 'watchTickers', this.extend({ 'method': 'tickers' }, params));
     }
     handleTicker(client, message) {
         //
@@ -326,18 +820,19 @@ export default class gate extends gateRest {
         //
         this.handleTickerAndBidAsk('ticker', client, message);
     }
-    async watchBidsAsks(symbols = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchBidsAsks
-         * @see https://www.gate.io/docs/developers/apiv4/ws/en/#best-bid-or-ask-price
-         * @see https://www.gate.io/docs/developers/apiv4/ws/en/#order-book-channel
-         * @description watches best bid & ask for symbols
-         * @param {string[]} symbols unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        return await this.subscribeWatchTickersAndBidsAsks(symbols, 'watchBidsAsks', this.extend({ 'method': 'book_ticker' }, params));
+    /**
+     * @method
+     * @name gate#watchBidsAsks
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#best-bid-or-ask-price
+     * @see https://www.gate.io/docs/developers/apiv4/ws/en/#order-book-channel
+     * @see https://www.gate.com/docs/developers/options/ws/en/#best-bid-or-ask-price
+     * @description watches best bid & ask for symbols
+     * @param {string[]} symbols unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    watchBidsAsks(symbols = undefined, params = {}) {
+        return this.subscribeWatchTickersAndBidsAsks(symbols, 'watchBidsAsks', this.extend({ 'method': 'book_ticker' }, params));
     }
     handleBidAsk(client, message) {
         //
@@ -360,37 +855,52 @@ export default class gate extends gateRest {
         this.handleTickerAndBidAsk('bidask', client, message);
     }
     async subscribeWatchTickersAndBidsAsks(symbols = undefined, callerMethodName = undefined, params = {}) {
-        await this.loadMarkets();
-        [callerMethodName, params] = this.handleParamString(params, 'callerMethodName', callerMethodName);
-        symbols = this.marketSymbols(symbols, undefined, false);
-        const market = this.market(symbols[0]);
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const [callerMethodNameOption, paramsCallerMethodName] = this.handleParamString(params, 'callerMethodName', callerMethodName);
+        const symbolsNormalized = this.marketSymbols(symbols, undefined, false);
+        const market = this.market(symbolsNormalized[0]);
         const messageType = this.getTypeByMarket(market);
-        const marketIds = this.marketIds(symbols);
-        let channelName = undefined;
-        [channelName, params] = this.handleOptionAndParams(params, callerMethodName, 'method');
+        const marketIds = this.marketIds(symbolsNormalized);
+        const [channelName, paramsMethod] = this.handleOptionStringAndParams(paramsCallerMethodName, callerMethodNameOption, 'method', '');
         const url = this.getUrlByMarket(market);
         const channel = messageType + '.' + channelName;
-        const isWatchTickers = callerMethodName.indexOf('watchTicker') >= 0;
-        const prefix = isWatchTickers ? 'ticker' : 'bidask';
+        if (callerMethodNameOption === undefined) {
+            throw new ArgumentsRequired(this.id + ' requires a callerMethodName argument');
+        }
+        const isWatchTickers = callerMethodNameOption.indexOf('watchTicker') >= 0;
+        let prefix = 'bidask';
+        if (isWatchTickers) {
+            prefix = 'ticker';
+        }
         const messageHashes = [];
-        for (let i = 0; i < symbols.length; i++) {
-            const symbol = symbols[i];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
             messageHashes.push(prefix + ':' + symbol);
         }
-        const tickerOrBidAsk = await this.subscribePublicMultiple(url, messageHashes, marketIds, channel, params);
+        const tickerOrBidAsk = await this.subscribePublicMultiple(url, messageHashes, marketIds, channel, paramsMethod);
         if (this.newUpdates) {
             const items = {};
-            items[tickerOrBidAsk['symbol']] = tickerOrBidAsk;
+            const tickerOrBidAskSymbol = this.safeString(tickerOrBidAsk, 'symbol');
+            if (tickerOrBidAskSymbol !== undefined) {
+                items[tickerOrBidAskSymbol] = tickerOrBidAsk;
+            }
             return items;
         }
-        const result = isWatchTickers ? this.tickers : this.bidsasks;
-        return this.filterByArray(result, 'symbol', symbols, true);
+        if (isWatchTickers) {
+            return this.filterByArray(this.tickers, 'symbol', symbolsNormalized, true);
+        }
+        return this.filterByArray(this.bidsasks, 'symbol', symbolsNormalized, true);
     }
     handleTickerAndBidAsk(objectName, client, message) {
         const channel = this.safeString(message, 'channel');
         const parts = channel.split('.');
         const rawMarketType = this.safeString(parts, 0);
-        const marketType = (rawMarketType === 'futures') ? 'contract' : 'spot';
+        let marketType = 'spot';
+        if (rawMarketType === 'futures') {
+            marketType = 'contract';
+        }
         const result = this.safeValue(message, 'result');
         let results = [];
         if (Array.isArray(result)) {
@@ -408,58 +918,111 @@ export default class gate extends gateRest {
             const parsedItem = this.parseTicker(rawTicker, market);
             const symbol = parsedItem['symbol'];
             if (isTicker) {
-                this.tickers[symbol] = parsedItem;
+                if (symbol !== undefined) {
+                    this.tickers[symbol] = parsedItem;
+                }
             }
             else {
-                this.bidsasks[symbol] = parsedItem;
+                if (symbol !== undefined) {
+                    this.bidsasks[symbol] = parsedItem;
+                }
             }
             const messageHash = objectName + ':' + symbol;
             client.resolve(parsedItem, messageHash);
         }
     }
-    async watchTrades(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchTrades
-         * @description get the list of most recent trades for a particular symbol
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        return await this.watchTradesForSymbols([symbol], since, limit, params);
+    /**
+     * @method
+     * @name gate#watchTrades
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#public-trades-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#trades-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#trades-api
+     * @see https://www.gate.com/docs/developers/options/ws/en/#public-contract-trades-channel
+     * @description get the list of most recent trades for a particular symbol
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    watchTrades(symbol, since = undefined, limit = undefined, params = {}) {
+        return this.watchTradesForSymbols([symbol], since, limit, params);
     }
+    /**
+     * @method
+     * @name gate#watchTradesForSymbols
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#public-trades-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#trades-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#trades-api
+     * @see https://www.gate.com/docs/developers/options/ws/en/#public-contract-trades-channel
+     * @description get the list of most recent trades for a particular symbol
+     * @param {string[]} symbols unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
     async watchTradesForSymbols(symbols, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchTradesForSymbols
-         * @description get the list of most recent trades for a particular symbol
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets();
-        symbols = this.marketSymbols(symbols);
-        const marketIds = this.marketIds(symbols);
-        const market = this.market(symbols[0]);
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols);
+        const marketIds = this.marketIds(symbolsNormalized);
+        const market = this.market(symbolsNormalized[0]);
         const messageType = this.getTypeByMarket(market);
         const channel = messageType + '.trades';
         const messageHashes = [];
-        for (let i = 0; i < symbols.length; i++) {
-            const symbol = symbols[i];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
             messageHashes.push('trades:' + symbol);
         }
         const url = this.getUrlByMarket(market);
         const trades = await this.subscribePublicMultiple(url, messageHashes, marketIds, channel, params);
+        const first = this.safeDict(trades, 0);
+        const tradeSymbol = this.safeString(first, 'symbol');
+        let limitResolved = limit;
         if (this.newUpdates) {
-            const first = this.safeValue(trades, 0);
-            const tradeSymbol = this.safeString(first, 'symbol');
-            limit = trades.getLimit(tradeSymbol, limit);
+            limitResolved = trades.getLimit(tradeSymbol, limit);
         }
-        return this.filterBySinceLimit(trades, since, limit, 'timestamp', true);
+        return this.filterBySinceLimit(trades, since, limitResolved, 'timestamp', true);
+    }
+    /**
+     * @method
+     * @name gate#unWatchTradesForSymbols
+     * @description get the list of most recent trades for a particular symbol
+     * @param {string[]} symbols unified symbol of the market to fetch trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    async unWatchTradesForSymbols(symbols, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols);
+        const marketIds = this.marketIds(symbolsNormalized);
+        const market = this.market(symbolsNormalized[0]);
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.trades';
+        const subMessageHashes = [];
+        const messageHashes = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            const symbol = symbolsNormalized[i];
+            subMessageHashes.push('trades:' + symbol);
+            messageHashes.push('unsubscribe:trades:' + symbol);
+        }
+        const url = this.getUrlByMarket(market);
+        return await this.unSubscribePublicMultiple(url, 'trades', symbolsNormalized, messageHashes, subMessageHashes, marketIds, channel, params);
+    }
+    /**
+     * @method
+     * @name gate#unWatchTrades
+     * @description get the list of most recent trades for a particular symbol
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    unWatchTrades(symbol, params = {}) {
+        return this.unWatchTradesForSymbols([symbol], params);
     }
     handleTrades(client, message) {
         //
@@ -478,9 +1041,13 @@ export default class gate extends gateRest {
         //     }]
         // }
         //
-        let result = this.safeValue(message, 'result');
-        if (!Array.isArray(result)) {
-            result = [result];
+        const rawResult = this.safeValue(message, 'result');
+        let result = [];
+        if (Array.isArray(rawResult)) {
+            result = this.safeList(message, 'result', []);
+        }
+        else {
+            result = [rawResult];
         }
         const parsedTrades = this.parseTrades(result);
         for (let i = 0; i < parsedTrades.length; i++) {
@@ -490,28 +1057,36 @@ export default class gate extends gateRest {
             if (cachedTrades === undefined) {
                 const limit = this.safeInteger(this.options, 'tradesLimit', 1000);
                 cachedTrades = new ArrayCache(limit);
-                this.trades[symbol] = cachedTrades;
+                if (symbol !== undefined) {
+                    this.trades[symbol] = cachedTrades;
+                }
             }
             cachedTrades.append(trade);
             const hash = 'trades:' + symbol;
             client.resolve(cachedTrades, hash);
         }
     }
+    /**
+     * @method
+     * @name gate#watchOHLCV
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#candlesticks-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#candlesticks-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#candlesticks-api
+     * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
     async watchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchOHLCV
-         * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        // todo add options support
         const market = this.market(symbol);
-        symbol = market['symbol'];
+        const symbolValue = this.safeString(market, 'symbol', '');
         const marketId = market['id'];
         const interval = this.safeString(this.timeframes, timeframe, timeframe);
         const messageType = this.getTypeByMarket(market);
@@ -520,10 +1095,65 @@ export default class gate extends gateRest {
         const url = this.getUrlByMarket(market);
         const payload = [interval, marketId];
         const ohlcv = await this.subscribePublic(url, messageHash, payload, channel, params);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = ohlcv.getLimit(symbol, limit);
+            limitResolved = ohlcv.getLimit(symbolValue, limit);
         }
-        return this.filterBySinceLimit(ohlcv, since, limit, 0, true);
+        return this.filterBySinceLimit(ohlcv, since, limitResolved, 0, true);
+    }
+    /**
+     * @method
+     * @name gate#unWatchOHLCV
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#candlesticks-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#candlesticks-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#candlesticks-api
+     * @description unWatches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {any} status of the unsubscription request
+     */
+    async unWatchOHLCV(symbol, timeframe = '1m', params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const market = this.market(symbol);
+        const symbolValue = market['symbol'];
+        const marketId = market['id'];
+        const interval = this.safeString(this.timeframes, timeframe, timeframe);
+        const messageType = this.getTypeByMarket(market);
+        const channel = messageType + '.candlesticks';
+        const subMessageHash = 'candles:' + interval + ':' + symbolValue;
+        const messageHash = 'unsubscribe:candles:' + interval + ':' + symbolValue;
+        const url = this.getUrlByMarket(market);
+        const requestId = this.requestId();
+        const request = {
+            'id': requestId,
+            'time': this.seconds(),
+            'channel': channel,
+            'event': 'unsubscribe',
+            'payload': [interval, marketId],
+        };
+        // mirrors the subscription shape base cleanCache() expects for ohlcv
+        // (same pattern as binance unWatchOHLCVForSymbols), so the ohlcvs
+        // cache entry is dropped when the unsubscribe is acknowledged;
+        // handleOHLCV keys the cache by findTimeframe (interval), so the
+        // exchange interval id is mapped back to the cache key here -
+        // this matters for aliased timeframes such as gate's '1w': '7d';
+        // an unsupported timeframe falls back to the caller's key, matching
+        // the previous no-op cleanup instead of an undefined cache key
+        const cacheTimeframe = this.findTimeframe(interval);
+        const subscription = {
+            'id': requestId.toString(),
+            'topic': 'ohlcv',
+            'unsubscribe': true,
+            'symbols': [symbolValue],
+            'symbolsAndTimeframes': [[symbolValue, (cacheTimeframe !== undefined) ? cacheTimeframe : timeframe]],
+            'messageHashes': [messageHash],
+            'subMessageHashes': [subMessageHash],
+        };
+        const message = this.extend(request, params);
+        return await this.watchMultiple(url, [messageHash], message, [messageHash], subscription);
     }
     handleOHLCV(client, message) {
         //
@@ -532,41 +1162,63 @@ export default class gate extends gateRest {
         //     "channel": "spot.candlesticks",
         //     "event": "update",
         //     "result": {
-        //       "t": "1606292580", // total volume
-        //       "v": "2362.32035", // volume
+        //       "t": "1606292580", // timestamp
+        //       "v": "2362.32035", // volume in the quote currency
         //       "c": "19128.1", // close
         //       "h": "19128.1", // high
         //       "l": "19128.1", // low
         //       "o": "19128.1", // open
-        //       "n": "1m_BTC_USDT" // sub
+        //       "n": "1m_BTC_USDT", // sub
+        //       "a": "0.12349", // volume in the base currency
+        //       "w": false // window closed
         //     }
         //   }
         //
         const channel = this.safeString(message, 'channel');
         const channelParts = channel.split('.');
         const rawMarketType = this.safeString(channelParts, 0);
-        const marketType = (rawMarketType === 'spot') ? 'spot' : 'contract';
-        let result = this.safeValue(message, 'result');
-        if (!Array.isArray(result)) {
-            result = [result];
+        let marketType = 'contract';
+        if (rawMarketType === 'spot') {
+            marketType = 'spot';
+        }
+        const rawResult = this.safeValue(message, 'result');
+        let result = [];
+        if (Array.isArray(rawResult)) {
+            result = this.safeList(message, 'result', []);
+        }
+        else {
+            result = [rawResult];
         }
         const marketIds = {};
         for (let i = 0; i < result.length; i++) {
             const ohlcv = result[i];
             const subscription = this.safeString(ohlcv, 'n', '');
             const parts = subscription.split('_');
-            const timeframe = this.safeString(parts, 0);
-            const timeframeId = this.findTimeframe(timeframe);
+            const timeframeId = this.safeString(parts, 0);
+            const timeframe = this.findTimeframe(timeframeId);
             const prefix = timeframe + '_';
             const marketId = subscription.replace(prefix, '');
             const symbol = this.safeSymbol(marketId, undefined, '_', marketType);
-            const parsed = this.parseOHLCV(ohlcv);
+            let parsed = this.parseOHLCV(ohlcv);
+            if (marketType === 'spot') {
+                // spot's "v" is the volume in the quote currency, "a" in the base currency, which fetchOHLCV returns
+                parsed = [
+                    this.safeTimestamp(ohlcv, 't'),
+                    this.safeNumber(ohlcv, 'o'),
+                    this.safeNumber(ohlcv, 'h'),
+                    this.safeNumber(ohlcv, 'l'),
+                    this.safeNumber(ohlcv, 'c'),
+                    this.safeNumber(ohlcv, 'a'),
+                ];
+            }
             this.ohlcvs[symbol] = this.safeValue(this.ohlcvs, symbol, {});
-            let stored = this.safeValue(this.ohlcvs[symbol], timeframe);
+            let stored = this.safeValue(this.safeDict(this.ohlcvs, symbol), timeframe);
             if (stored === undefined) {
                 const limit = this.safeInteger(this.options, 'OHLCVLimit', 1000);
                 stored = new ArrayCacheByTimestamp(limit);
-                this.ohlcvs[symbol][timeframeId] = stored;
+                if (symbol !== undefined && timeframe !== undefined) {
+                    this.ohlcvs[symbol][timeframe] = stored;
+                }
             }
             stored.append(parsed);
             marketIds[symbol] = timeframe;
@@ -581,28 +1233,32 @@ export default class gate extends gateRest {
             client.resolve(stored, hash);
         }
     }
+    /**
+     * @method
+     * @name gate#watchMyTrades
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#user-trades-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#user-trades-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#user-trades-api
+     * @see https://www.gate.com/docs/developers/options/ws/en/#user-trades-channel
+     * @description watches information on multiple trades made by the user
+     * @param {string} symbol unified market symbol of the market trades were made in
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trade structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
     async watchMyTrades(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchMyTrades
-         * @description watches information on multiple trades made by the user
-         * @param {string} symbol unified market symbol of the market trades were made in
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trade structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure
-         */
-        await this.loadMarkets();
-        let subType = undefined;
-        let type = undefined;
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let marketId = '!' + 'all';
         let market = undefined;
         if (symbol !== undefined) {
             market = this.market(symbol);
             marketId = market['id'];
         }
-        [type, params] = this.handleMarketTypeAndParams('watchMyTrades', market, params);
-        [subType, params] = this.handleSubTypeAndParams('watchMyTrades', market, params);
+        const [type, paramsMarketType] = this.handleMarketTypeAndParams('watchMyTrades', market, params);
+        const [subType, paramsSubType] = this.handleSubTypeAndParams('watchMyTrades', market, paramsMarketType);
         const messageType = this.getSupportedMapping(type, {
             'spot': 'spot',
             'margin': 'spot',
@@ -620,11 +1276,12 @@ export default class gate extends gateRest {
         const payload = [marketId];
         // uid required for non spot markets
         const requiresUid = (type !== 'spot');
-        const trades = await this.subscribePrivate(url, messageHash, payload, channel, params, requiresUid);
+        const trades = await this.subscribePrivate(url, messageHash, payload, channel, paramsSubType, requiresUid);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = trades.getLimit(symbol, limit);
+            limitResolved = trades.getLimit(symbol, limit);
         }
-        return this.filterBySymbolSinceLimit(trades, symbol, since, limit, true);
+        return this.filterBySymbolSinceLimit(trades, symbol, since, limitResolved, true);
     }
     handleMyTrades(client, message) {
         //
@@ -647,7 +1304,7 @@ export default class gate extends gateRest {
         //     ]
         // }
         //
-        const result = this.safeValue(message, 'result', []);
+        const result = this.safeList(message, 'result', []);
         const tradesLength = result.length;
         if (tradesLength === 0) {
             return;
@@ -664,7 +1321,9 @@ export default class gate extends gateRest {
             const trade = parsed[i];
             cachedTrades.append(trade);
             const symbol = trade['symbol'];
-            marketIds[symbol] = true;
+            if (symbol !== undefined) {
+                marketIds[symbol] = true;
+            }
         }
         const keys = Object.keys(marketIds);
         for (let i = 0; i < keys.length; i++) {
@@ -674,19 +1333,23 @@ export default class gate extends gateRest {
         }
         client.resolve(cachedTrades, 'myTrades');
     }
+    /**
+     * @method
+     * @name gate#watchBalance
+     * @description watch balance and get the amount of funds available for trading or funds locked in orders
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#spot-balance-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#balances-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#balances-api
+     * @see https://www.gate.com/docs/developers/options/ws/en/#balances-channel
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
     async watchBalance(params = {}) {
-        /**
-         * @method
-         * @name gate#watchBalance
-         * @description watch balance and get the amount of funds available for trading or funds locked in orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets();
-        let type = undefined;
-        let subType = undefined;
-        [type, params] = this.handleMarketTypeAndParams('watchBalance', undefined, params);
-        [subType, params] = this.handleSubTypeAndParams('watchBalance', undefined, params);
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const [type, paramsMarketType] = this.handleMarketTypeAndParams('watchBalance', undefined, params);
+        const [subType, paramsSubType] = this.handleSubTypeAndParams('watchBalance', undefined, paramsMarketType);
         const isInverse = (subType === 'inverse');
         const url = this.getUrlByMarketType(type, isInverse);
         const requiresUid = (type !== 'spot');
@@ -697,29 +1360,34 @@ export default class gate extends gateRest {
             'swap': 'futures',
             'option': 'options',
         });
+        // todo: add correct margin support
         const channel = channelType + '.balances';
         const messageHash = type + '.balance';
-        return await this.subscribePrivate(url, messageHash, undefined, channel, params, requiresUid);
+        return await this.subscribePrivate(url, messageHash, undefined, channel, paramsSubType, requiresUid);
     }
     handleBalance(client, message) {
         //
         // spot order fill
-        //   {
-        //       "time": 1653664351,
-        //       "channel": "spot.balances",
-        //       "event": "update",
-        //       "result": [
-        //         {
-        //           "timestamp": "1653664351",
-        //           "timestamp_ms": "1653664351017",
-        //           "user": "10406147",
-        //           "currency": "LTC",
-        //           "change": "-0.0002000000000000",
-        //           "total": "0.09986000000000000000",
-        //           "available": "0.09986000000000000000"
-        //         }
-        //       ]
-        //   }
+        //     {
+        //         "time": 1653664351,
+        //         "time_ms": 1605248616763,
+        //         "channel": "spot.balances",
+        //         "event": "update",
+        //         "result": [
+        //             {
+        //                 "timestamp": "1667556323",
+        //                 "timestamp_ms": "1667556323730",
+        //                 "user": "1000001",
+        //                 "currency": "USDT",
+        //                 "change": "0",
+        //                 "total": "222244.3827652",
+        //                 "available": "222244.3827",
+        //                 "freeze": "5",
+        //                 "freeze_change": "5.000000",
+        //                 "change_type": "order-create"
+        //             }
+        //         ]
+        //     }
         //
         // account transfer
         //
@@ -762,19 +1430,22 @@ export default class gate extends gateRest {
         //       ]
         //   }
         //
-        const result = this.safeValue(message, 'result', []);
-        const timestamp = this.safeInteger(message, 'time_ms');
+        const result = this.safeList(message, 'result', []);
         this.balance['info'] = result;
-        this.balance['timestamp'] = timestamp;
-        this.balance['datetime'] = this.iso8601(timestamp);
         for (let i = 0; i < result.length; i++) {
-            const rawBalance = result[i];
+            const rawBalance = this.safeDict(result, i);
             const account = this.account();
             const currencyId = this.safeString(rawBalance, 'currency', 'USDT'); // when not present it is USDT
             const code = this.safeCurrencyCode(currencyId);
+            const timestamp = this.safeInteger2(rawBalance, 'time_ms', 'timestamp_ms');
+            this.balance['timestamp'] = timestamp;
+            this.balance['datetime'] = this.iso8601(timestamp);
+            account['used'] = this.safeString(rawBalance, 'freeze');
             account['free'] = this.safeString(rawBalance, 'available');
             account['total'] = this.safeString2(rawBalance, 'total', 'balance');
-            this.balance[code] = account;
+            if (code !== undefined) {
+                this.balance[code] = account;
+            }
         }
         const channel = this.safeString(message, 'channel');
         const parts = channel.split('.');
@@ -788,24 +1459,28 @@ export default class gate extends gateRest {
         this.balance = this.safeBalance(this.balance);
         client.resolve(this.balance, messageHash);
     }
+    /**
+     * @method
+     * @name gate#watchPositions
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#positions-subscription
+     * @see https://www.gate.io/docs/developers/delivery/ws/en/#positions-subscription
+     * @see https://www.gate.io/docs/developers/options/ws/en/#positions-channel
+     * @description watch all open positions
+     * @param {string[]} [symbols] list of unified market symbols to watch positions for
+     * @param {int} [since] the earliest time in ms to fetch positions for
+     * @param {int} [limit] the maximum number of positions to retrieve
+     * @param {object} params extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/en/latest/manual.html#position-structure}
+     */
     async watchPositions(symbols = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchPositions
-         * @see https://www.gate.io/docs/developers/futures/ws/en/#positions-subscription
-         * @see https://www.gate.io/docs/developers/delivery/ws/en/#positions-subscription
-         * @see https://www.gate.io/docs/developers/options/ws/en/#positions-channel
-         * @description watch all open positions
-         * @param {string[]|undefined} symbols list of unified market symbols
-         * @param {object} params extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/en/latest/manual.html#position-structure}
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let market = undefined;
-        symbols = this.marketSymbols(symbols);
+        const symbolsNormalized = this.marketSymbols(symbols);
         const payload = ['!' + 'all'];
-        if (!this.isEmpty(symbols)) {
-            market = this.getMarketFromSymbols(symbols);
+        if (!this.isEmpty(symbolsNormalized)) {
+            market = this.getMarketFromSymbols(symbolsNormalized);
         }
         let type = undefined;
         let query = undefined;
@@ -819,8 +1494,11 @@ export default class gate extends gateRest {
             'option': 'options',
         });
         let messageHash = type + ':positions';
-        if (!this.isEmpty(symbols)) {
-            messageHash += '::' + symbols.join(',');
+        if (!this.isEmpty(symbolsNormalized)) {
+            if (symbolsNormalized === undefined) {
+                throw new ArgumentsRequired(this.id + ' watchPositions() symbols is required');
+            }
+            messageHash += '::' + symbolsNormalized.join(',');
         }
         const channel = typeId + '.positions';
         let subType = undefined;
@@ -828,18 +1506,18 @@ export default class gate extends gateRest {
         const isInverse = (subType === 'inverse');
         const url = this.getUrlByMarketType(type, isInverse);
         const client = this.client(url);
-        this.setPositionsCache(client, type, symbols);
+        this.setPositionsCache(client, type, symbolsNormalized);
         const fetchPositionsSnapshot = this.handleOption('watchPositions', 'fetchPositionsSnapshot', true);
-        const awaitPositionsSnapshot = this.safeBool('watchPositions', 'awaitPositionsSnapshot', true);
+        const awaitPositionsSnapshot = this.handleOption('watchPositions', 'awaitPositionsSnapshot', true);
         const cache = this.safeValue(this.positions, type);
-        if (fetchPositionsSnapshot && awaitPositionsSnapshot && cache === undefined) {
+        if ((fetchPositionsSnapshot === true) && (awaitPositionsSnapshot === true) && (cache === undefined)) {
             return await client.future(type + ':fetchPositionsSnapshot');
         }
         const positions = await this.subscribePrivate(url, messageHash, payload, channel, query, true);
         if (this.newUpdates) {
             return positions;
         }
-        return this.filterBySymbolsSinceLimit(this.positions[type], symbols, since, limit, true);
+        return this.filterBySymbolsSinceLimit(this.safeValue(this.positions, type), symbolsNormalized, since, limit, true);
     }
     setPositionsCache(client, type, symbols = undefined) {
         if (this.positions === undefined) {
@@ -849,7 +1527,7 @@ export default class gate extends gateRest {
             return;
         }
         const fetchPositionsSnapshot = this.handleOption('watchPositions', 'fetchPositionsSnapshot', false);
-        if (fetchPositionsSnapshot) {
+        if (fetchPositionsSnapshot === true) {
             const messageHash = type + ':fetchPositionsSnapshot';
             if (!(messageHash in client.futures)) {
                 client.future(messageHash);
@@ -866,12 +1544,17 @@ export default class gate extends gateRest {
         const cache = this.positions[type];
         for (let i = 0; i < positions.length; i++) {
             const position = positions[i];
-            cache.append(position);
+            const contracts = this.safeNumber(position, 'contracts', 0);
+            if ((contracts !== undefined) && (contracts > 0)) {
+                cache.append(position);
+            }
         }
         // don't remove the future from the .futures cache
-        const future = client.futures[messageHash];
-        future.resolve(cache);
-        client.resolve(cache, type + ':position');
+        if (messageHash in client.futures) {
+            const future = client.futures[messageHash];
+            future.resolve(cache);
+            client.resolve(cache, type + ':position');
+        }
     }
     handlePositions(client, message) {
         //
@@ -905,14 +1588,42 @@ export default class gate extends gateRest {
         //    }
         //
         const type = this.getMarketTypeByUrl(client.url);
-        const data = this.safeValue(message, 'result', []);
+        const data = this.safeList(message, 'result', []);
         const cache = this.positions[type];
         const newPositions = [];
         for (let i = 0; i < data.length; i++) {
             const rawPosition = data[i];
             const position = this.parsePosition(rawPosition);
-            newPositions.push(position);
-            cache.append(position);
+            const symbol = this.safeString(position, 'symbol');
+            const side = this.safeString(position, 'side');
+            // Control when position is closed no side is returned
+            if (side === undefined) {
+                if (symbol === undefined) {
+                    continue;
+                }
+                const prevLongPosition = this.safeDict(cache, symbol + 'long');
+                if (prevLongPosition !== undefined) {
+                    position['side'] = prevLongPosition['side'];
+                    newPositions.push(position);
+                    cache.append(position);
+                }
+                const prevShortPosition = this.safeDict(cache, symbol + 'short');
+                if (prevShortPosition !== undefined) {
+                    position['side'] = prevShortPosition['side'];
+                    newPositions.push(position);
+                    cache.append(position);
+                }
+                // if no prev position is found, default to long
+                if (prevLongPosition === undefined && prevShortPosition === undefined) {
+                    position['side'] = 'long';
+                    newPositions.push(position);
+                    cache.append(position);
+                }
+            }
+            else {
+                newPositions.push(position);
+                cache.append(position);
+            }
         }
         const messageHashes = this.findMessageHashes(client, type + ':positions::');
         for (let i = 0; i < messageHashes.length; i++) {
@@ -927,24 +1638,34 @@ export default class gate extends gateRest {
         }
         client.resolve(newPositions, type + ':positions');
     }
+    /**
+     * @method
+     * @name gate#watchOrders
+     * @description watches information on multiple orders made by the user
+     * @see https://www.gate.com/docs/developers/apiv4/ws/en/#orders-channel
+     * @see https://www.gate.com/docs/developers/futures/ws/en/#orders-api
+     * @see https://www.gate.com/docs/developers/delivery/ws/en/#orders-api
+     * @see https://www.gate.com/docs/developers/options/ws/en/#orders-channel
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.type] spot, margin, swap, future, or option. Required if listening to all symbols.
+     * @param {boolean} [params.isInverse] if future, listen to inverse or linear contracts
+     * @param {boolean} [params.trigger] set to true to watch trigger orders, spot.priceorders and futures.autoorders channels, see https://github.com/ccxt/ccxt/issues/27202
+     * @param {boolean} [params.stop] alias of params.trigger
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
     async watchOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchOrders
-         * @description watches information on multiple orders made by the user
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {string} [params.type] spot, margin, swap, future, or option. Required if listening to all symbols.
-         * @param {boolean} [params.isInverse] if future, listen to inverse or linear contracts
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure
-         */
-        await this.loadMarkets();
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
         let market = undefined;
+        let symbolResolved = undefined;
         if (symbol !== undefined) {
-            market = this.market(symbol);
-            symbol = market['symbol'];
+            const marketResolved = this.market(symbol);
+            market = marketResolved;
+            symbolResolved = market['symbol'];
         }
         let type = undefined;
         let query = undefined;
@@ -956,12 +1677,29 @@ export default class gate extends gateRest {
             'swap': 'futures',
             'option': 'options',
         });
-        const channel = typeId + '.orders';
+        let isTrigger = false;
+        [isTrigger, query] = this.handleParamBool2(query, 'trigger', 'stop', false);
+        if ((isTrigger === true) && (typeId === 'options')) {
+            throw new NotSupported(this.id + ' watchOrders() does not support trigger orders for options, see https://github.com/ccxt/ccxt/issues/27202');
+        }
+        // gate pushes trigger orders on dedicated channels, spot.priceorders and futures.autoorders,
+        // see https://github.com/ccxt/ccxt/issues/27202
+        let suffix = '.orders';
+        if (isTrigger === true) {
+            suffix = (typeId === 'spot') ? '.priceorders' : '.autoorders';
+        }
+        const channel = typeId + suffix;
         let messageHash = 'orders';
+        if (isTrigger === true) {
+            messageHash = 'triggerOrders';
+        }
         let payload = ['!' + 'all'];
-        if (symbol !== undefined) {
+        if (market !== undefined) {
             messageHash += ':' + market['id'];
-            payload = [market['id']];
+            const mid = market['id'];
+            if (mid !== undefined) {
+                payload = [mid];
+            }
         }
         let subType = undefined;
         [subType, query] = this.handleSubTypeAndParams('watchOrders', market, query);
@@ -970,59 +1708,74 @@ export default class gate extends gateRest {
         // uid required for non spot markets
         const requiresUid = (type !== 'spot');
         const orders = await this.subscribePrivate(url, messageHash, payload, channel, query, requiresUid);
+        let limitResolved = limit;
         if (this.newUpdates) {
-            limit = orders.getLimit(symbol, limit);
+            limitResolved = orders.getLimit(symbolResolved, limit);
         }
-        return this.filterBySinceLimit(orders, since, limit, 'timestamp', true);
+        return this.filterBySinceLimit(orders, since, limitResolved, 'timestamp', true);
     }
     handleOrder(client, message) {
         //
-        // {
-        //     "time": 1605175506,
-        //     "channel": "spot.orders",
-        //     "event": "update",
-        //     "result": [
-        //       {
-        //         "id": "30784435",
-        //         "user": 123456,
-        //         "text": "t-abc",
-        //         "create_time": "1605175506",
-        //         "create_time_ms": "1605175506123",
-        //         "update_time": "1605175506",
-        //         "update_time_ms": "1605175506123",
-        //         "event": "put",
-        //         "currency_pair": "BTC_USDT",
-        //         "type": "limit",
-        //         "account": "spot",
-        //         "side": "sell",
-        //         "amount": "1",
-        //         "price": "10001",
-        //         "time_in_force": "gtc",
-        //         "left": "1",
-        //         "filled_total": "0",
-        //         "fee": "0",
-        //         "fee_currency": "USDT",
-        //         "point_fee": "0",
-        //         "gt_fee": "0",
-        //         "gt_discount": true,
-        //         "rebated_fee": "0",
-        //         "rebated_fee_currency": "USDT"
-        //       }
-        //     ]
-        // }
+        //     {
+        //         "time": 1774613210,
+        //         "time_ms": 1774613210392,
+        //         "channel": "spot.orders",
+        //         "event": "update",
+        //         "result": [
+        //             {
+        //                 "id": "1036717689726",
+        //                 "text": "apiv4",
+        //                 "create_time": "1774613210",
+        //                 "update_time": "1774613210",
+        //                 "currency_pair": "BTC_USDT",
+        //                 "type": "limit",
+        //                 "account": "unified",
+        //                 "side": "buy",
+        //                 "amount": "0.1",
+        //                 "price": "200",
+        //                 "time_in_force": "gtc",
+        //                 "left": "0.1",
+        //                 "filled_amount": "0",
+        //                 "filled_total": "0",
+        //                 "avg_deal_price": "0",
+        //                 "fee": "0",
+        //                 "fee_currency": "BTC",
+        //                 "point_fee": "0",
+        //                 "gt_fee": "0",
+        //                 "rebated_fee": "0",
+        //                 "rebated_fee_currency": "BTC",
+        //                 "create_time_ms": "1774613210391",
+        //                 "update_time_ms": "1774613210391",
+        //                 "user": 10406147,
+        //                 "event": "put",
+        //                 "stp_id": 0,
+        //                 "stp_act": "-",
+        //                 "finish_as": "open",
+        //                 "biz_info": "ch:ccxt",
+        //                 "amend_text": "-"
+        //             }
+        //         ]
+        //     }
         //
-        const orders = this.safeValue(message, 'result', []);
+        const orders = this.safeList(message, 'result', []);
+        const channel = this.safeString(message, 'channel', '');
+        const isTrigger = (channel.indexOf('autoorders') >= 0) || (channel.indexOf('priceorders') >= 0);
+        let hashPrefix = 'orders';
+        if (isTrigger) {
+            hashPrefix = 'triggerOrders';
+        }
         const limit = this.safeInteger(this.options, 'ordersLimit', 1000);
         if (this.orders === undefined) {
             this.orders = new ArrayCacheBySymbolById(limit);
+            this.triggerOrders = new ArrayCacheBySymbolById(limit);
         }
-        const stored = this.orders;
+        const stored = isTrigger ? this.triggerOrders : this.orders;
         const marketIds = {};
         const parsedOrders = this.parseOrders(orders);
         for (let i = 0; i < parsedOrders.length; i++) {
             const parsed = parsedOrders[i];
             // inject order status
-            const info = this.safeValue(parsed, 'info');
+            const info = this.safeDict(parsed, 'info');
             const event = this.safeString(info, 'event');
             if (event === 'put' || event === 'update') {
                 parsed['status'] = 'open';
@@ -1030,55 +1783,59 @@ export default class gate extends gateRest {
             else if (event === 'finish') {
                 const status = this.safeString(parsed, 'status');
                 if (status === undefined) {
-                    const left = this.safeNumber(info, 'left');
-                    parsed['status'] = (left === 0) ? 'closed' : 'canceled';
+                    const left = this.safeString(info, 'left');
+                    parsed['status'] = Precise.stringEquals(left, '0') ? 'closed' : 'canceled';
                 }
             }
             stored.append(parsed);
             const symbol = parsed['symbol'];
             const market = this.market(symbol);
-            marketIds[market['id']] = true;
+            if (market['id'] !== undefined) {
+                marketIds[market['id']] = true;
+            }
         }
         const keys = Object.keys(marketIds);
         for (let i = 0; i < keys.length; i++) {
-            const messageHash = 'orders:' + keys[i];
-            client.resolve(this.orders, messageHash);
+            const messageHash = hashPrefix + ':' + keys[i];
+            client.resolve(stored, messageHash);
         }
-        client.resolve(this.orders, 'orders');
+        client.resolve(stored, hashPrefix);
     }
-    async watchMyLiquidations(symbol, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchMyLiquidations
-         * @description watch the public liquidations of a trading pair
-         * @see https://www.gate.io/docs/developers/futures/ws/en/#liquidates-api
-         * @see https://www.gate.io/docs/developers/delivery/ws/en/#liquidates-api
-         * @see https://www.gate.io/docs/developers/options/ws/en/#liquidates-channel
-         * @param {string} symbol unified CCXT market symbol
-         * @param {int} [since] the earliest time in ms to fetch liquidations for
-         * @param {int} [limit] the maximum number of liquidation structures to retrieve
-         * @param {object} [params] exchange specific parameters for the bitmex api endpoint
-         * @returns {object} an array of [liquidation structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#liquidation-structure}
-         */
+    /**
+     * @method
+     * @name gate#watchMyLiquidations
+     * @description watch the public liquidations of a trading pair
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#liquidates-api
+     * @see https://www.gate.io/docs/developers/delivery/ws/en/#liquidates-api
+     * @see https://www.gate.io/docs/developers/options/ws/en/#liquidates-channel
+     * @param {string} symbol unified CCXT market symbol
+     * @param {int} [since] the earliest time in ms to fetch liquidations for
+     * @param {int} [limit] the maximum number of liquidation structures to retrieve
+     * @param {object} [params] exchange specific parameters for the bitmex api endpoint
+     * @returns {object} an array of [liquidation structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#liquidation-structure}
+     */
+    watchMyLiquidations(symbol, since = undefined, limit = undefined, params = {}) {
         return this.watchMyLiquidationsForSymbols([symbol], since, limit, params);
     }
-    async watchMyLiquidationsForSymbols(symbols = undefined, since = undefined, limit = undefined, params = {}) {
-        /**
-         * @method
-         * @name gate#watchMyLiquidationsForSymbols
-         * @description watch the private liquidations of a trading pair
-         * @see https://www.gate.io/docs/developers/futures/ws/en/#liquidates-api
-         * @see https://www.gate.io/docs/developers/delivery/ws/en/#liquidates-api
-         * @see https://www.gate.io/docs/developers/options/ws/en/#liquidates-channel
-         * @param {string} symbol unified CCXT market symbol
-         * @param {int} [since] the earliest time in ms to fetch liquidations for
-         * @param {int} [limit] the maximum number of liquidation structures to retrieve
-         * @param {object} [params] exchange specific parameters for the gate api endpoint
-         * @returns {object} an array of [liquidation structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#liquidation-structure}
-         */
-        await this.loadMarkets();
-        symbols = this.marketSymbols(symbols, undefined, true, true);
-        const market = this.getMarketFromSymbols(symbols);
+    /**
+     * @method
+     * @name gate#watchMyLiquidationsForSymbols
+     * @description watch the private liquidations of a trading pair
+     * @see https://www.gate.io/docs/developers/futures/ws/en/#liquidates-api
+     * @see https://www.gate.io/docs/developers/delivery/ws/en/#liquidates-api
+     * @see https://www.gate.io/docs/developers/options/ws/en/#liquidates-channel
+     * @param {string[]} symbols unified CCXT market symbols
+     * @param {int} [since] the earliest time in ms to fetch liquidations for
+     * @param {int} [limit] the maximum number of liquidation structures to retrieve
+     * @param {object} [params] exchange specific parameters for the gate api endpoint
+     * @returns {object} an array of [liquidation structures]{@link https://github.com/ccxt/ccxt/wiki/Manual#liquidation-structure}
+     */
+    async watchMyLiquidationsForSymbols(symbols, since = undefined, limit = undefined, params = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets();
+        }
+        const symbolsNormalized = this.marketSymbols(symbols, undefined, true, true);
+        const market = this.getMarketFromSymbols(symbolsNormalized);
         let type = undefined;
         let query = undefined;
         [type, query] = this.handleMarketTypeAndParams('watchMyLiquidationsForSymbols', market, params);
@@ -1093,7 +1850,7 @@ export default class gate extends gateRest {
         const url = this.getUrlByMarketType(type, isInverse);
         const payload = [];
         let messageHash = '';
-        if (this.isEmpty(symbols)) {
+        if (this.isEmpty(symbolsNormalized)) {
             if (typeId !== 'futures' && !isInverse) {
                 throw new BadRequest(this.id + ' watchMyLiquidationsForSymbols() does not support listening to all symbols, you must call watchMyLiquidations() instead for each symbol you wish to watch.');
             }
@@ -1101,11 +1858,11 @@ export default class gate extends gateRest {
             payload.push('!all');
         }
         else {
-            const symbolsLength = symbols.length;
+            const symbolsLength = symbolsNormalized.length;
             if (symbolsLength !== 1) {
                 throw new BadRequest(this.id + ' watchMyLiquidationsForSymbols() only allows one symbol at a time. To listen to several symbols call watchMyLiquidationsForSymbols() several times.');
             }
-            messageHash = 'myLiquidations::' + symbols[0];
+            messageHash = 'myLiquidations::' + symbolsNormalized[0];
             payload.push(market['id']);
         }
         const channel = typeId + '.liquidates';
@@ -1113,7 +1870,7 @@ export default class gate extends gateRest {
         if (this.newUpdates) {
             return newLiquidations;
         }
-        return this.filterBySymbolsSinceLimit(this.liquidations, symbols, since, limit, true);
+        return this.filterBySymbolsSinceLimit(this.liquidations, symbolsNormalized, since, limit, true);
     }
     handleLiquidation(client, message) {
         //
@@ -1161,18 +1918,18 @@ export default class gate extends gateRest {
         //
         const rawLiquidations = this.safeList(message, 'result', []);
         const newLiquidations = [];
+        if (this.liquidations === undefined) {
+            const limit = this.safeInteger(this.options, 'liquidationsLimit', 1000);
+            this.liquidations = new ArrayCache(limit);
+        }
+        const cache = this.liquidations;
         for (let i = 0; i < rawLiquidations.length; i++) {
             const rawLiquidation = rawLiquidations[i];
             const liquidation = this.parseWsLiquidation(rawLiquidation);
+            cache.append(liquidation);
             const symbol = this.safeString(liquidation, 'symbol');
-            let liquidations = this.safeValue(this.liquidations, symbol);
-            if (liquidations === undefined) {
-                const limit = this.safeInteger(this.options, 'liquidationsLimit', 1000);
-                liquidations = new ArrayCache(limit);
-            }
-            liquidations.append(liquidation);
-            this.liquidations[symbol] = liquidations;
-            client.resolve(liquidations, 'myLiquidations::' + symbol);
+            const symbolLiquidations = this.safeList(cache, symbol, []);
+            client.resolve(symbolLiquidations, 'myLiquidations::' + symbol);
         }
         client.resolve(newLiquidations, 'myLiquidations');
     }
@@ -1206,16 +1963,16 @@ export default class gate extends gateRest {
         //    }
         //
         const marketId = this.safeString(liquidation, 'contract');
-        market = this.safeMarket(marketId, market);
+        const marketResolved = this.safeMarket(marketId, market);
         const timestamp = this.safeInteger(liquidation, 'time_ms');
         const originalSize = this.safeString(liquidation, 'size');
         const left = this.safeString(liquidation, 'left');
         const amount = Precise.stringAbs(Precise.stringSub(originalSize, left));
         return this.safeLiquidation({
             'info': liquidation,
-            'symbol': this.safeSymbol(marketId, market),
+            'symbol': this.safeSymbol(marketId, marketResolved),
             'contracts': this.parseNumber(amount),
-            'contractSize': this.safeNumber(market, 'contractSize'),
+            'contractSize': this.safeNumber(marketResolved, 'contractSize'),
             'price': this.safeNumber(liquidation, 'fill_price'),
             'baseValue': undefined,
             'quoteValue': undefined,
@@ -1224,42 +1981,100 @@ export default class gate extends gateRest {
         });
     }
     handleErrorMessage(client, message) {
-        // {
-        //     "time": 1647274664,
-        //     "channel": "futures.orders",
-        //     "event": "subscribe",
-        //     "error": { code: 2, message: "unknown contract BTC_USDT_20220318" },
-        // }
-        // {
-        //     "time": 1647276473,
-        //     "channel": "futures.orders",
-        //     "event": "subscribe",
-        //     "error": {
-        //       "code": 4,
-        //       "message": "{"label":"INVALID_KEY","message":"Invalid key provided"}\n"
-        //     },
-        //     "result": null
-        //   }
-        const error = this.safeValue(message, 'error');
-        const code = this.safeInteger(error, 'code');
-        const id = this.safeString(message, 'id');
-        if (id === undefined) {
-            return false;
-        }
-        if (code !== undefined) {
+        //
+        //    {
+        //        "time": 1647274664,
+        //        "channel": "futures.orders",
+        //        "event": "subscribe",
+        //        "error": { code: 2, message: "unknown contract BTC_USDT_20220318" },
+        //    }
+        //    {
+        //      "time": 1647276473,
+        //      "channel": "futures.orders",
+        //      "event": "subscribe",
+        //      "error": {
+        //        "code": 4,
+        //        "message": "{"label":"INVALID_KEY","message":"Invalid key provided"}\n"
+        //      },
+        //      "result": null
+        //    }
+        //    {
+        //       header: {
+        //         response_time: '1718551891329',
+        //         status: '400',
+        //         channel: 'spot.order_place',
+        //         event: 'api',
+        //         client_id: '81.34.68.6-0xc16375e2c0',
+        //         conn_id: '9539116e0e09678f'
+        //       },
+        //       data: { errs: { label: 'AUTHENTICATION_FAILED', message: 'Not login' } },
+        //       request_id: '10406147'
+        //     }
+        //     {
+        //         "time": 1739853211,
+        //         "time_ms": 1739853211201,
+        //         "id": 1,
+        //         "conn_id": "62f2c1dabbe186d7",
+        //         "trace_id": "cdb02a8c0b61086b2fe6f8fad2f98c54",
+        //         "channel": "spot.trades",
+        //         "event": "subscribe",
+        //         "payload": [
+        //             "LUNARLENS_USDT",
+        //             "ETH_USDT"
+        //         ],
+        //         "error": {
+        //             "code": 2,
+        //             "message": "unknown currency pair: LUNARLENS_USDT"
+        //         },
+        //         "result": {
+        //             "status": "fail"
+        //         },
+        //         "requestId": "cdb02a8c0b61086b2fe6f8fad2f98c54"
+        //     }
+        //
+        const data = this.safeDict(message, 'data');
+        const errs = this.safeDict(data, 'errs');
+        const error = this.safeDict(message, 'error', errs);
+        const code = this.safeString2(error, 'code', 'label');
+        const id = this.safeStringN(message, ['id', 'requestId', 'request_id']);
+        if (error !== undefined) {
             const messageHash = this.safeString(client.subscriptions, id);
-            if (messageHash !== undefined) {
-                try {
-                    this.throwExactlyMatchedException(this.exceptions['ws']['exact'], code, this.json(message));
+            try {
+                this.throwExactlyMatchedException(this.exceptions['ws']['exact'], code, this.json(message));
+                this.throwExactlyMatchedException(this.exceptions['exact'], code, this.json(errs));
+                const errorMessage = this.safeString(error, 'message', this.safeString(errs, 'message'));
+                this.throwBroadlyMatchedException(this.exceptions['ws']['broad'], errorMessage, this.json(message));
+                throw new ExchangeError(this.json(message));
+            }
+            catch (e) {
+                client.reject(e, messageHash);
+                if ((messageHash !== undefined) && (messageHash in client.subscriptions)) {
+                    delete client.subscriptions[messageHash];
                 }
-                catch (e) {
-                    client.reject(e, messageHash);
-                    if (messageHash in client.subscriptions) {
-                        delete client.subscriptions[messageHash];
+                // remove subscriptions for watchSymbols
+                const channel = this.safeString(message, 'channel');
+                if ((channel !== undefined) && (channel.indexOf('.') > 0)) {
+                    const parsedChannel = channel.split('.');
+                    const payload = this.safeList(message, 'payload', []);
+                    for (let i = 0; i < payload.length; i++) {
+                        let marketType = undefined;
+                        if (parsedChannel[0] === 'futures') {
+                            marketType = 'swap';
+                        }
+                        else {
+                            marketType = parsedChannel[0];
+                        }
+                        const symbol = this.safeSymbol(payload[i], undefined, '_', marketType);
+                        const messageHashSymbol = parsedChannel[1] + ':' + symbol;
+                        if ((messageHashSymbol !== undefined) && (messageHashSymbol in client.subscriptions)) {
+                            delete client.subscriptions[messageHashSymbol];
+                        }
                     }
                 }
             }
-            delete client.subscriptions[id];
+            if ((id !== undefined) && (id in client.subscriptions)) {
+                delete client.subscriptions[id];
+            }
             return true;
         }
         return false;
@@ -1273,8 +2088,12 @@ export default class gate extends gateRest {
             'balance': this.handleBalanceSubscription,
             'spot.order_book_update': this.handleOrderBookSubscription,
             'futures.order_book_update': this.handleOrderBookSubscription,
+            'options.order_book_update': this.handleOrderBookSubscription,
         };
         const id = this.safeString(message, 'id');
+        if (id === undefined) {
+            return;
+        }
         if (channel in methods) {
             const subscriptionHash = this.safeString(client.subscriptions, id);
             const subscription = this.safeValue(client.subscriptions, subscriptionHash);
@@ -1282,7 +2101,53 @@ export default class gate extends gateRest {
             method.call(this, client, message, subscription);
         }
         if (id in client.subscriptions) {
-            delete client.subscriptions[id];
+            if (id !== undefined) {
+                delete client.subscriptions[id];
+            }
+        }
+    }
+    handleUnSubscribe(client, message) {
+        //
+        // {
+        //     "time":1725534679,
+        //     "time_ms":1725534679786,
+        //     "id":2,
+        //     "conn_id":"fac539b443fd7002",
+        //     "trace_id":"efe1d282b630b4aa266b84bee177791a",
+        //     "channel":"spot.trades",
+        //     "event":"unsubscribe",
+        //     "payload":[
+        //        "LTC_USDT"
+        //     ],
+        //     "result":{
+        //        "status":"success"
+        //     },
+        //     "requestId":"efe1d282b630b4aa266b84bee177791a"
+        // }
+        //
+        const id = this.safeString(message, 'id');
+        const keys = Object.keys(client.subscriptions);
+        for (let i = 0; i < keys.length; i++) {
+            const messageHash = keys[i];
+            if (!(messageHash in client.subscriptions)) {
+                continue;
+                // the previous iteration can have deleted the messageHash from the subscriptions
+            }
+            if (messageHash.startsWith('unsubscribe')) {
+                const subscription = client.subscriptions[messageHash];
+                const subId = this.safeString(subscription, 'id');
+                if (id !== subId) {
+                    continue;
+                }
+                const messageHashes = this.safeList(subscription, 'messageHashes', []);
+                const subMessageHashes = this.safeList(subscription, 'subMessageHashes', []);
+                for (let j = 0; j < messageHashes.length; j++) {
+                    const unsubHash = messageHashes[j];
+                    const subHash = subMessageHashes[j];
+                    this.cleanUnsubscription(client, subHash, unsubHash);
+                }
+                this.cleanCache(subscription);
+            }
         }
     }
     handleMessage(client, message) {
@@ -1375,7 +2240,7 @@ export default class gate extends gateRest {
         //        ]
         //    }
         //
-        if (this.handleErrorMessage(client, message)) {
+        if (this.handleErrorMessage(client, message) === true) {
             return;
         }
         const event = this.safeString(message, 'event');
@@ -1383,13 +2248,24 @@ export default class gate extends gateRest {
             this.handleSubscriptionStatus(client, message);
             return;
         }
+        if (event === 'unsubscribe') {
+            this.handleUnSubscribe(client, message);
+            return;
+        }
         const channel = this.safeString(message, 'channel', '');
+        // after supporting more method we can create a mapping for this
+        if (channel === 'spot.obu') {
+            this.handleOrderBook(client, message);
+            return;
+        }
         const channelParts = channel.split('.');
-        const channelType = this.safeValue(channelParts, 1);
+        const channelType = this.safeString(channelParts, 1);
         const v4Methods = {
             'usertrades': this.handleMyTrades,
             'candlesticks': this.handleOHLCV,
             'orders': this.handleOrder,
+            'autoorders': this.handleOrder, // futures trigger orders, see https://github.com/ccxt/ccxt/issues/27202
+            'priceorders': this.handleOrder, // spot trigger orders
             'positions': this.handlePositions,
             'tickers': this.handleTicker,
             'book_ticker': this.handleBidAsk,
@@ -1402,21 +2278,38 @@ export default class gate extends gateRest {
         if (method !== undefined) {
             method.call(this, client, message);
         }
+        const requestId = this.safeString(message, 'request_id');
+        if (requestId === 'authenticated') {
+            this.handleAuthenticationMessage(client, message);
+            return;
+        }
+        if (requestId !== undefined) {
+            const data = this.safeDict(message, 'data');
+            // use safeValue as result may be Array or an Object
+            const result = this.safeValue(data, 'result');
+            const ack = this.safeBool(message, 'ack', false);
+            if (!ack) {
+                client.resolve(result, requestId);
+            }
+        }
     }
     getUrlByMarket(market) {
         const baseUrl = this.urls['api'][market['type']];
-        if (market['contract']) {
-            return market['linear'] ? baseUrl['usdt'] : baseUrl['btc'];
+        if (this.safeBool(market, 'contract', false)) {
+            return (this.safeBool(market, 'linear', false)) ? baseUrl['usdt'] : baseUrl['btc'];
         }
         else {
             return baseUrl;
         }
     }
     getTypeByMarket(market) {
-        if (market['spot']) {
+        if (market === undefined) {
+            return undefined;
+        }
+        if (this.safeBool(market, 'spot', false)) {
             return 'spot';
         }
-        else if (market['option']) {
+        else if (this.safeBool(market, 'option', false)) {
             return 'options';
         }
         else {
@@ -1425,7 +2318,7 @@ export default class gate extends gateRest {
     }
     getUrlByMarketType(type, isInverse = false) {
         const api = this.urls['api'];
-        const url = api[type];
+        const url = this.safeValue(api, type);
         if ((type === 'swap') || (type === 'future')) {
             return isInverse ? url['btc'] : url['usdt'];
         }
@@ -1436,8 +2329,10 @@ export default class gate extends gateRest {
     getMarketTypeByUrl(url) {
         const findBy = {
             'op-': 'option',
+            '/ws/options/': 'option',
             'delivery': 'future',
             'fx': 'swap',
+            '/ws/futures/': 'swap',
         };
         const keys = Object.keys(findBy);
         for (let i = 0; i < keys.length; i++) {
@@ -1451,8 +2346,10 @@ export default class gate extends gateRest {
     }
     requestId() {
         // their support said that reqid must be an int32, not documented
+        this.lockId();
         const reqid = this.sum(this.safeInteger(this.options, 'reqid', 0), 1);
         this.options['reqid'] = reqid;
+        this.unlockId();
         return reqid;
     }
     async subscribePublic(url, messageHash, payload, channel, params = {}, subscription = undefined) {
@@ -1488,6 +2385,74 @@ export default class gate extends gateRest {
         const message = this.extend(request, params);
         return await this.watchMultiple(url, messageHashes, message, messageHashes);
     }
+    async unSubscribePublicMultiple(url, topic, symbols, messageHashes, subMessageHashes, payload, channel, params = {}) {
+        const requestId = this.requestId();
+        const time = this.seconds();
+        const request = {
+            'id': requestId,
+            'time': time,
+            'channel': channel,
+            'event': 'unsubscribe',
+            'payload': payload,
+        };
+        const sub = {
+            'id': requestId.toString(),
+            'topic': topic,
+            'unsubscribe': true,
+            'messageHashes': messageHashes,
+            'subMessageHashes': subMessageHashes,
+            'symbols': symbols,
+        };
+        const message = this.extend(request, params);
+        return await this.watchMultiple(url, messageHashes, message, messageHashes, sub);
+    }
+    async authenticate(url, messageType) {
+        const channel = messageType + '.login';
+        const client = this.client(url);
+        const messageHash = 'authenticated';
+        const future = client.reusableFuture(messageHash);
+        const authenticated = this.safeValue(client.subscriptions, messageHash);
+        if (authenticated === undefined) {
+            return await this.requestPrivate(url, {}, channel, messageHash);
+        }
+        return future;
+    }
+    handleAuthenticationMessage(client, message) {
+        const messageHash = 'authenticated';
+        const future = this.safeValue(client.futures, messageHash);
+        future.resolve(true);
+    }
+    async requestPrivate(url, reqParams, channel, requestId = undefined) {
+        this.checkRequiredCredentials();
+        // uid is required for some subscriptions only so it's not a part of required credentials
+        const event = 'api';
+        const requestIdResolved = (requestId === undefined) ? this.requestId().toString() : requestId;
+        const messageHash = requestIdResolved;
+        const time = this.seconds();
+        // unfortunately, PHP demands double quotes for the escaped newline symbol
+        const signatureString = [event, channel, this.json(reqParams), time.toString()].join("\n"); // eslint-disable-line quotes
+        const signature = this.hmac(this.encode(signatureString), this.encode(this.secret), sha512, 'hex');
+        const payload = {
+            'req_id': requestIdResolved,
+            'timestamp': time.toString(),
+            'api_key': this.apiKey,
+            'signature': signature,
+            'req_param': reqParams,
+        };
+        if ((channel === 'spot.order_place') || (channel === 'futures.order_place')) {
+            payload['req_header'] = {
+                'X-Gate-Channel-Id': 'ccxt',
+            };
+        }
+        const request = {
+            'id': requestIdResolved,
+            'time': time,
+            'channel': channel,
+            'event': event,
+            'payload': payload,
+        };
+        return await this.watch(url, messageHash, request, messageHash, requestIdResolved);
+    }
     async subscribePrivate(url, messageHash, payload, channel, params, requiresUid = false) {
         this.checkRequiredCredentials();
         // uid is required for some subscriptions only so it's not a part of required credentials
@@ -1495,13 +2460,12 @@ export default class gate extends gateRest {
             if (this.uid === undefined || this.uid.length === 0) {
                 throw new ArgumentsRequired(this.id + ' requires uid to subscribe');
             }
-            const idArray = [this.uid];
-            if (payload === undefined) {
-                payload = idArray;
-            }
-            else {
-                payload = this.arrayConcat(idArray, payload);
-            }
+        }
+        const idArray = [this.uid];
+        const payloadWithUid = (payload === undefined) ? idArray : this.arrayConcat(idArray, payload);
+        let payloadValue = payload;
+        if (requiresUid) {
+            payloadValue = payloadWithUid;
         }
         const time = this.seconds();
         const event = 'subscribe';
@@ -1517,11 +2481,11 @@ export default class gate extends gateRest {
             'id': requestId,
             'time': time,
             'channel': channel,
-            'event': 'subscribe',
+            'event': event,
             'auth': auth,
         };
-        if (payload !== undefined) {
-            request['payload'] = payload;
+        if (payloadValue !== undefined) {
+            request['payload'] = payloadValue;
         }
         const client = this.client(url);
         if (!(messageHash in client.subscriptions)) {
@@ -1530,6 +2494,6 @@ export default class gate extends gateRest {
             client.subscriptions[tempSubscriptionHash] = messageHash;
         }
         const message = this.extend(request, params);
-        return await this.watch(url, messageHash, message, messageHash);
+        return await this.watch(url, messageHash, message, messageHash, messageHash);
     }
 }

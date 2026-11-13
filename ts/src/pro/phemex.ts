@@ -1,33 +1,37 @@
 
 //  ---------------------------------------------------------------------------
 
+import { sha256 } from '@noble/hashes/sha2.js';
 import phemexRest from '../phemex.js';
 import { Precise } from '../base/Precise.js';
 import { ArrayCache, ArrayCacheByTimestamp, ArrayCacheBySymbolById } from '../base/ws/Cache.js';
-import { sha256 } from '../static_dependencies/noble-hashes/sha256.js';
-import type { Int, Str, OrderBook, Order, Trade, Ticker, OHLCV, Balances, Dict } from '../base/types.js';
-import { AuthenticationError } from '../base/errors.js';
+import type { Int, Str, OrderBook, Order, Trade, Ticker, OHLCV, Balances, Dict, Strings, Tickers, Num, Market, List } from '../base/types.js';
+import { AuthenticationError, ExchangeError } from '../base/errors.js';
 import Client from '../base/ws/Client.js';
+import type { WsOrderBook } from '../base/ws/OrderBook.js';
 
 //  ---------------------------------------------------------------------------
 
 export default class phemex extends phemexRest {
-    describe () {
+    override describe (): Dict {
         return this.deepExtend (super.describe (), {
             'has': {
                 'ws': true,
                 'watchTicker': true,
-                'watchTickers': false, // for now
+                'watchTickers': true,
                 'watchTrades': true,
                 'watchMyTrades': true,
                 'watchOrders': true,
                 'watchOrderBook': true,
                 'watchOHLCV': true,
+                'unWatchTrades': true,
+                'unWatchOHLCV': true,
                 'watchPositions': undefined, // TODO
-                // mutli-endpoints are not supported: https://github.com/ccxt/ccxt/pull/21490
+                // multi-endpoints are not supported: https://github.com/ccxt/ccxt/pull/21490
                 'watchOrderBookForSymbols': false,
                 'watchTradesForSymbols': false,
                 'watchOHLCVForSymbols': false,
+                'watchBalance': true,
             },
             'urls': {
                 'test': {
@@ -42,12 +46,12 @@ export default class phemex extends phemexRest {
                 'OHLCVLimit': 1000,
             },
             'streaming': {
-                'keepAlive': 10000,
+                'keepAlive': 9000,
             },
         });
     }
 
-    fromEn (en, scale) {
+    override fromEn (en: any, scale: any): Str {
         if (en === undefined) {
             return undefined;
         }
@@ -57,34 +61,36 @@ export default class phemex extends phemexRest {
         return precise.toString ();
     }
 
-    fromEp (ep, market = undefined) {
+    override fromEp (ep: any, market: Market = undefined): Str {
         if ((ep === undefined) || (market === undefined)) {
             return ep;
         }
         return this.fromEn (ep, this.safeInteger (market, 'priceScale'));
     }
 
-    fromEv (ev, market = undefined) {
+    override fromEv (ev: any, market: Market = undefined): Str {
         if ((ev === undefined) || (market === undefined)) {
             return ev;
         }
         return this.fromEn (ev, this.safeInteger (market, 'valueScale'));
     }
 
-    fromEr (er, market = undefined) {
+    override fromEr (er: any, market: Market = undefined): Str {
         if ((er === undefined) || (market === undefined)) {
             return er;
         }
         return this.fromEn (er, this.safeInteger (market, 'ratioScale'));
     }
 
-    requestId () {
+    requestId (): number {
+        this.lockId ();
         const requestId = this.sum (this.safeInteger (this.options, 'requestId', 0), 1);
         this.options['requestId'] = requestId;
+        this.unlockId ();
         return requestId;
     }
 
-    parseSwapTicker (ticker, market = undefined) {
+    parseSwapTicker (ticker: Dict, market: Market = undefined): Ticker {
         //
         //     {
         //         "close": 442800,
@@ -102,29 +108,30 @@ export default class phemex extends phemexRest {
         //     }
         //
         const marketId = this.safeString (ticker, 'symbol');
-        market = this.safeMarket (marketId, market);
-        const symbol = market['symbol'];
+        const marketResolved = this.safeMarket (marketId, market);
+        const marketValue: Market = marketResolved;
+        const symbol = marketResolved['symbol'];
         const timestamp = this.safeIntegerProduct (ticker, 'timestamp', 0.000001);
-        const lastString = this.fromEp (this.safeString (ticker, 'close'), market);
+        const lastString = this.fromEp (this.safeString (ticker, 'close'), marketValue);
         const last = this.parseNumber (lastString);
-        const quoteVolume = this.parseNumber (this.fromEv (this.safeString (ticker, 'turnover'), market));
-        const baseVolume = this.parseNumber (this.fromEv (this.safeString (ticker, 'volume'), market));
-        let change = undefined;
-        let percentage = undefined;
-        let average = undefined;
-        const openString = this.omitZero (this.fromEp (this.safeString (ticker, 'open'), market));
+        const quoteVolume = this.parseNumber (this.fromEv (this.safeString (ticker, 'turnover'), marketValue));
+        const baseVolume = this.parseNumber (this.fromEv (this.safeString (ticker, 'volume'), marketValue));
+        let change: Num = undefined;
+        let percentage: Num = undefined;
+        let average: Num = undefined;
+        const openString = this.omitZero (this.fromEp (this.safeString (ticker, 'open'), marketValue));
         const open = this.parseNumber (openString);
         if ((openString !== undefined) && (lastString !== undefined)) {
             change = this.parseNumber (Precise.stringSub (lastString, openString));
             average = this.parseNumber (Precise.stringDiv (Precise.stringAdd (lastString, openString), '2'));
             percentage = this.parseNumber (Precise.stringMul (Precise.stringSub (Precise.stringDiv (lastString, openString), '1'), '100'));
         }
-        const result: Dict = {
+        return this.safeTicker ({
             'symbol': symbol,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'high': this.parseNumber (this.fromEp (this.safeString (ticker, 'high'), market)),
-            'low': this.parseNumber (this.fromEp (this.safeString (ticker, 'low'), market)),
+            'high': this.parseNumber (this.fromEp (this.safeString (ticker, 'high'), marketValue)),
+            'low': this.parseNumber (this.fromEp (this.safeString (ticker, 'low'), marketValue)),
             'bid': undefined,
             'bidVolume': undefined,
             'ask': undefined,
@@ -139,12 +146,13 @@ export default class phemex extends phemexRest {
             'average': average,
             'baseVolume': baseVolume,
             'quoteVolume': quoteVolume,
+            'markPrice': this.parseNumber (this.fromEp (this.safeString (ticker, 'markPrice'), marketValue)),
+            'indexPrice': this.parseNumber (this.fromEp (this.safeString (ticker, 'indexPrice'), marketValue)),
             'info': ticker,
-        };
-        return result;
+        });
     }
 
-    parsePerpetualTicker (ticker, market = undefined) {
+    parsePerpetualTicker (ticker: any[], market: Market = undefined): Ticker {
         //
         //    [
         //        "STXUSDT",
@@ -162,28 +170,29 @@ export default class phemex extends phemexRest {
         //    ]
         //
         const marketId = this.safeString (ticker, 0);
-        market = this.safeMarket (marketId, market);
-        const symbol = market['symbol'];
-        const lastString = this.fromEp (this.safeString (ticker, 4), market);
+        const marketResolved = this.safeMarket (marketId, market);
+        const marketValue: Market = marketResolved;
+        const symbol = marketResolved['symbol'];
+        const lastString = this.fromEp (this.safeString (ticker, 4), marketValue);
         const last = this.parseNumber (lastString);
-        const quoteVolume = this.parseNumber (this.fromEv (this.safeString (ticker, 6), market));
-        const baseVolume = this.parseNumber (this.fromEv (this.safeString (ticker, 5), market));
-        let change = undefined;
-        let percentage = undefined;
-        let average = undefined;
-        const openString = this.omitZero (this.fromEp (this.safeString (ticker, 1), market));
+        const quoteVolume = this.parseNumber (this.fromEv (this.safeString (ticker, 6), marketValue));
+        const baseVolume = this.parseNumber (this.fromEv (this.safeString (ticker, 5), marketValue));
+        let change: Num = undefined;
+        let percentage: Num = undefined;
+        let average: Num = undefined;
+        const openString = this.omitZero (this.fromEp (this.safeString (ticker, 1), marketValue));
         const open = this.parseNumber (openString);
         if ((openString !== undefined) && (lastString !== undefined)) {
             change = this.parseNumber (Precise.stringSub (lastString, openString));
             average = this.parseNumber (Precise.stringDiv (Precise.stringAdd (lastString, openString), '2'));
             percentage = this.parseNumber (Precise.stringMul (Precise.stringSub (Precise.stringDiv (lastString, openString), '1'), '100'));
         }
-        const result: Dict = {
+        return this.safeTicker ({
             'symbol': symbol,
             'timestamp': undefined,
             'datetime': undefined,
-            'high': this.parseNumber (this.fromEp (this.safeString (ticker, 2), market)),
-            'low': this.parseNumber (this.fromEp (this.safeString (ticker, 3), market)),
+            'high': this.parseNumber (this.fromEp (this.safeString (ticker, 2), marketValue)),
+            'low': this.parseNumber (this.fromEp (this.safeString (ticker, 3), marketValue)),
             'bid': undefined,
             'bidVolume': undefined,
             'ask': undefined,
@@ -199,11 +208,10 @@ export default class phemex extends phemexRest {
             'baseVolume': baseVolume,
             'quoteVolume': quoteVolume,
             'info': ticker,
-        };
-        return result;
+        });
     }
 
-    handleTicker (client: Client, message) {
+    handleTicker (client: Client, message: Dict) {
         //
         //     {
         //         "spot_market24h": {
@@ -279,22 +287,22 @@ export default class phemex extends phemexRest {
         //        "type": "snapshot",
         //    }
         //
-        const tickers = [];
+        const tickers: List = [];
         if ('market24h' in message) {
-            const ticker = this.safeValue (message, 'market24h');
+            const ticker = this.safeDict (message, 'market24h', {});
             tickers.push (this.parseSwapTicker (ticker));
         } else if ('spot_market24h' in message) {
-            const ticker = this.safeValue (message, 'spot_market24h');
+            const ticker = this.safeDict (message, 'spot_market24h', {});
             tickers.push (this.parseTicker (ticker));
         } else if ('data' in message) {
-            const data = this.safeValue (message, 'data', []);
+            const data = this.safeList (message, 'data', []);
             for (let i = 0; i < data.length; i++) {
                 tickers.push (this.parsePerpetualTicker (data[i]));
             }
         }
         for (let i = 0; i < tickers.length; i++) {
             const ticker = tickers[i];
-            const symbol = ticker['symbol'];
+            const symbol = this.safeString (ticker, 'symbol', '');
             const messageHash = 'ticker:' + symbol;
             const timestamp = this.safeIntegerProduct (message, 'timestamp', 0.000001);
             ticker['timestamp'] = timestamp;
@@ -304,28 +312,31 @@ export default class phemex extends phemexRest {
         }
     }
 
-    async watchBalance (params = {}): Promise<Balances> {
-        /**
-         * @method
-         * @name phemex#watchBalance
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-account-order-position-aop
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-account-order-position-aop
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-wallet-order-messages
-         * @description watch balance and get the amount of funds available for trading or funds locked in orders
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @param {string} [params.settle] set to USDT to use hedged perpetual api
-         * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
-         */
-        await this.loadMarkets ();
-        let type = undefined;
-        [ type, params ] = this.handleMarketTypeAndParams ('watchBalance', undefined, params);
-        const usePerpetualApi = this.safeString (params, 'settle') === 'USDT';
-        let messageHash = ':balance';
-        messageHash = usePerpetualApi ? 'perpetual' + messageHash : type + messageHash;
-        return await this.subscribePrivate (type, messageHash, params);
+    /**
+     * @method
+     * @name phemex#watchBalance
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-account-order-position-aop
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-account-order-position-aop
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-wallet-order-messages
+     * @description watch balance and get the amount of funds available for trading or funds locked in orders
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.settle] set to USDT to use hedged perpetual api
+     * @returns {object} a [balance structure]{@link https://docs.ccxt.com/?id=balance-structure}
+     */
+    override async watchBalance (params: Dict = {}): Promise<Balances> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const [ type, paramsMarketType ] = this.handleMarketTypeAndParams ('watchBalance', undefined, params);
+        const usePerpetualApi = this.safeString (paramsMarketType, 'settle') === 'USDT';
+        let messageHash = 'perpetual:balance';
+        if (!usePerpetualApi) {
+            messageHash = type + ':balance';
+        }
+        return await this.subscribePrivate (type, messageHash, paramsMarketType);
     }
 
-    handleBalance (type, client, message) {
+    handleBalance (type: string, client: Client, message: any[]) {
         // spot
         //    [
         //       {
@@ -370,10 +381,10 @@ export default class phemex extends phemexRest {
         //
         this.balance['info'] = message;
         for (let i = 0; i < message.length; i++) {
-            const balance = message[i];
+            const balance = this.safeDict (message, i);
             const currencyId = this.safeString (balance, 'currency');
             const code = this.safeCurrencyCode (currencyId);
-            const currency = this.safeValue (this.currencies, code, {});
+            const currency = this.safeDict (this.currencies, code, {});
             const scale = this.safeInteger (currency, 'valueScale', 8);
             const account = this.account ();
             let used = this.safeString (balance, 'totalUsedBalanceRv');
@@ -393,14 +404,16 @@ export default class phemex extends phemexRest {
             }
             account['used'] = used;
             account['total'] = total;
-            this.balance[code] = account;
+            if (code !== undefined) {
+                this.balance[code] = account;
+            }
             this.balance = this.safeBalance (this.balance);
         }
         const messageHash = type + ':balance';
         client.resolve (this.balance, messageHash);
     }
 
-    handleTrades (client: Client, message) {
+    handleTrades (client: Client, message: Dict) {
         //
         //     {
         //         "sequence": 1795484727,
@@ -438,7 +451,7 @@ export default class phemex extends phemexRest {
             stored = new ArrayCache (limit);
             this.trades[symbol] = stored;
         }
-        const trades = this.safeValue2 (message, 'trades', 'trades_p', []);
+        const trades = this.safeList2 (message, 'trades', 'trades_p', []);
         const parsed = this.parseTrades (trades, market);
         for (let i = 0; i < parsed.length; i++) {
             stored.append (parsed[i]);
@@ -446,7 +459,7 @@ export default class phemex extends phemexRest {
         client.resolve (stored, messageHash);
     }
 
-    handleOHLCV (client: Client, message) {
+    handleOHLCV (client: Client, message: Dict) {
         //
         //     {
         //         "kline": [
@@ -481,15 +494,15 @@ export default class phemex extends phemexRest {
         const marketId = this.safeString (message, 'symbol');
         const market = this.safeMarket (marketId);
         const symbol = market['symbol'];
-        const candles = this.safeValue2 (message, 'kline', 'kline_p', []);
-        const first = this.safeValue (candles, 0, []);
+        const candles = this.safeList2 (message, 'kline', 'kline_p', []);
+        const first = this.safeList (candles, 0, []);
         const interval = this.safeString (first, 1);
         const timeframe = this.findTimeframe (interval);
         if (timeframe !== undefined) {
             const messageHash = 'kline:' + timeframe + ':' + symbol;
             const ohlcvs = this.parseOHLCVs (candles, market);
-            this.ohlcvs[symbol] = this.safeValue (this.ohlcvs, symbol, {});
-            let stored = this.safeValue (this.ohlcvs[symbol], timeframe);
+            this.ohlcvs[symbol] = this.safeDict (this.ohlcvs, symbol, {});
+            let stored = this.safeValue (this.safeDict (this.ohlcvs, symbol), timeframe);
             if (stored === undefined) {
                 const limit = this.safeInteger (this.options, 'OHLCVLimit', 1000);
                 stored = new ArrayCacheByTimestamp (limit);
@@ -503,31 +516,33 @@ export default class phemex extends phemexRest {
         }
     }
 
-    async watchTicker (symbol: string, params = {}): Promise<Ticker> {
-        /**
-         * @method
-         * @name phemex#watchTicker
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-24-hours-ticker
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-24-hours-ticker
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-24-hours-ticker
-         * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @param {string} symbol unified symbol of the market to fetch the ticker for
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name phemex#watchTicker
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-24-hours-ticker
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-24-hours-ticker
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-24-hours-ticker
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
+     * @param {string} symbol unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async watchTicker (symbol: string, params: Dict = {}): Promise<Ticker> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
-        symbol = market['symbol'];
+        const symbolValue: string = market['symbol'];
         const isSwap = market['swap'];
         const settleIsUSDT = market['settle'] === 'USDT';
         let name = 'spot_market24h';
-        if (isSwap) {
+        if (isSwap === true) {
             name = settleIsUSDT ? 'perp_market24h_pack_p' : 'market24h';
         }
         const url = this.urls['api']['ws'];
         const requestId = this.requestId ();
         const subscriptionHash = name + '.subscribe';
-        const messageHash = 'ticker:' + symbol;
+        const messageHash = 'ticker:' + symbolValue;
         const subscribe: Dict = {
             'method': subscriptionHash,
             'id': requestId,
@@ -537,68 +552,85 @@ export default class phemex extends phemexRest {
         return await this.watch (url, messageHash, request, subscriptionHash);
     }
 
-    async watchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name phemex#watchTrades
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-trade
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-trade
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-trade
-         * @description get the list of most recent trades for a particular symbol
-         * @param {string} symbol unified symbol of the market to fetch trades for
-         * @param {int} [since] timestamp in ms of the earliest trade to fetch
-         * @param {int} [limit] the maximum amount of trades to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
-         */
-        await this.loadMarkets ();
-        const market = this.market (symbol);
-        symbol = market['symbol'];
-        const url = this.urls['api']['ws'];
-        const requestId = this.requestId ();
+    /**
+     * @method
+     * @name phemex#watchTickers
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-24-hours-ticker
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-24-hours-ticker
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-24-hours-ticker
+     * @description watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
+     * @param {string[]} [symbols] unified symbol of the market to fetch the ticker for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.channel] the channel to subscribe to, tickers by default. Can be tickers, sprd-tickers, index-tickers, block-tickers
+     * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/?id=ticker-structure}
+     */
+    override async watchTickers (symbols: Strings = undefined, params: Dict = {}): Promise<Tickers> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const symbolsNormalized: Strings = this.marketSymbols (symbols, undefined, false);
+        const first = symbolsNormalized[0];
+        const market = this.market (first);
         const isSwap = market['swap'];
         const settleIsUSDT = market['settle'] === 'USDT';
-        const name = (isSwap && settleIsUSDT) ? 'trade_p' : 'trade';
-        const messageHash = 'trade:' + symbol;
-        const method = name + '.subscribe';
+        let name = 'spot_market24h';
+        if (isSwap === true) {
+            name = settleIsUSDT ? 'perp_market24h_pack_p' : 'market24h';
+        }
+        const url = this.urls['api']['ws'];
+        const requestId = this.requestId ();
+        const subscriptionHash = name + '.subscribe';
+        const messageHashes: List = [];
+        for (let i = 0; i < symbolsNormalized.length; i++) {
+            messageHashes.push ('ticker:' + symbolsNormalized[i]);
+        }
         const subscribe: Dict = {
-            'method': method,
+            'method': subscriptionHash,
             'id': requestId,
-            'params': [
-                market['id'],
-            ],
+            'params': [],
         };
         const request = this.deepExtend (subscribe, params);
-        const trades = await this.watch (url, messageHash, request, messageHash);
+        const ticker = await this.watchMultiple (url, messageHashes, request, messageHashes);
         if (this.newUpdates) {
-            limit = trades.getLimit (symbol, limit);
+            const result: Dict = {};
+            const tickerSymbol = this.safeString (ticker, 'symbol');
+            if (tickerSymbol !== undefined) {
+                result[tickerSymbol] = ticker;
+            }
+            return result;
         }
-        return this.filterBySinceLimit (trades, since, limit, 'timestamp', true);
+        return this.filterByArray (this.tickers, 'symbol', symbolsNormalized);
     }
 
-    async watchOrderBook (symbol: string, limit: Int = undefined, params = {}): Promise<OrderBook> {
-        /**
-         * @method
-         * @name phemex#watchOrderBook
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-orderbook
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-orderbook-for-new-model
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-30-levels-orderbook
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-full-orderbook
-         * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
-         * @param {string} symbol unified symbol of the market to fetch the order book for
-         * @param {int} [limit] the maximum amount of order book entries to return
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name phemex#watchTrades
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-trade
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-trade
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-trade
+     * @description get the list of most recent trades for a particular symbol
+     * @param {string} symbol unified symbol of the market to fetch trades for
+     * @param {int} [since] timestamp in ms of the earliest trade to fetch
+     * @param {int} [limit] the maximum amount of trades to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=public-trades}
+     */
+    override async watchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
-        symbol = market['symbol'];
+        const symbolValue: string = market['symbol'];
         const url = this.urls['api']['ws'];
         const requestId = this.requestId ();
         const isSwap = market['swap'];
         const settleIsUSDT = market['settle'] === 'USDT';
-        const name = (isSwap && settleIsUSDT) ? 'orderbook_p' : 'orderbook';
-        const messageHash = 'orderbook:' + symbol;
+        const isUsdtSwap = (isSwap === true) && settleIsUSDT;
+        let name: Str = 'trade';
+        if (isUsdtSwap) {
+            name = 'trade_p';
+        }
+        const messageHash = 'trade:' + symbolValue;
         const method = name + '.subscribe';
         const subscribe: Dict = {
             'method': method,
@@ -608,34 +640,86 @@ export default class phemex extends phemexRest {
             ],
         };
         const request = this.deepExtend (subscribe, params);
-        const orderbook = await this.watch (url, messageHash, request, messageHash);
+        const trades: ArrayCache = await this.watch (url, messageHash, request, messageHash);
+        let limitResolved: Int = limit;
+        if (this.newUpdates) {
+            limitResolved = trades.getLimit (symbolValue, limit);
+        }
+        return this.filterBySinceLimit (trades, since, limitResolved, 'timestamp', true);
+    }
+
+    /**
+     * @method
+     * @name phemex#watchOrderBook
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-orderbook
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-orderbook-for-new-model
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-30-levels-orderbook
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-full-orderbook
+     * @description watches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
+     * @param {string} symbol unified symbol of the market to fetch the order book for
+     * @param {int} [limit] the maximum amount of order book entries to return
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} an [order book structure]{@link https://docs.ccxt.com/?id=order-book-structure}
+     */
+    override async watchOrderBook (symbol: string, limit: Int = undefined, params: Dict = {}): Promise<OrderBook> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        const market = this.market (symbol);
+        const symbolValue: string = market['symbol'];
+        const url = this.urls['api']['ws'];
+        const requestId = this.requestId ();
+        const isSwap = market['swap'];
+        const settleIsUSDT = market['settle'] === 'USDT';
+        const isUsdtSwap = (isSwap === true) && settleIsUSDT;
+        let name: Str = 'orderbook';
+        if (isUsdtSwap) {
+            name = 'orderbook_p';
+        }
+        const messageHash = 'orderbook:' + symbolValue;
+        const method = name + '.subscribe';
+        const subscribe: Dict = {
+            'method': method,
+            'id': requestId,
+            'params': [
+                market['id'],
+            ],
+        };
+        const request = this.deepExtend (subscribe, params);
+        const orderbook: WsOrderBook = await this.watch (url, messageHash, request, messageHash);
         return orderbook.limit ();
     }
 
-    async watchOHLCV (symbol: string, timeframe = '1m', since: Int = undefined, limit: Int = undefined, params = {}): Promise<OHLCV[]> {
-        /**
-         * @method
-         * @name phemex#watchOHLCV
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-kline
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-kline
-         * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-kline
-         * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
-         * @param {string} timeframe the length of time each candle represents
-         * @param {int} [since] timestamp in ms of the earliest candle to fetch
-         * @param {int} [limit] the maximum amount of candles to fetch
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name phemex#watchOHLCV
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#subscribe-kline
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#subscribe-kline
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#subscribe-kline
+     * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+     * @param {string} timeframe the length of time each candle represents
+     * @param {int} [since] timestamp in ms of the earliest candle to fetch
+     * @param {int} [limit] the maximum amount of candles to fetch
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
+     */
+    override async watchOHLCV (symbol: string, timeframe: string = '1m', since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<OHLCV[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         const market = this.market (symbol);
-        symbol = market['symbol'];
+        const symbolValue: string = market['symbol'];
         const url = this.urls['api']['ws'];
         const requestId = this.requestId ();
         const isSwap = market['swap'];
         const settleIsUSDT = market['settle'] === 'USDT';
-        const name = (isSwap && settleIsUSDT) ? 'kline_p' : 'kline';
-        const messageHash = 'kline:' + timeframe + ':' + symbol;
+        const isUsdtSwap = (isSwap === true) && settleIsUSDT;
+        let name: Str = 'kline';
+        if (isUsdtSwap) {
+            name = 'kline_p';
+        }
+        const messageHash = 'kline:' + timeframe + ':' + symbolValue;
         const method = name + '.subscribe';
         const subscribe: Dict = {
             'method': method,
@@ -646,25 +730,132 @@ export default class phemex extends phemexRest {
             ],
         };
         const request = this.deepExtend (subscribe, params);
-        const ohlcv = await this.watch (url, messageHash, request, messageHash);
+        const ohlcv: ArrayCacheByTimestamp = await this.watch (url, messageHash, request, messageHash);
+        let limitResolved: Int = limit;
         if (this.newUpdates) {
-            limit = ohlcv.getLimit (symbol, limit);
+            limitResolved = ohlcv.getLimit (symbolValue, limit);
         }
-        return this.filterBySinceLimit (ohlcv, since, limit, 0, true);
+        return this.filterBySinceLimit (ohlcv, since, limitResolved, 0, true);
     }
 
-    customHandleDelta (bookside, delta, market = undefined) {
+    async unSubscribePublic (method: string, subMessageHash: string, marketParams: List, subscription: Dict, params: Dict = {}) {
+        const url = this.urls['api']['ws'];
+        const requestId = this.requestId ();
+        const messageHash = 'unsubscribe:' + subMessageHash;
+        const request: Dict = {
+            'method': method,
+            'id': requestId,
+            'params': marketParams,
+        };
+        const unsubscription = this.extend (subscription, {
+            'id': requestId,
+            'unsubscribe': true,
+            'subMessageHash': subMessageHash,
+            'messageHash': messageHash,
+        });
+        return await this.watch (url, messageHash, this.deepExtend (request, params), messageHash, unsubscription);
+    }
+
+    /**
+     * @method
+     * @name phemex#unWatchTrades
+     * @description unWatches from the stream channel
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#unsubscribe-trade
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#unsubscribe-trade
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#unsubscribe-trade
+     * @param {string} symbol unified symbol of the market to unwatch the trades for
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {any} status of the unwatch request
+     */
+    override async unWatchTrades (symbol: string, params: Dict = {}): Promise<any> {
+        await this.loadMarkets ();
+        const market = this.market (symbol);
+        const symbolValue: string = market['symbol'];
+        const isUsdtSwap = (market['swap'] === true) && (market['settle'] === 'USDT');
+        let name: Str = 'trade';
+        if (isUsdtSwap) {
+            name = 'trade_p';
+        }
+        const subscription: Dict = {
+            'topic': 'trades',
+            'symbols': [ symbolValue ],
+        };
+        return await this.unSubscribePublic (name + '.unsubscribe', 'trade:' + symbolValue, [ market['id'] ], subscription, params);
+    }
+
+    /**
+     * @method
+     * @name phemex#unWatchOHLCV
+     * @description unWatches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Hedged-Perpetual-API.md#unsubscribe-kline
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Contract-API-en.md#unsubscribe-kline
+     * @see https://github.com/phemex/phemex-api-docs/blob/master/Public-Spot-API-en.md#unsubscribe-kline
+     * @param {string} symbol unified symbol of the market to unwatch the candles for
+     * @param {string} [timeframe] the length of time each candle represents
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {any} status of the unwatch request
+     */
+    override async unWatchOHLCV (symbol: string, timeframe: string = '1m', params: Dict = {}): Promise<any> {
+        await this.loadMarkets ();
+        const market = this.market (symbol);
+        const symbolValue: string = market['symbol'];
+        const isUsdtSwap = (market['swap'] === true) && (market['settle'] === 'USDT');
+        let name: Str = 'kline';
+        if (isUsdtSwap) {
+            name = 'kline_p';
+        }
+        const subscription: Dict = {
+            'topic': 'ohlcv',
+            'symbolsAndTimeframes': [ [ symbolValue, timeframe ] ],
+        };
+        // phemex drops only the given interval when it is sent along with the symbol
+        const marketParams: List = [ market['id'], this.safeInteger (this.timeframes, timeframe) ];
+        return await this.unSubscribePublic (name + '.unsubscribe', 'kline:' + timeframe + ':' + symbolValue, marketParams, subscription, params);
+    }
+
+    handleUnSubscription (client: Client, message: Dict) {
+        //
+        // phemex answers subscribe and unsubscribe requests alike, so the answer is matched to a pending unsubscribe by id
+        //
+        //     { "error": null, "id": 3, "result": { "status": "success" } }
+        //     { "error": { "code": 6001, "message": "invalid argument" }, "id": 2, "result": null }
+        //
+        const id = this.safeString (message, 'id');
+        const subscriptionHashes = Object.keys (client.subscriptions);
+        for (let i = 0; i < subscriptionHashes.length; i++) {
+            const subscriptionHash = subscriptionHashes[i];
+            const subscription = client.subscriptions[subscriptionHash];
+            const isUnSubscription = this.safeBool (subscription, 'unsubscribe', false);
+            const subscriptionId = this.safeString (subscription, 'id');
+            if (isUnSubscription && (subscriptionId !== undefined) && (subscriptionId === id)) {
+                const subMessageHash = this.safeString (subscription, 'subMessageHash');
+                const messageHash = this.safeString (subscription, 'messageHash');
+                const error = this.safeDict (message, 'error');
+                if (error !== undefined) {
+                    // the stream stays subscribed, so drop only the pending unsubscribe
+                    delete client.subscriptions[subscriptionHash];
+                    client.reject (new ExchangeError (this.id + ' ' + this.json (error)), subscriptionHash);
+                    return;
+                }
+                this.cleanUnsubscription (client, subMessageHash, messageHash);
+                this.cleanCache (subscription);
+                return;
+            }
+        }
+    }
+
+    customHandleDelta (bookside: any, delta: any[], market: Market = undefined) {
         const bidAsk = this.customParseBidAsk (delta, 0, 1, market);
         bookside.storeArray (bidAsk);
     }
 
-    customHandleDeltas (bookside, deltas, market = undefined) {
+    customHandleDeltas (bookside: any, deltas: any[], market: Market = undefined) {
         for (let i = 0; i < deltas.length; i++) {
             this.customHandleDelta (bookside, deltas[i], market);
         }
     }
 
-    handleOrderBook (client: Client, message) {
+    handleOrderBook (client: Client, message: Dict) {
         //
         //     {
         //         "book": {
@@ -718,18 +909,24 @@ export default class phemex extends phemexRest {
         const nonce = this.safeInteger (message, 'sequence');
         const timestamp = this.safeIntegerProduct (message, 'timestamp', 0.000001);
         if (type === 'snapshot') {
-            const book = this.safeValue2 (message, 'book', 'orderbook_p', {});
+            const book = this.safeDict2 (message, 'book', 'orderbook_p', {});
             const snapshot = this.customParseOrderBook (book, symbol, timestamp, 'bids', 'asks', 0, 1, market);
             snapshot['nonce'] = nonce;
-            const orderbook = this.orderBook (snapshot, depth);
-            this.orderbooks[symbol] = orderbook;
+            // reset the existing orderbook instead of replacing it: a consumer
+            // holds a reference to the old object and would never see updates
+            // after a re-subscription snapshot
+            if (!(symbol in this.orderbooks)) {
+                this.orderbooks[symbol] = this.orderBook ({}, depth);
+            }
+            const orderbook = this.orderbooks[symbol];
+            orderbook.reset (snapshot);
             client.resolve (orderbook, messageHash);
         } else {
-            const orderbook = this.safeValue (this.orderbooks, symbol);
-            if (orderbook !== undefined) {
-                const changes = this.safeValue2 (message, 'book', 'orderbook_p', {});
-                const asks = this.safeValue (changes, 'asks', []);
-                const bids = this.safeValue (changes, 'bids', []);
+            if (symbol in this.orderbooks) {
+                const orderbook = this.orderbooks[symbol];
+                const changes = this.safeDict2 (message, 'book', 'orderbook_p', {});
+                const asks = this.safeList (changes, 'asks', []);
+                const bids = this.safeList (changes, 'bids', []);
                 this.customHandleDeltas (orderbook['asks'], asks, market);
                 this.customHandleDeltas (orderbook['bids'], bids, market);
                 orderbook['nonce'] = nonce;
@@ -741,43 +938,50 @@ export default class phemex extends phemexRest {
         }
     }
 
-    async watchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
-        /**
-         * @method
-         * @name phemex#watchMyTrades
-         * @description watches information on multiple trades made by the user
-         * @param {string} symbol unified market symbol of the market trades were made in
-         * @param {int} [since] the earliest time in ms to fetch trades for
-         * @param {int} [limit] the maximum number of trade structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=trade-structure
-         */
-        await this.loadMarkets ();
-        let market = undefined;
-        let type = undefined;
+    /**
+     * @method
+     * @name phemex#watchMyTrades
+     * @description watches information on multiple trades made by the user
+     * @param {string} symbol unified market symbol of the market trades were made in
+     * @param {int} [since] the earliest time in ms to fetch trades for
+     * @param {int} [limit] the maximum number of trade structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [trade structures]{@link https://docs.ccxt.com/?id=trade-structure}
+     */
+    override async watchMyTrades (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Trade[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
+        let market: Market = undefined;
         let messageHash = 'trades:';
+        const symbolResolved: Str = (symbol !== undefined) ? this.symbol (symbol) : symbol;
         if (symbol !== undefined) {
             market = this.market (symbol);
-            symbol = market['symbol'];
-            messageHash = messageHash + market['symbol'];
-            if (market['settle'] === 'USDT') {
-                params = this.extend (params);
-                params['settle'] = 'USDT';
+            messageHash = 'trades:' + this.safeString (market, 'symbol', '');
+        }
+        const isUsdtMarket = (market !== undefined) && (market['settle'] === 'USDT');
+        let settleRequest: Dict = {};
+        if (isUsdtMarket) {
+            settleRequest = { 'settle': 'USDT' };
+        }
+        const [ type, paramsType ] = this.handleMarketTypeAndParams ('watchMyTrades', market, this.extend (params, settleRequest));
+        if (symbol === undefined) {
+            const settle = this.safeString (paramsType, 'settle');
+            if (settle === 'USDT') {
+                messageHash = 'trades:perpetual';
+            } else {
+                messageHash = 'trades:' + type;
             }
         }
-        [ type, params ] = this.handleMarketTypeAndParams ('watchMyTrades', market, params);
-        if (symbol === undefined) {
-            const settle = this.safeString (params, 'settle');
-            messageHash = (settle === 'USDT') ? (messageHash + 'perpetual') : (messageHash + type);
-        }
-        const trades = await this.subscribePrivate (type, messageHash, params);
+        const trades = await this.subscribePrivate (type, messageHash, paramsType);
+        let limitResolved: Int = limit;
         if (this.newUpdates) {
-            limit = trades.getLimit (symbol, limit);
+            limitResolved = trades.getLimit (symbolResolved, limit);
         }
-        return this.filterBySymbolSinceLimit (trades, symbol, since, limit, true);
+        return this.filterBySymbolSinceLimit (trades, symbolResolved, since, limitResolved, true);
     }
 
-    handleMyTrades (client: Client, message) {
+    handleMyTrades (client: Client, message: any[]) {
         //
         // swap
         //    [
@@ -882,8 +1086,8 @@ export default class phemex extends phemexRest {
             cachedTrades = new ArrayCacheBySymbolById (limit);
         }
         const marketIds: Dict = {};
-        let type = undefined;
-        for (let i = 0; i < message.length; i++) {
+        let type: Str = undefined;
+        for (let i = 0; i < tradesLength; i++) {
             const rawTrade = message[i];
             const marketId = this.safeString (rawTrade, 'symbol');
             const market = this.safeMarket (marketId);
@@ -891,9 +1095,12 @@ export default class phemex extends phemexRest {
             cachedTrades.append (parsed);
             const symbol = parsed['symbol'];
             if (type === undefined) {
-                type = (market['settle'] === 'USDT') ? 'perpetual' : market['type'];
+                const marketSettle = this.safeString (market, 'settle');
+                type = (marketSettle === 'USDT') ? 'perpetual' : market['type'];
             }
-            marketIds[symbol] = true;
+            if (symbol !== undefined) {
+                marketIds[symbol] = true;
+            }
         }
         const keys = Object.keys (marketIds);
         for (let i = 0; i < keys.length; i++) {
@@ -906,43 +1113,50 @@ export default class phemex extends phemexRest {
         client.resolve (cachedTrades, messageHash);
     }
 
-    async watchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
-        /**
-         * @method
-         * @name phemex#watchOrders
-         * @description watches information on multiple orders made by the user
-         * @param {string} symbol unified market symbol of the market orders were made in
-         * @param {int} [since] the earliest time in ms to fetch orders for
-         * @param {int} [limit] the maximum number of order structures to retrieve
-         * @param {object} [params] extra parameters specific to the exchange API endpoint
-         * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-         */
-        await this.loadMarkets ();
+    /**
+     * @method
+     * @name phemex#watchOrders
+     * @description watches information on multiple orders made by the user
+     * @param {string} symbol unified market symbol of the market orders were made in
+     * @param {int} [since] the earliest time in ms to fetch orders for
+     * @param {int} [limit] the maximum number of order structures to retrieve
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
+     */
+    override async watchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params: Dict = {}): Promise<Order[]> {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         let messageHash = 'orders:';
-        let market = undefined;
-        let type = undefined;
+        let market: Market = undefined;
+        const symbolResolved: Str = (symbol !== undefined) ? this.symbol (symbol) : symbol;
         if (symbol !== undefined) {
             market = this.market (symbol);
-            symbol = market['symbol'];
-            messageHash = messageHash + market['symbol'];
-            if (market['settle'] === 'USDT') {
-                params = this.extend (params);
-                params['settle'] = 'USDT';
+            messageHash = 'orders:' + this.safeString (market, 'symbol', '');
+        }
+        const isUsdtMarket = (market !== undefined) && (market['settle'] === 'USDT');
+        let settleRequest: Dict = {};
+        if (isUsdtMarket) {
+            settleRequest = { 'settle': 'USDT' };
+        }
+        const [ type, paramsType ] = this.handleMarketTypeAndParams ('watchOrders', market, this.extend (params, settleRequest));
+        const isUSDTSettled = this.safeString (paramsType, 'settle') === 'USDT';
+        if (symbol === undefined) {
+            if (isUSDTSettled) {
+                messageHash = 'orders:perpetual';
+            } else {
+                messageHash = 'orders:' + type;
             }
         }
-        [ type, params ] = this.handleMarketTypeAndParams ('watchOrders', market, params);
-        const isUSDTSettled = this.safeString (params, 'settle') === 'USDT';
-        if (symbol === undefined) {
-            messageHash = (isUSDTSettled) ? (messageHash + 'perpetual') : (messageHash + type);
-        }
-        const orders = await this.subscribePrivate (type, messageHash, params);
+        const orders = await this.subscribePrivate (type, messageHash, paramsType);
+        let limitResolved: Int = limit;
         if (this.newUpdates) {
-            limit = orders.getLimit (symbol, limit);
+            limitResolved = orders.getLimit (symbolResolved, limit);
         }
-        return this.filterBySymbolSinceLimit (orders, symbol, since, limit, true);
+        return this.filterBySymbolSinceLimit (orders, symbolResolved, since, limitResolved, true);
     }
 
-    handleOrders (client: Client, message) {
+    handleOrders (client: Client, message: any) {
         // spot update
         // {
         //        "closed":[
@@ -1101,24 +1315,28 @@ export default class phemex extends phemexRest {
         //        ...
         //    ]
         //
-        let trades = [];
-        const parsedOrders = [];
+        let trades: List = [];
+        const parsedOrders: Dict[] = [];
         if (('closed' in message) || ('fills' in message) || ('open' in message)) {
-            const closed = this.safeValue (message, 'closed', []);
-            const open = this.safeValue (message, 'open', []);
+            const closed = this.safeList (message, 'closed', []);
+            const open = this.safeList (message, 'open', []);
             const orders = this.arrayConcat (open, closed);
             const ordersLength = orders.length;
             if (ordersLength === 0) {
                 return;
             }
-            trades = this.safeValue (message, 'fills', []);
+            trades = this.safeList (message, 'fills', []);
             for (let i = 0; i < orders.length; i++) {
                 const rawOrder = orders[i];
                 const parsedOrder = this.parseOrder (rawOrder);
                 parsedOrders.push (parsedOrder);
             }
         } else {
-            for (let i = 0; i < message.length; i++) {
+            const messageLength = message.length;
+            if (messageLength === 0) {
+                return;
+            }
+            for (let i = 0; i < messageLength; i++) {
                 const update = message[i];
                 const action = this.safeString (update, 'action');
                 if ((action !== undefined) && (action !== 'Cancel')) {
@@ -1135,7 +1353,7 @@ export default class phemex extends phemexRest {
         if (this.orders === undefined) {
             this.orders = new ArrayCacheBySymbolById (limit);
         }
-        let type = undefined;
+        let type: Str = undefined;
         const stored = this.orders;
         for (let i = 0; i < parsedOrders.length; i++) {
             const parsed = parsedOrders[i];
@@ -1158,7 +1376,7 @@ export default class phemex extends phemexRest {
         client.resolve (this.orders, messageHash);
     }
 
-    parseWSSwapOrder (order, market = undefined) {
+    parseWSSwapOrder (order: Dict, market: Market = undefined): Order {
         //
         // swap
         //    {
@@ -1287,17 +1505,18 @@ export default class phemex extends phemexRest {
             clientOrderId = undefined;
         }
         const marketId = this.safeString (order, 'symbol');
-        market = this.safeMarket (marketId, market);
-        const symbol = market['symbol'];
+        const marketResolved = this.safeMarket (marketId, market);
+        const marketValue: Market = marketResolved;
+        const symbol = marketResolved['symbol'];
         const status = this.parseOrderStatus (this.safeString (order, 'ordStatus'));
         const side = this.safeStringLower (order, 'side');
         const type = this.parseOrderType (this.safeString (order, 'ordType'));
-        const price = this.safeString (order, 'priceRp', this.fromEp (this.safeString (order, 'priceEp'), market));
+        const price = this.safeString (order, 'priceRp', this.fromEp (this.safeString (order, 'priceEp'), marketValue));
         const amount = this.safeString (order, 'orderQty');
         const filled = this.safeString (order, 'cumQty');
         const remaining = this.safeString (order, 'leavesQty');
         const timestamp = this.safeIntegerProduct (order, 'actionTimeNs', 0.000001);
-        const cost = this.safeString (order, 'cumValueRv', this.fromEv (this.safeString (order, 'cumValueEv'), market));
+        const cost = this.safeString (order, 'cumValueRv', this.fromEv (this.safeString (order, 'cumValueEv'), marketValue));
         let lastTradeTimestamp = this.safeIntegerProduct (order, 'transactTimeNs', 0.000001);
         if (lastTradeTimestamp === 0) {
             lastTradeTimestamp = undefined;
@@ -1328,10 +1547,10 @@ export default class phemex extends phemexRest {
             'status': status,
             'fee': undefined,
             'trades': undefined,
-        }, market);
+        }, marketValue);
     }
 
-    handleMessage (client: Client, message) {
+    override handleMessage (client: Client, message: Dict) {
         // private spot update
         // {
         //     "orders": { closed: [ ], fills: [ ], open: [] },
@@ -1427,14 +1646,18 @@ export default class phemex extends phemexRest {
         //       }
         //     ]
         // }
-        const id = this.safeString (message, 'id');
+        const id = this.safeString (message, 'id', '');
         if (id in client.subscriptions) {
-            const method = client.subscriptions[id];
+            const method = this.safeValue (client.subscriptions, id);
             delete client.subscriptions[id];
             if (method !== true) {
                 method.call (this, client, message);
                 return;
             }
+        }
+        if (('result' in message) || ('error' in message)) {
+            this.handleUnSubscription (client, message);
+            return;
         }
         const methodName = this.safeString (message, 'method', '');
         if (('market24h' in message) || ('spot_market24h' in message) || (methodName.indexOf ('perp_market24h_pack_p') >= 0)) {
@@ -1451,20 +1674,23 @@ export default class phemex extends phemexRest {
             return;
         }
         if (('orders' in message) || ('orders_p' in message)) {
-            const orders = this.safeValue2 (message, 'orders', 'orders_p', {});
+            const orders = this.safeDict2 (message, 'orders', 'orders_p', {});
             this.handleOrders (client, orders);
         }
         if (('accounts' in message) || ('accounts_p' in message) || ('wallets' in message)) {
-            let type = ('accounts' in message) ? 'swap' : 'spot';
+            let type: Str = 'spot';
+            if ('accounts' in message) {
+                type = 'swap';
+            }
             if ('accounts_p' in message) {
                 type = 'perpetual';
             }
-            const accounts = this.safeValueN (message, [ 'accounts', 'accounts_p', 'wallets' ], []);
+            const accounts = this.safeListN (message, [ 'accounts', 'accounts_p', 'wallets' ], []);
             this.handleBalance (type, client, accounts);
         }
     }
 
-    handleAuthenticate (client: Client, message) {
+    handleAuthenticate (client: Client, message: Dict) {
         //
         // {
         //     "error": null,
@@ -1474,7 +1700,7 @@ export default class phemex extends phemexRest {
         //     }
         // }
         //
-        const result = this.safeValue (message, 'result');
+        const result = this.safeDict (message, 'result');
         const status = this.safeString (result, 'status');
         const messageHash = 'authenticated';
         if (status === 'success') {
@@ -1488,13 +1714,15 @@ export default class phemex extends phemexRest {
         }
     }
 
-    async subscribePrivate (type, messageHash, params = {}) {
-        await this.loadMarkets ();
+    async subscribePrivate (type: Str, messageHash: string, params: Dict = {}) {
+        if (this.markets === undefined) {
+            await this.loadMarkets ();
+        }
         await this.authenticate ();
         const url = this.urls['api']['ws'];
         const requestId = this.seconds ();
-        const settleIsUSDT = (this.safeValue (params, 'settle', '') === 'USDT');
-        params = this.omit (params, 'settle');
+        const settleIsUSDT = (this.safeString (params, 'settle', '') === 'USDT');
+        const paramsOmitted: Dict = this.omit (params, 'settle');
         let channel = 'aop.subscribe';
         if (type === 'spot') {
             channel = 'wo.subscribe';
@@ -1502,16 +1730,16 @@ export default class phemex extends phemexRest {
         if (settleIsUSDT) {
             channel = 'aop_p.subscribe';
         }
-        let request = {
+        let request: Dict = {
             'id': requestId,
             'method': channel,
             'params': [],
         };
-        request = this.extend (request, params);
+        request = this.extend (request, paramsOmitted);
         return await this.watch (url, messageHash, request, channel);
     }
 
-    async authenticate (params = {}) {
+    async authenticate (params: Dict = {}) {
         this.checkRequiredCredentials ();
         const url = this.urls['api']['ws'];
         const client = this.client (url);

@@ -12,12 +12,12 @@ import ansi from 'ansicolor'
 import log from 'ololog'
 import ps from 'child_process'
 ansi.nice
-/*  --------------------------------------------------------------------------- */
+//  --------------------------------------------------------------------------- //
 
 process.on ('uncaughtException',  e => { log.bright.red.error (e); process.exit (1) })
 process.on ('unhandledRejection', e => { log.bright.red.error (e); process.exit (1) })
 
-/*  --------------------------------------------------------------------------- */
+//  --------------------------------------------------------------------------- //
 
 const [,, ...args] = process.argv
 
@@ -29,11 +29,15 @@ const langKeys = {
     '--python-async': false, // run Python 3 async tests only
     '--csharp': false,  // run C# tests only
     '--php-async': false,    // run php async tests only,
+    '--go': false,      // run GO tests only
+    '--java': false,    // run Java tests only
+    '--rust': false,
 }
 
 const debugKeys = {
     '--warnings': false,
     '--info': false,
+    '--show-timer': false,
 }
 
 const exchangeSpecificFlags = {
@@ -41,14 +45,22 @@ const exchangeSpecificFlags = {
     '--sandbox': false,
     '--useProxy': false,
     '--verbose': false,
+    '--debug': false,
     '--private': false,
     '--privateOnly': false,
+    '--loadKeys': false,
+    '--request': false,
+    '--response': false,
+    // force the prediction-markets namespace for ids present in both ccxt and ccxt.prediction
+    // (e.g. hyperliquid), and opt into the funded order-placement prediction test
+    '--prediction': false,
+    '--fundedTests': false,
 }
 
 let exchanges = []
 let symbol = 'all'
 let method = undefined
-let maxConcurrency = 5 // Number.MAX_VALUE // no limit
+let maxConcurrency = undefined // a bare numeric CLI arg always wins; otherwise computed per-language after the args are parsed
 
 for (const arg of args) {
     if (arg in exchangeSpecificFlags)        { exchangeSpecificFlags[arg] = true }
@@ -67,14 +79,30 @@ for (const arg of args) {
     else                                     { exchanges.push (arg) }
 }
 
+if (maxConcurrency === undefined) {
+    const lightLangKeys = [ '--js', '--ts', '--python', '--python-async', '--php', '--php-async' ]
+    const selectedLangs = Object.keys (langKeys).filter (key => langKeys[key])
+    const onlyLightLangs = (selectedLangs.length > 0) && selectedLangs.every (key => lightLangKeys.includes (key))
+    // Live tests are network-bound: the processes sit in epoll/futex waiting on exchange
+    // endpoints, so concurrency is limited by memory, not CPU. A rust tests.bin holds
+    // ~100-270 MB, so 20 is affordable and keeps the lane from serialising on latency.
+    const onlyRust = (selectedLangs.length === 1) && langKeys['--rust']
+    maxConcurrency = langKeys['--java'] ? 3 : ((onlyLightLangs || onlyRust) ? 20 : 5)
+}
+
 const wsFlag = exchangeSpecificFlags['--ws'] ? 'WS': '';
 
-// for REST exchange test, we might need to wait for 200+ seconds for some exchanges
-// for WS, watchOHLCV might need 60 seconds for update (so, spot & swap ~ 120sec)
-const timeoutSeconds = wsFlag ? 120 : 250;
+const timeoutSeconds = wsFlag ? (langKeys['--java'] ? 180 : 120) : 250;
 
-
-/*  --------------------------------------------------------------------------- */
+const SHOW_TIMER = debugKeys['--show-timer'];
+if (SHOW_TIMER) {
+    const secondsElapsedFrom = (startTime) => Math.floor((Date.now() - startTime) / 1000);
+    const startTime = Date.now ();
+    setInterval (() => {
+        log.bright.yellow(`\t\t\t\t\t\t\t[RUNTESTS ELAPSED ${wsFlag}: ${secondsElapsedFrom(startTime)} s]`);
+    }, 20 * 1000); // every X seconds
+}
+//  --------------------------------------------------------------------------- //
 
 const exchangeOptions = []
 for (const key of Object.keys (exchangeSpecificFlags)) {
@@ -82,7 +110,7 @@ for (const key of Object.keys (exchangeSpecificFlags)) {
         exchangeOptions.push (key)
     }
 }
-/*  --------------------------------------------------------------------------- */
+//  --------------------------------------------------------------------------- //
 
 const content = fs.readFileSync ('./skip-tests.json', 'utf8');
 const skipSettings = JSON.parse (content);
@@ -96,17 +124,43 @@ if (!exchanges.length) {
     }
     let exchangesFile =  fs.readFileSync('./exchanges.json');
     exchangesFile = JSON.parse(exchangesFile)
-    exchanges = wsFlag ? exchangesFile.ws : exchangesFile.ids
+    // include the prediction-market exchanges (separate `prediction` / `predictionWs`
+    // arrays) in the default run so CI live-tests them alongside the crypto exchanges
+    const cryptoExchanges = wsFlag ? exchangesFile.ws : exchangesFile.ids
+    const predictionExchanges = (wsFlag ? exchangesFile.predictionWs : exchangesFile.prediction) || []
+    exchanges = cryptoExchanges.concat (predictionExchanges)
 }
 
-/*  --------------------------------------------------------------------------- */
+//  --------------------------------------------------------------------------- //
 
 const sleep = s => new Promise (resolve => setTimeout (resolve, s*1000))
 const timeout = (s, promise) => Promise.race ([ promise, sleep (s).then (() => {
     throw new Error ('RUNTEST_TIMED_OUT');
 }) ])
 
-/*  --------------------------------------------------------------------------- */
+/*  tests.ts unconditionally dumps "[INFO] TESTING  <exchange> <method>" when a method
+    test starts and a matching "TESTING DONE" / "TESTING FAILED" line when it finishes.
+    On a timeout, the started-but-never-finished markers identify the hung method(s) —
+    there can be several at once, because tests.ts runs each batch through Promise.all.
+    Counts (not a set) are used because testSafe retries re-emit the same markers.       */
+const unfinishedMethods = (output) => {
+    const counts = {}
+    const bump = (regex, delta) => {
+        let match
+        while ((match = regex.exec (output))) {
+            const key = match[1] + '.' + match[2]
+            counts[key] = (counts[key] || 0) + delta
+        }
+    }
+    bump (/\[INFO\] TESTING(?!\s+(?:DONE|FAILED)\b)\s+(\S+)\s+([A-Za-z]\w*)/g, 1)
+    bump (/\[INFO\] TESTING (?:DONE|FAILED)\s+(\S+)\s+([A-Za-z]\w*)/g, -1)
+    // a key containing '{' is a session-header artifact, never a real
+    // exchange.method pair — the java header used to leak through as
+    // ".java{symbol=null,.method", see the dump join fix in BaseTest.java
+    return Object.keys (counts).filter (key => counts[key] > 0 && !key.includes ('{'))
+}
+
+//  --------------------------------------------------------------------------- //
 
 const exec = (bin, ...args) => { 
 
@@ -119,9 +173,8 @@ const exec = (bin, ...args) => {
 
     const generateResultFromOutput = (output, stderr, code) => {
             // keep this commented code for a while (just in case), as the below avoids vscode false positive warnings from output: https://github.com/nodejs/node/issues/34799 during debugging
-            // const removeDebuger = (str) => str.replace ('Debugger attached.\r\n','').replace('Waiting for the debugger to disconnect...\r\n', '').replace(/\(node:\d+\) ExperimentalWarning: Custom ESM Loaders is an experimental feature and might change at any time\n\(Use `node --trace-warnings ...` to show where the warning was created\)\n/, '');
-            // stderr = removeDebuger(stderr);
-            // output = removeDebuger(output);
+            // const removeDebuger = (str) => str.replace ('Debugger attached.','').replace('Waiting for the debugger to disconnect...', '').replace(/\(node:\d+\) ExperimentalWarning: Custom ESM Loaders is an experimental feature and might change at any time\n\(Use `node --trace-warnings ...` to show where the warning was created\)\n/, '');
+            // stderr = removeDebuger(stderr), output = removeDebuger(output);
 
             output = ansi.strip (output.trim ())
 
@@ -129,6 +182,7 @@ const exec = (bin, ...args) => {
             const hasFailed = (
                 // exception caught in "test -> testMethod"
                 output.indexOf('[TEST_FAILURE]') > -1 ||
+                // below checks are retained just for the sake of completeness & possible edge-cases, however it should not be needed anymore, because we always add `[TEST_FAILURE]` to the output in tests
                 // 1) thrown from JS assert module
                 output.indexOf('AssertionError:') > -1 ||
                 // 2) thrown from PYTHON (i.e. [AssertionError], [KeyError], [ValueError], etc)
@@ -155,14 +209,25 @@ const exec = (bin, ...args) => {
             // check output for pattern like `[TEST_WARNING] whatever`
             if (output.length) {
                 const warningRegex = /\[TEST_WARNING\].+$(?!\n)*/gmi
-                let matchWarnings; 
-                while (matchWarnings = warningRegex.exec (stderr)) {
-                    warnings.push (matchWarnings[0])
+                let matchWarnings;
+                // scan output, not stderr: output accumulates both streams, so warnings
+                // printed to stdout by the language harnesses are collected too, and the
+                // exact-duplicate guard collapses lines printed to both streams at once,
+                // see https://github.com/ccxt/ccxt/pull/29731
+                while (matchWarnings = warningRegex.exec (output)) {
+                    if (!warnings.includes (matchWarnings[0])) {
+                        warnings.push (matchWarnings[0])
+                    }
                 }
             }
             // check stderr
             if (stderr.length > 0) {
-                warnings.push (stderr)
+                // push only the stderr residue that the warning regex did not already
+                // extract, otherwise every [TEST_WARNING] line displays twice
+                const residue = stderr.split ('\n').filter (line => line.length && !line.match (/\[TEST_WARNING\]/i)).join ('\n')
+                if (residue.length) {
+                    warnings.push (residue)
+                }
             }
 
             return {
@@ -173,20 +238,50 @@ const exec = (bin, ...args) => {
             }
     }
 
-    return timeout (timeoutSeconds, new Promise (return_ => {
+    return timeout (timeoutSeconds, new Promise (resolver => {
 
         const psSpawn = ps.spawn (bin, args)
 
         psSpawn.stdout.on ('data', data => { output += data.toString () })
-        psSpawn.stderr.on ('data', data => { output += data.toString (); stderr += data.toString ().trim (); })
+        // do not trim per chunk, trimming eats the newline at every pipe chunk boundary
+        // and glues consecutive warning lines together in the WS WARN block, see
+        // https://github.com/ccxt/ccxt/pull/29726
+        psSpawn.stderr.on ('data', data => { output += data.toString (); stderr += data.toString (); })
 
-        psSpawn.on ('exit', code => return_ (generateResultFromOutput (output, stderr, code)) )
+        psSpawn.on ('exit', code => {
+            const result = generateResultFromOutput (output, stderr, code)
+            return resolver (result) ;
+        })
 
+        if (debugKeys['--info']) {
+            psSpawn.on ('error', (err) => {
+                console.log ('RUNTESTS err event:', err);
+            });
+            psSpawn.on ('message', (code, sendHandle) => {
+                console.log ('RUNTESTS message event:', code, sendHandle);
+            });
+            psSpawn.on ('close', (code, signal) => {
+                console.log ('RUNTESTS close event:', code, signal);
+            });
+        }
     })).catch (e => {
         const isTimeout = e.message === 'RUNTEST_TIMED_OUT';
         if (isTimeout) {
-            stderr += '\n' + 'RUNTEST_TIMED_OUT: ';
-            return generateResultFromOutput (output, stderr, 0);
+            // Timeouts are bucketed into WARN, not FAIL, so a hung exchange doesn't
+            // fail the whole CI lane. They were FAIL for a while because WARN used to
+            // hide them completely (a bare RUNTEST_TIMED_OUT with no context) — that's
+            // mitigated now: the [TEST_WARNING] tag below carries the exact methods
+            // that never finished (diffed from the TESTING / TESTING DONE markers that
+            // tests.ts dumps), so hung exchanges stay visible in the WARN summary.
+            // Exit code 0 keeps `failed` false unless the output already contains a
+            // real [TEST_FAILURE] from before the hang.
+            const hung = unfinishedMethods (ansi.strip (output));
+            const hungMessage = hung.length ? ' (methods that never finished: ' + hung.join (', ') + ')' : '';
+            // the tagged line goes into output where generateResultFromOutput collects
+            // it, no untagged stderr smuggle needed anymore, see the collector comment
+            output += '\n[TEST_WARNING] RUNTEST_TIMED_OUT' + hungMessage;
+            const result = generateResultFromOutput (output, stderr, 0);
+            return result;
         }
         return {
             failed: true,
@@ -197,23 +292,32 @@ const exec = (bin, ...args) => {
     } );
 };
 
-/*  ------------------------------------------------------------------------ */
+//  ------------------------------------------------------------------------ //
 
-// const execWithRetry = () => {
+/*  Failures whose output points at connectivity rather than a code bug get one
+    re-run — a transient network blip on the CI server shouldn't fail a lane.
+    The bracketed class names come from exceptionMessage() in tests.helpers.ts
+    ("[RequestTimeout] ..."), identical across all transpiled languages; the bare
+    tokens cover process-level socket errors. RUNTEST_TIMED_OUT is deliberately
+    not retried: it lands in WARN (failed=false), and re-running a hung exchange
+    would double the lane's wall-clock for no benefit.                           */
 
-//     // Sometimes execution (on a remote CI server) is just fails with no
-//     // apparent reason, leaving an empty stdout/stderr behind. I suspect
-//     // it's related to out-of-memory errors. So in that case we will re-try
-//     // until it eventually finalizes.
-// }
+const networkErrorRegex = /\[(?:NetworkError|OperationFailed|RequestTimeout|ExchangeNotAvailable|OnMaintenance|DDoSProtection|RateLimitExceeded|InvalidNonce)\]|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|getaddrinfo/
 
-/*  ------------------------------------------------------------------------ */
+const execWithRetry = async (bin, ...args) => {
+    const result = await exec (bin, ...args)
+    if (result.failed && networkErrorRegex.test (result.output)) {
+        log.bright.yellow ('Network error detected, retrying once:', [ bin, ...args ].join (' ').white)
+        return exec (bin, ...args)
+    }
+    return result
+}
+
+//  ------------------------------------------------------------------------ //
 
 let numExchangesTested = 0
 
-/*  Tests of different languages for the same exchange should be run
-    sequentially to prevent the interleaving nonces problem.
-    ------------------------------------------------------------------------ */
+//  Tests of different languages for the same exchange should be run sequentially to prevent the interleaving nonces problem. //
 
 const sequentialMap = async (input, fn) => {
 
@@ -222,11 +326,24 @@ const sequentialMap = async (input, fn) => {
     return result
 }
 
-/*  ------------------------------------------------------------------------ */
+// const getJavaArgs = (args) => {
+//     let res = "--args=\"";
+//     for (const arg of args) {
+//         res += `${arg.trim()} `;
+//     }
+//     res += `"`;
+//     return [res];
+// }
+
+const getJavaArgs = (args) => {
+    return `--args=${args.map(a => a.trim()).join(' ')}`;
+};
+
+//  ------------------------------------------------------------------------ //
+
+const percentsDone = () => ((numExchangesTested / exchanges.length) * 100).toFixed (0) + '%';
 
 const testExchange = async (exchange) => {
-
-    const percentsDone = () => ((numExchangesTested / exchanges.length) * 100).toFixed (0) + '%';
 
     // no need to test alias classes
     if (exchange.alias) {
@@ -243,21 +360,15 @@ const testExchange = async (exchange) => {
             (skipSettings[exchange].skipWs && wsFlag)
         ) 
     ) {
-        if (!('until' in skipSettings[exchange])) {
-            // if until not specified, skip forever
+        if (!('until' in skipSettings[exchange]) || new Date(skipSettings[exchange].until) > new Date()) {
             numExchangesTested++;
-            log.bright (('[' + percentsDone() + ']').dim, 'Tested', exchange.cyan, wsFlag, '[Skipped]'.yellow)
-            return [];
-        }
-        if (new Date(skipSettings[exchange].until) > new Date()) {
-            numExchangesTested++;
-            // if untilDate has not been yet reached, skip test for exchange
-            log.bright (('[' + percentsDone() + ']').dim, 'Tested', exchange.cyan, wsFlag, '[Skipped till ' + skipSettings[exchange].until + ']'.yellow)
+            const reason = ('until' in skipSettings[exchange]) ? ' till ' + skipSettings[exchange].until : '';
+            log.bright (('[' + percentsDone() + ']').dim, 'Tested', exchange.cyan, wsFlag, ('[Skipped]' + reason).yellow)
             return [];
         }
     }
 
-/*  Run tests for all/selected languages (in parallel)     */
+    //  Run tests for all/selected languages (in parallel)     //
     let args = [exchange];
     if (symbol !== undefined && symbol !== 'all') {
         args.push(symbol);
@@ -270,14 +381,23 @@ const testExchange = async (exchange) => {
     if (debugKeys['--info']) {
         args.push ('--info')
     }
+    // CI can pass a prebuilt tests binary (see go-app.yml) so live tests don't pay the
+    // full single-package recompile of go/v4 that `go run` triggers on a fresh runner
+    const goExec = process.env.GO_TESTS_BINARY ? [ process.env.GO_TESTS_BINARY ] : [ 'go', 'run', '-C', 'go', './tests/main.go' ];
+    // same for rust (see rust.yml): `cargo run` re-checks freshness and rebuilds the whole
+    // workspace on a fresh runner, which the build job has already paid for
+    const rustExec = process.env.RUST_TESTS_BINARY ? [ process.env.RUST_TESTS_BINARY ] : [ 'cargo', 'run', '--quiet', '--manifest-path', 'rust/tests/Cargo.toml', '--bin', 'ti-rust', '--' ];
     let allTests = [
-        { key: '--js',           language: 'JavaScript',   exec: ['node',      'js/src/test/test.js',                     ...args] },
-        { key: '--python-async', language: 'Python Async', exec: ['python3',   'python/ccxt/test/test_async.py',          ...args] },
-        { key: '--php-async',    language: 'PHP Async',    exec: ['php', '-f', 'php/test/test_async.php',                 ...args] },
+        { key: '--js',           language: 'JavaScript',   exec: ['node',      'js/src/test/tests.init.js',                     ...args] },
+        { key: '--python-async', language: 'Python Async', exec: ['python3',   'python/ccxt/test/tests_init.py',          ...args] },
+        { key: '--php-async',    language: 'PHP Async',    exec: ['php', '-f', 'php/test/tests_init.php',                 ...args] },
         { key: '--csharp',       language: 'C#',           exec: ['dotnet', 'run', '--project', 'cs/tests/tests.csproj',  ...args] },
-        { key: '--ts',           language: 'TypeScript',   exec: ['node',  '--import', 'tsx', 'ts/src/test/test.ts',      ...args] },
-        { key: '--python',       language: 'Python',       exec: ['python3',   'python/ccxt/test/test_sync.py',           ...args] },
-        { key: '--php',          language: 'PHP',          exec: ['php', '-f', 'php/test/test_sync.php',                  ...args] },
+        { key: '--ts',           language: 'TypeScript',   exec: ['node',  '--import', 'tsx', 'ts/src/test/tests.init.ts',      ...args] },
+        { key: '--python',       language: 'Python',       exec: ['python3',   'python/ccxt/test/tests_init.py',  '--sync',  ...args] },
+        { key: '--php',          language: 'PHP',          exec: ['php', '-f', 'php/test/tests_init.php', '--', '--sync',  ...args] },
+        { key: '--go',           language: 'GO',           exec: [ ...goExec,          ...args] },
+        { key: '--java',         language: 'Java',         exec: [ './java/gradlew', '-p', 'java', 'tests:run', getJavaArgs(args)] },
+        { key: '--rust',         language: 'Rust',         exec: [ ...rustExec,        ...args] },
     ];
 
     // select tests based on cli arguments
@@ -293,40 +413,49 @@ const testExchange = async (exchange) => {
     if (skipSettings[exchange]) {
         if (skipSettings[exchange].skipCSharp)   selectedTests = selectedTests.filter (t => t.key !== '--csharp'); 
         if (skipSettings[exchange].skipPhpAsync) selectedTests = selectedTests.filter (t => t.key !== '--php-async');
+        if (skipSettings[exchange].skipPythonAsync) selectedTests = selectedTests.filter (t => t.key !== '--python-async');
+        if (skipSettings[exchange].skipJava) selectedTests = selectedTests.filter (t => t.key !== '--java');
     }
     // if it's WS tests, then remove sync versions (php & python) from queue
     if (wsFlag) {
         selectedTests = selectedTests.filter (t => t.key !== '--python' && t.key !== '--php');
     }
 
-        const completeTests  = await sequentialMap (selectedTests, async test => Object.assign (test, await  exec (...test.exec)))
-        , failed         = completeTests.find (test => test.failed)
-        , hasWarnings    = completeTests.find (test => test.warnings.length)
-        , warnings       = completeTests.reduce (
-            (total, { warnings }) => {
-                return total.concat(['\n\n']).concat (warnings)
-            }, []
-        )
-        , infos       = completeTests.reduce (
-            (total, { infos }) => {
-                return total.concat(['\n\n']).concat (infos)
-            }, []
-        )
+    const completeTests  = await sequentialMap (selectedTests, async test => Object.assign (test, await execWithRetry (...test.exec)));
+    const failed         = completeTests.find (test => test.failed);
+    const hasWarnings    = completeTests.find (test => test.warnings.length);
+    const warnings       = completeTests.reduce (
+        (total, { warnings }) => {
+            // no spacer elements, they render as blank-line walls; and never
+            // reset the accumulator, a warning-free language must not discard
+            // the warnings collected from the languages before it
+            return warnings.length ? total.concat (warnings) : total
+        }, []
+    );
+    const infos          = completeTests.reduce (
+        (total, { infos }) => {
+            return infos.length ? total.concat (infos) : total
+        }, []
+    );
 
-/*  Print interactive log output    */
-
+    // Print interactive log output
     let logMessage = '';
-
     if (failed) {
         logMessage = 'FAIL'.red;
     } else if (hasWarnings) {
-        logMessage = ('WARN: ' + (warnings.length ? warnings.join (' ') : '')).yellow;
+        logMessage = 'WARN:'.yellow;
     } else {
         logMessage = 'OK'.green;
     }
 
     numExchangesTested++;
     log.bright (('[' + percentsDone() + ']').dim, 'Tested', exchange.cyan, wsFlag, logMessage)
+    // print warnings through a separate indented call instead of riding the
+    // progress-line argument, whose column alignment padded every line ~30
+    // columns right, same mechanism the explain path uses
+    if (!failed && hasWarnings && warnings.length) {
+        log.indent (1) (warnings.join ('\n').yellow)
+    }
 
     // independenly of the success result, show infos
     // ( these infos will be shown as soon as each exchange test is finished, and will not wait 100% of all tests to be finished )
@@ -341,10 +470,9 @@ const testExchange = async (exchange) => {
             ).blue);
         }
     }
-/*  Return collected data to main loop     */
 
+    // Return collected data to main loop
     return {
-
         exchange,
         failed,
         hasWarnings,
@@ -368,7 +496,7 @@ const testExchange = async (exchange) => {
     }
 }
 
-/*  ------------------------------------------------------------------------ */
+//  ------------------------------------------------------------------------ //
 
 function TaskPool (maxConcurrency) {
 
@@ -403,7 +531,7 @@ function TaskPool (maxConcurrency) {
     }
 }
 
-/*  ------------------------------------------------------------------------ */
+//  ------------------------------------------------------------------------ //
 
 async function testAllExchanges () {
 
@@ -419,7 +547,7 @@ async function testAllExchanges () {
     return results
 }
 
-/*  ------------------------------------------------------------------------ */
+//  ------------------------------------------------------------------------ //
 
 (async function () {
 
@@ -461,4 +589,4 @@ async function testAllExchanges () {
 
 }) ();
 
-/*  ------------------------------------------------------------------------ */
+//  ------------------------------------------------------------------------ //
